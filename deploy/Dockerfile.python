@@ -1,0 +1,19 @@
+# Shared image for Python APIs and workers. Relates to pyproject.toml,
+# docker-compose.yml, and services/* modules; it copies only the runtime needed
+# to keep the build small while service boundaries are refined.
+FROM python:3.12-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+WORKDIR /app
+COPY pyproject.toml README.md ./
+COPY libs ./libs
+COPY services ./services
+COPY datagen ./datagen
+
+RUN pip install --no-cache-dir .
+
+EXPOSE 8000
+

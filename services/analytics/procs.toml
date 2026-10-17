@@ -1,0 +1,13 @@
+# Analytics processes for an ARCH-0001-compatible supervisor. Relates to
+# app/main.py and app/consumer.py; the API exposes health and the consumer
+# materializes invent.events.
+[[proc]]
+name = "api"
+cmd = ["uvicorn", "services.analytics.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+probe = "http://127.0.0.1:8000/health"
+
+[[proc]]
+name = "consumer"
+cmd = ["python", "-m", "services.analytics.app.consumer"]
+heartbeat = "/tmp/hb/consumer"
+

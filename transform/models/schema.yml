@@ -1,0 +1,25 @@
+# Contracts and tests for the core source and staging/mart models.
+# Relates to SQL files in models/ and the read models queried by
+# services/analytics/app/repository.py.
+version: 2
+
+sources:
+  - name: core
+    schema: core
+    tables:
+      - name: signal
+        columns:
+          - name: id
+            tests: [not_null, unique]
+          - name: company_id
+            tests: [not_null]
+
+models:
+  - name: stg_core__signal
+    description: "Normalized signals from the Core transactional plane."
+    columns:
+      - name: signal_id
+        tests: [not_null, unique]
+  - name: fact_signal
+    description: "Signal fact table; the first piece of the star model."
+

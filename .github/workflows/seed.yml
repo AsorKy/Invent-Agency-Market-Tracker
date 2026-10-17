@@ -1,0 +1,26 @@
+# Generate deterministic synthetic data to review the pipeline without external
+# sources. Relates to datagen/__main__.py and ops/seed/README.md.
+name: seed
+
+on:
+  workflow_dispatch:
+    inputs:
+      city:
+        required: true
+        default: all
+        type: string
+      orgs:
+        required: true
+        default: "200"
+        type: string
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m datagen build --city "${{ inputs.city }}" --orgs "${{ inputs.orgs }}" --seed 42
+

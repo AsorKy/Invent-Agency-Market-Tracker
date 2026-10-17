@@ -1,0 +1,36 @@
+{
+  "id": "wf-maps-medellin",
+  "name": "wf_maps_medellin",
+  "description": "Schedule Bright Data for Medellin and deliver the webhook to the ingest service through the gateway.",
+  "active": false,
+  "settings": {"executionOrder": "v1", "timezone": "America/Bogota"},
+  "nodes": [
+    {
+      "parameters": {"rule": {"interval": [{"field": "cronExpression", "expression": "0 6 * * *"}]}},
+      "id": "maps-schedule",
+      "name": "Daily 06:00 COT",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [260, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.BRIGHT_DATA_API_URL}}/datasets/v3/trigger",
+        "sendHeaders": true,
+        "headerParameters": {"parameters": [{"name": "Authorization", "value": "=Bearer {{$env.BRIGHT_DATA_API_TOKEN}}"}]},
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"dataset_id\":\"google-maps-medellin\",\"inputs\":{\"city\":\"Medellin\",\"country\":\"CO\"},\"notify\":\"{{$env.INGEST_WEBHOOK_URL}}\"}",
+        "options": {}
+      },
+      "id": "trigger-bright-data",
+      "name": "Trigger Bright Data",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [520, 300]
+    }
+  ],
+  "connections": {"Daily 06:00 COT": {"main": [[{"node": "Trigger Bright Data", "type": "main", "index": 0}]]}}
+}
+

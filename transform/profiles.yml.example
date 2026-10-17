@@ -1,0 +1,17 @@
+# Example dbt profile for local Postgres. Relates to dbt_project.yml, the schema
+# macro, and transform models; replace credentials with secure variables before
+# using it outside development.
+invent_market_tracker:
+  target: local
+  outputs:
+    local:
+      type: postgres
+      host: localhost
+      port: 5432
+      user: postgres
+      password: postgres
+      dbname: invent_market_tracker
+      schema: analytics
+      threads: 4
+      keepalives_idle: 0
+

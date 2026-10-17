@@ -1,0 +1,71 @@
+-- Create minimum per-schema roles for Postgres/Supabase.
+-- Relates to migrations/20261017_0001_expand_initial_schemas.sql,
+-- docker-compose.yml, and each service repository. Run as an administrator and
+-- change example passwords outside local development; services communicate via
+-- APIs and events instead of crossing schemas.
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'ingest_owner') THEN
+        CREATE ROLE ingest_owner NOLOGIN;
+    END IF;
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'ingest_app') THEN
+        CREATE ROLE ingest_app LOGIN PASSWORD 'CHANGE_ME_INGEST';
+    END IF;
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'core_owner') THEN
+        CREATE ROLE core_owner NOLOGIN;
+    END IF;
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'core_app') THEN
+        CREATE ROLE core_app LOGIN PASSWORD 'CHANGE_ME_CORE';
+    END IF;
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'analytics_owner') THEN
+        CREATE ROLE analytics_owner NOLOGIN;
+    END IF;
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'analytics_app') THEN
+        CREATE ROLE analytics_app LOGIN PASSWORD 'CHANGE_ME_ANALYTICS';
+    END IF;
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'ml_owner') THEN
+        CREATE ROLE ml_owner NOLOGIN;
+    END IF;
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'ml_app') THEN
+        CREATE ROLE ml_app LOGIN PASSWORD 'CHANGE_ME_ML';
+    END IF;
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'socioeconomic_owner') THEN
+        CREATE ROLE socioeconomic_owner NOLOGIN;
+    END IF;
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'socioeconomic_app') THEN
+        CREATE ROLE socioeconomic_app LOGIN PASSWORD 'CHANGE_ME_SOCIOECONOMIC';
+    END IF;
+END $$;
+
+GRANT USAGE ON SCHEMA ingest TO ingest_app;
+GRANT USAGE ON SCHEMA core TO core_app;
+GRANT USAGE ON SCHEMA analytics TO analytics_app;
+GRANT USAGE ON SCHEMA ml TO ml_app;
+GRANT USAGE ON SCHEMA socioeconomic TO socioeconomic_app;
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA ingest TO ingest_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA core TO core_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA analytics TO analytics_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA ml TO ml_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA socioeconomic TO socioeconomic_app;
+
+GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA ingest TO ingest_app;
+GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA core TO core_app;
+GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA analytics TO analytics_app;
+GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA ml TO ml_app;
+GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA socioeconomic TO socioeconomic_app;
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA ingest
+    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO ingest_app;
+ALTER DEFAULT PRIVILEGES IN SCHEMA core
+    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO core_app;
+ALTER DEFAULT PRIVILEGES IN SCHEMA analytics
+    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO analytics_app;
+ALTER DEFAULT PRIVILEGES IN SCHEMA ml
+    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO ml_app;
+ALTER DEFAULT PRIVILEGES IN SCHEMA socioeconomic
+    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO socioeconomic_app;
+
+-- Do not grant cross-schema access to app roles: services exchange information
+-- through APIs and events.
+

@@ -1,0 +1,13 @@
+# Ingest processes for an ARCH-0001-compatible supervisor. Relates to
+# app/main.py and app/processor.py; separates HTTP reception from Redis Streams
+# snapshot processing.
+[[proc]]
+name = "api"
+cmd = ["uvicorn", "services.ingest.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+probe = "http://127.0.0.1:8000/health"
+
+[[proc]]
+name = "processor"
+cmd = ["python", "-m", "services.ingest.app.processor"]
+heartbeat = "/tmp/hb/processor"
+

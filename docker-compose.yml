@@ -1,0 +1,193 @@
+# F0 local environment: Postgres, Redis, APIs, workers, mocks, and n8n.
+# Relates to .env.example, deploy/Dockerfile.python, migrations/, and the
+# versioned workflows in orchestration/n8n; it contains no production secrets.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-invent_market_tracker}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  gateway:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.python
+    command: ["uvicorn", "services.gateway.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    environment:
+      APP_VERSION: ${APP_VERSION:-dev}
+      ENVIRONMENT: ${ENVIRONMENT:-local}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      GATEWAY_PORT: 8000
+      INGEST_URL: http://ingest:8000
+      CORE_URL: http://core:8000
+      ANALYTICS_URL: http://analytics:8000
+      ML_URL: http://ml:8000
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-local-development-token}
+    ports:
+      - "8000:8000"
+    depends_on:
+      ingest:
+        condition: service_started
+      core:
+        condition: service_started
+      analytics:
+        condition: service_started
+      ml:
+        condition: service_started
+
+  ingest:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.python
+    command: ["uvicorn", "services.ingest.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    environment: &service_environment
+      APP_VERSION: ${APP_VERSION:-dev}
+      ENVIRONMENT: ${ENVIRONMENT:-local}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      DATABASE_URL: "postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-invent_market_tracker}"
+      REDIS_URL: redis://redis:6379/0
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-local-development-token}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  core:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.python
+    command: ["uvicorn", "services.core.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    environment: *service_environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  analytics:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.python
+    command: ["uvicorn", "services.analytics.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    environment: *service_environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  ml:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.python
+    command: ["uvicorn", "services.ml.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    environment: *service_environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  core-relay:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.python
+    command: ["python", "-m", "services.core.app.outbox_relay"]
+    environment: *service_environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  ingest-processor:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.python
+    command: ["python", "-m", "services.ingest.app.processor"]
+    environment: *service_environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  analytics-consumer:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.python
+    command: ["python", "-m", "services.analytics.app.consumer"]
+    environment: *service_environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  ml-consumer:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.python
+    command: ["python", "-m", "services.ml.app.consumer"]
+    environment: *service_environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  mocks:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.python
+    command: ["flask", "--app", "services.mocks.app.main:app", "run", "--host", "0.0.0.0", "--port", "8000"]
+    environment:
+      FLASK_APP: services.mocks.app.main:app
+
+  n8n:
+    image: n8nio/n8n:2.11.3
+    environment:
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:-replace-me-for-local-use}
+      N8N_SECURE_COOKIE: "false"
+      TZ: America/Bogota
+      BRIGHT_DATA_API_URL: ${BRIGHT_DATA_API_URL:-https://api.brightdata.com}
+      BRIGHT_DATA_API_TOKEN: ${BRIGHT_DATA_API_TOKEN:-}
+      INGEST_WEBHOOK_URL: ${INGEST_WEBHOOK_URL:-http://gateway:8000/api/v1/ingest/webhook/bd}
+      TELEGRAM_WEBHOOK_URL: ${TELEGRAM_WEBHOOK_URL:-http://mocks:8000/mocks/telegram}
+    ports:
+      - "5678:5678"
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./orchestration/n8n:/home/node/workflows:ro
+    depends_on:
+      gateway:
+        condition: service_started
+      mocks:
+        condition: service_started
+
+volumes:
+  postgres_data:
+  n8n_data:
+

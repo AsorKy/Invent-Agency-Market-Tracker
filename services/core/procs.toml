@@ -1,0 +1,18 @@
+# Core processes for an ARCH-0001-compatible supervisor. Relates to main.py,
+# worker.py, and outbox_relay.py; defines the API, commercial jobs, and event
+# publishing.
+[[proc]]
+name = "api"
+cmd = ["uvicorn", "services.core.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+probe = "http://127.0.0.1:8000/health"
+
+[[proc]]
+name = "worker"
+cmd = ["python", "-m", "services.core.app.worker"]
+heartbeat = "/tmp/hb/worker"
+
+[[proc]]
+name = "relay"
+cmd = ["python", "-m", "services.core.app.outbox_relay"]
+heartbeat = "/tmp/hb/relay"
+

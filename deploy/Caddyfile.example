@@ -1,0 +1,9 @@
+# Reference reverse proxy that publishes only the gateway. Relates to
+# docker-compose.yml and the future frontend; it contains no production TLS or
+# secrets.
+api.invent.localhost {
+    reverse_proxy gateway:8000
+}
+
+# Streamlit/Vizro will be added here when the reporting service is activated.
+

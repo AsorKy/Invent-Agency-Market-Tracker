@@ -1,0 +1,27 @@
+{
+  "id": "wf-hot-lead-alert",
+  "name": "wf_hot_lead_alert",
+  "description": "Receive a hot lead event and forward it to the configured Telegram channel.",
+  "active": false,
+  "settings": {"executionOrder": "v1"},
+  "nodes": [
+    {
+      "parameters": {"httpMethod": "POST", "path": "hot-lead", "responseMode": "onReceived"},
+      "id": "hot-lead-webhook",
+      "name": "Hot lead event",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [260, 300]
+    },
+    {
+      "parameters": {"method": "POST", "url": "={{$env.TELEGRAM_WEBHOOK_URL}}", "sendBody": true, "specifyBody": "json", "jsonBody": "={\"text\":\"Hot lead detected: {{$json.company_id}} - score {{$json.score}}\"}"},
+      "id": "notify-telegram",
+      "name": "Notify commercial team",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [540, 300]
+    }
+  ],
+  "connections": {"Hot lead event": {"main": [[{"node": "Notify commercial team", "type": "main", "index": 0}]]}}
+}
+

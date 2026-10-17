@@ -1,0 +1,16 @@
+# Run the backup/restore scaffold contract until pg_dump, ephemeral Postgres,
+# age encryption, and Supabase secrets are connected.
+name: backups
+
+on:
+  workflow_dispatch:
+
+jobs:
+  backup:
+    name: F0 backup scaffold
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python ops/backups/backup.py --output /tmp/invent-backups --schema core --schema ingest --schema analytics --schema ml --schema socioeconomic
+      - run: python ops/backups/verify_restore.py /tmp/invent-backups/manifest.json
+
