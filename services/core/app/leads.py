@@ -88,7 +88,13 @@ class LeadTransaction(Protocol):
     async def update_stage(self, row: dict[str, Any]) -> None: ...
     async def add_audit(self, *, action: str, lead_id: UUID, payload: dict[str, Any]) -> None: ...
     async def add_outbox_event(
-        self, *, event_id: UUID, aggregate_id: UUID, version: int, payload: dict[str, Any]
+        self,
+        *,
+        event_id: UUID,
+        tenant_id: UUID | None,
+        aggregate_id: UUID,
+        version: int,
+        payload: dict[str, Any],
     ) -> None: ...
 
 
@@ -153,6 +159,7 @@ async def create_lead(
         response = lead_view(row)
         await tx.add_outbox_event(
             event_id=uuid4(),
+            tenant_id=tenant_id,
             aggregate_id=lead_pk,
             version=1,
             payload={

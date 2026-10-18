@@ -19,7 +19,13 @@ from typing import Any, Protocol
 BACKOFF_SECONDS = (10, 30, 90, 300, 900)
 BATCH_SIZE = 100
 
+MISSING_TENANT_ERROR = "missing_tenant_id"
+
 _log = logging.getLogger(__name__)
+
+
+class MissingTenantError(ValueError):
+    """An outbox row has no tenant and must not be published."""
 
 
 class OutboxTransaction(Protocol):
@@ -56,9 +62,16 @@ def retry_delay(failed_attempts: int) -> timedelta | None:
 def stream_fields(
     row: dict[str, Any], *, replay: bool = False, target: str | None = None
 ) -> dict[str, str]:
-    """Build the Redis stream entry for an outbox row; replays carry ``replay`` and ``target``."""
+    """Build the Redis stream entry for an outbox row; replays carry ``replay`` and ``target``.
+
+    Every entry carries ``tenant_id`` as its own field (decision D-16); a row without one raises
+    ``MissingTenantError`` so it can never reach the stream.
+    """
+    if not row.get("tenant_id"):
+        raise MissingTenantError(MISSING_TENANT_ERROR)
     fields = {
         "event_id": str(row["event_id"]),
+        "tenant_id": str(row["tenant_id"]),
         "event_type": str(row["event_type"]),
         "aggregate_type": str(row["aggregate_type"]),
         "aggregate_id": str(row["aggregate_id"]),
@@ -87,6 +100,17 @@ async def relay_due_events(
     async with unit_of_work as tx:
         for row in await tx.claim_due(moment, BATCH_SIZE):
             if row["aggregate_id"] in failed_aggregates:
+                continue
+            if not row.get("tenant_id"):
+                attempts = int(row.get("attempts") or 0) + 1
+                await tx.dead_letter(row, attempts=attempts, error=MISSING_TENANT_ERROR, now=moment)
+                counts["dead_lettered"] += 1
+                log.error(
+                    "ALERT outbox event dead-lettered event_id=%s event_type=%s error=%s",
+                    row["event_id"],
+                    row["event_type"],
+                    MISSING_TENANT_ERROR,
+                )
                 continue
             try:
                 await publish(row)

@@ -718,7 +718,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_socio_indices.py` -> 26 passed; make static and make test pass
 
 ### T-090 Tenant on the event stream
-- status: todo
+- status: done
 - spec: REQ-EVT-001, REQ-EVT-002, REQ-EVT-005
 - owner: lead-backend-engineer
 - depends: T-025, T-052
@@ -727,7 +727,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_event_tenant.py tests/unit/test_dead_letter.py tests/unit/test_republish.py tests/unit/test_pulse_consumer.py`
 - note: decision D-16. Every stream entry carries `tenant_id` (UUID as text) as its own field, built once in `stream_fields` and used by both relay loops and by republish. The statement that claims due events selects `tenant_id` from `core.outbox_event`. A row with a null tenant is never published: it goes to the dead letter queue at once with error `missing_tenant_id` and an ALERT line. Add a source-scan test that every INSERT into `core.outbox_event` in `services/core/app/` sets `tenant_id`. Consumers read the stream field first and the payload second; check the pulse, ml, and brief consumers and report any that ignores the field instead of editing outside the write scope.
-- evidence:
+- evidence: `pytest -q tests/unit/test_event_tenant.py tests/unit/test_dead_letter.py tests/unit/test_republish.py tests/unit/test_pulse_consumer.py` -> 24 passed; `make static` OK; `make test` 546 passed. Note: services/ml consumer ignores the stream tenant_id field (it does not use a tenant at all); services/brief has no stream consumer. Pulse already reads the field first. Fixtures in test_dead_letter.py and test_republish.py gained tenant_id.
 
 ### T-091 One relay: the dead letter loop is the only relay
 - status: todo
