@@ -692,7 +692,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-059 Socioeconomic indicators and opportunity index
-- status: todo
+- status: done
 - spec: REQ-SOC-001
 - owner: second-backend-engineer
 - depends: T-050, T-018
@@ -701,7 +701,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/unit/test_socio_indices.py`
 - note: loader for indicator files from `SOCIO_DATA_DIR`, z-scores within city, IPET, IMD, and IOP with PCA or entropy weights and `method_version`, the `/territory/opportunity` read endpoint, and a fixture dataset. Pure index math lives in `libs/domain/socio.py`. Spatial autocorrelation (Moran's I) is L3 and out of scope here.
-- evidence:
+- evidence: `pytest -q tests/unit/test_socio_indices.py` -> 26 passed; make static and make test pass
 
 ### T-060 Zero trust between services
 - status: todo

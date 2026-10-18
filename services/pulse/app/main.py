@@ -30,10 +30,12 @@ from services.pulse.app.models import (
     PipelineTimeResponse,
     SourceEfficiencyResponse,
     SourceFreshness,
+    TerritoryOpportunityResponse,
     TopSourcesResponse,
     UnprocessedSignalsResponse,
 )
 from services.pulse.app.repository import PulseRepository
+from services.pulse.app.socio_loader import SocioDataError
 
 settings = get_settings()
 configure_logging(settings.log_level)
@@ -42,7 +44,7 @@ configure_logging(settings.log_level)
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Create and close the service-local read repository."""
-    repository = PulseRepository(settings.database_url)
+    repository = PulseRepository(settings.database_url, settings.socio_data_dir)
     app.state.repository = repository
     yield
     await repository.close()
@@ -221,4 +223,26 @@ async def ops_health(request: Request) -> JSONResponse:
         for row in sources
     ]
     payload = OpsHealthResponse(sources=rows, outbox_backlog=backlog, as_of=as_of, stale=stale)
+    return _json_response(payload.model_dump(mode="json"), as_of=as_of)
+
+
+@app.get("/internal/pulse/territory/opportunity", dependencies=[Depends(require_internal_token)])
+async def territory_opportunity(
+    request: Request,
+    city: str | None = Query(default=None, max_length=80),
+    limit: int = Query(default=50, ge=1, le=500),
+) -> JSONResponse:
+    """Return territories ranked by the opportunity index IOP."""
+    try:
+        (
+            rows,
+            source_as_of,
+            method_version,
+        ) = await request.app.state.repository.territory_opportunity(city=city, limit=limit)
+    except SocioDataError as exc:
+        raise HTTPException(status_code=503, detail="socio_data_invalid") from exc
+    as_of, stale = _freshness(source_as_of)
+    payload = TerritoryOpportunityResponse(
+        territories=rows, as_of=as_of, stale=stale, method_version=method_version
+    )
     return _json_response(payload.model_dump(mode="json"), as_of=as_of)

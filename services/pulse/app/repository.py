@@ -6,6 +6,7 @@ until the rollup tasks fill them. It relates to ``main.py``, ``consumer.py``,
 and the ``pulse`` migrations, and keeps SQL out of the HTTP handlers.
 """
 
+import asyncio
 from datetime import datetime
 from uuid import UUID
 
@@ -14,20 +15,24 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from libs.common.db import create_engine
 from libs.common.tenant import set_tenant_context
+from libs.domain.socio import METHOD_VERSION, compute_indices
 from services.pulse.app.models import (
     PipelineBacklog,
     PipelineTimeGroup,
     SignalPoint,
     SourceEfficiency,
     SourceFreshness,
+    TerritoryOpportunity,
     TopSource,
 )
+from services.pulse.app.socio_loader import load_records
 
 
 class PulseRepository:
     """Expose empty-safe reads for the future Pulse projections."""
 
-    def __init__(self, database_url: str | None) -> None:
+    def __init__(self, database_url: str | None, socio_data_dir: str = "data/socio") -> None:
+        self.socio_data_dir = socio_data_dir
         self.engine: AsyncEngine | None = create_engine(database_url, pool_size=2)
 
     async def close(self) -> None:
@@ -111,3 +116,27 @@ class PulseRepository:
     ) -> tuple[list[SourceFreshness], int | None, datetime | None]:
         """Return source freshness, outbox backlog, and their timestamp, or empty."""
         return [], None, None
+
+    async def territory_opportunity(
+        self, *, city: str | None, limit: int
+    ) -> tuple[list[TerritoryOpportunity], datetime | None, str]:
+        """Return territories ranked by IOP from the indicator files, with method_version."""
+        records, as_of = await asyncio.to_thread(load_records, self.socio_data_dir)
+        ranked = compute_indices(records)
+        if city is not None:
+            ranked = [t for t in ranked if t.city.casefold() == city.casefold()]
+        rows = [
+            TerritoryOpportunity(
+                rank=position,
+                city=t.city,
+                territory_code=t.territory_code,
+                territory_name=t.territory_name,
+                ipet=t.ipet,
+                imd=t.imd,
+                iop=t.iop,
+                n_in_city=t.n_in_city,
+                low_sample=t.low_sample,
+            )
+            for position, t in enumerate(ranked[:limit], start=1)
+        ]
+        return rows, as_of, METHOD_VERSION

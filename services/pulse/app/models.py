@@ -124,3 +124,33 @@ class OpsHealthResponse(BaseModel):
     as_of: int
     stale: bool
     method_version: str | None = None
+
+
+class TerritoryOpportunity(BaseModel):
+    """Represent one ranked territory with its composite indices (0..1 in city)."""
+
+    rank: int = Field(ge=1)
+    city: str
+    territory_code: str
+    territory_name: str
+    ipet: float = Field(ge=0, le=1)
+    imd: float = Field(ge=0, le=1)
+    iop: float = Field(ge=0, le=1)
+    n_in_city: int = Field(ge=0)
+    low_sample: bool = False
+
+    @model_validator(mode="after")
+    def _apply_low_sample(self) -> "TerritoryOpportunity":
+        """Force the low-sample flag whenever the city has fewer than five territories."""
+        if is_low_sample(self.n_in_city):
+            self.low_sample = True
+        return self
+
+
+class TerritoryOpportunityResponse(BaseModel):
+    """Return ranked territories and freshness metadata."""
+
+    territories: list[TerritoryOpportunity]
+    as_of: int
+    stale: bool
+    method_version: str | None = None
