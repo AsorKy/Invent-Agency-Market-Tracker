@@ -620,7 +620,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `dbt parse --project-dir transform --profiles-dir /tmp/dbtprof` (copy of profiles.yml.example) -> exit 0, 21 models, 9 metrics; compile not possible without a DB; make static passes
 
 ### T-056 Streamlit foundation and container
-- status: todo
+- status: done
 - spec: REQ-STR-001, REQ-STR-002
 - owner: second-backend-engineer
 - depends: T-051
@@ -629,7 +629,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_streamlit_helpers.py`
 - note: real Streamlit app with `st.navigation`, `safe_fetch` returning (data, error) with `as_of`, stale warning, per-card error and retry, role gating, session-state filters with `st.query_params`, and export visibility rules. No database credentials; reads Parquet and the gateway API. The replacement of the temporary uvicorn shell in compose is T-073.
-- evidence:
+- evidence: `pytest -q tests/unit/test_streamlit_helpers.py` -> 15 passed; make static and make test pass (313 passed)
 
 ### T-057 Streamlit pages 1 to 4
 - status: todo

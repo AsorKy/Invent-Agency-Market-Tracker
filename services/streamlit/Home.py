@@ -1,29 +1,36 @@
-"""Define the dependency-free Streamlit multipage entrypoint scaffold.
+"""Run the Streamlit multipage entrypoint with ``st.navigation``.
 
-The file is intentionally free of a direct Streamlit import because the
-current project dependencies do not include Streamlit. It relates to the
-future pages under ``services/streamlit/pages/`` and is used as the stable
-entrypoint location when the reporting dependency is introduced.
+Start with ``streamlit run services/streamlit/Home.py``. It registers Home plus
+every numbered page found under ``services/streamlit/pages/`` and relates to
+``app/ui.py`` and ``app/helpers.py``. The app holds no database credentials.
 """
 
-from typing import Protocol
+from pathlib import Path
+from typing import Any
+
+import streamlit as st
+
+PAGES_DIR = Path(__file__).parent / "pages"
 
 
-class StreamlitRuntime(Protocol):
-    """Describe the small runtime surface needed by the placeholder page."""
+def home() -> None:
+    """Render the welcome page with the global filters."""
+    from services.streamlit.app import ui
 
-    def set_page_config(self, *, page_title: str, layout: str) -> None:
-        """Configure the page shell."""
-
-    def title(self, body: str) -> None:
-        """Render the page title."""
-
-    def info(self, body: str) -> None:
-        """Render a scaffold notice."""
+    st.title("Invent Market Tracker")
+    filters = ui.global_filters()
+    st.caption(f"City: {filters.city} | Service line: {filters.service_line}")
 
 
-def render_home(streamlit: StreamlitRuntime) -> None:
-    """Render the minimal Home page once a Streamlit runtime is provided."""
-    streamlit.set_page_config(page_title="Invent Market Tracker", layout="wide")
-    streamlit.title("Invent Market Tracker")
-    streamlit.info("Reporting pages will be implemented in a later frontend phase.")
+def build_pages() -> list[Any]:
+    """Return Home followed by the page files that exist, in numeric order."""
+    pages: list[Any] = [st.Page(home, title="Home", default=True)]
+    for path in sorted(PAGES_DIR.glob("[0-9]*_*.py")):
+        title = path.stem.split("_", 1)[1].replace("_", " ")
+        pages.append(st.Page(str(path), title=title))
+    return pages
+
+
+if __name__ == "__main__" or st.runtime.exists():
+    st.set_page_config(page_title="Invent Market Tracker", layout="wide")
+    st.navigation(build_pages()).run()
