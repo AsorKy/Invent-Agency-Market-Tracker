@@ -164,7 +164,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-008 Reconcile schema and role names
-- status: todo
+- status: done
 - spec: REQ-DAT-001
 - owner: database-engineer
 - depends: T-001
@@ -173,7 +173,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `python ops/check_migrations.py` and `pytest -q tests/unit/test_schema_catalog.py`
 - note: D-01 is closed in `SPEC.md`: 7 schemas (identity, ingest, core, pulse, brief, ml, socio) and 14 roles. Follow expand/contract: add the missing names in an expand migration; remove `socioeconomic` and never create `analytics` through a `contract_` migration in a separate commit. The test parses the SQL and the roles example and asserts the exact schema and role sets. Table additions are done by T-018, not here.
-- evidence:
+- evidence: `python ops/check_migrations.py` -> OK; `pytest -q tests/unit/test_schema_catalog.py` -> 5 passed, 1 xfailed (strict xfail records conflict: migration 0001 creates `analytics`, SPEC says never; see run report)
 
 ### T-009 Data taxonomy helpers and pooler driver settings
 - status: todo
