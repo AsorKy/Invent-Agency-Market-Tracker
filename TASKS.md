@@ -141,7 +141,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-006 Ingest webhook signature tests
-- status: todo
+- status: done
 - spec: REQ-QA-002, REQ-SEC-002
 - owner: qa-reviewer
 - depends: T-001
@@ -150,7 +150,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_ingest_webhook.py`
 - note: cover a valid signature, a wrong signature, a stale timestamp, and a future timestamp outside the window.
-- evidence:
+- evidence: `pytest -q tests/unit/test_ingest_webhook.py` -> 12 passed, 6 skipped (endpoint tests need fastapi stack, unverified offline)
 
 ### T-007 Add the unit job to CI
 - status: todo
