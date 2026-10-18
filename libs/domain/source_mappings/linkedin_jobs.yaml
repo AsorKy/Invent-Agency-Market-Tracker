@@ -1,0 +1,40 @@
+# LinkedIn job postings (Bright Data dataset, filtered to Colombia) to canonical
+# job posting fields.
+# unverified: field names come from the public Bright Data documentation, not
+# from a recorded sample (no tests/fixtures/brightdata/ samples exist, D-13).
+version: 1
+source: linkedin_jobs
+unverified: true
+entity: job_posting
+signal_type: job_posting
+external_id: [job_posting_id, url]
+fields:
+  title:
+    from: [job_title]
+    transform: strip
+    required: true
+  company_name:
+    from: [company_name]
+    transform: strip
+    required: true
+  city:
+    from: [job_location]
+    transform: strip
+  salary_text:
+    from: [job_base_pay_range]
+    transform: strip
+  description:
+    from: [job_summary]
+    transform: strip
+  seniority:
+    from: [job_seniority_level]
+    transform: strip
+  employment_type:
+    from: [job_employment_type]
+    transform: strip
+  posted_at:
+    from: [job_posted_date]
+    transform: strip
+  url:
+    from: [url, apply_link]
+    transform: url

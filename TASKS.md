@@ -682,7 +682,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-048 LinkedIn and Instagram sources
-- status: todo
+- status: done
 - spec: REQ-ING-004
 - owner: second-backend-engineer
 - depends: T-043
@@ -691,7 +691,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_connectors_more.py`
 - note: add mappings and connector configuration for linkedin_companies, linkedin_jobs, and instagram. Mark each mapping `unverified: true` unless real samples exist under `tests/fixtures/brightdata/`.
-- evidence:
+- evidence: `pytest -q tests/unit/test_connectors_more.py` 13 passed; make static/test pass (test_source_config.py adjusted: instagram now has a mapping)
 
 ### T-049 Remaining n8n workflows
 - status: todo
