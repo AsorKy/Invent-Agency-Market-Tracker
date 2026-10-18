@@ -5,13 +5,13 @@
 | ADR | ADR-IMT-0002-LENS |
 | Version | 1.1 |
 | Layer / run | L2 / Round 2: Analytics layer: descriptive/diagnostic/predictive lenses, deterministic funnel, validation V1-V6 |
-| Vault status | proposed (staged) |
+| Status | accepted (promoted), decided 2026-10-18 |
 | Authority | Source of truth for implementation (see `AGENTS.md`). On conflict, the higher-numbered amendment wins over the base text |
 | Language | Spanish. All other repository documentation is English |
 | Origin | Exported from the project vault on 2026-10-18. Do not edit here; see `docs/README.md` |
 
 
-> **Status:** proposed · **Decided:** — · **Supersedes:** — · **Acronym:** LENS
+> **Status:** accepted · **Decided:** 2026-10-18 · **Supersedes:** — · **Acronym:** LENS
 >
 > **Toda feature de la plataforma se organiza, se construye y se evalúa a través de 5 capas ortogonales a los servicios: 3 lentes analíticas (descriptiva, diagnóstica, predictiva), 1 capa prescriptiva (= funnel determinista, §2.4), y 1 capa de validación de proyectos con 6 subcapas. Cada capa responde a una pregunta de negocio distinta, se corre a una cadencia distinta y tiene sus propias métricas de calidad.** Esta decisión no cambia servicios ni schemas; añade un eje mental y operativo que recorre todo.
 
@@ -445,7 +445,7 @@ Este ADR es **transversal** y respeta todos los principios P1-P7 de [ADR-IMT-000
 
 ## 7. Status & Supersession
 
-**Status:** `proposed` · **Stage:** `staged`. · **Rev:** v1.1 (congruencia con ADR-0001 v2.3 y ADR-0003). Pasa a `accepted` cuando el operador apruebe y las primeras tres métricas de cada subcapa estén instrumentadas en el pipeline (`pulse`, `ml`, `core`).
+**Status:** `accepted` · **Stage:** `promoted`. Aceptado por el operador el 2026-10-18; se implementa en la ronda 2 (capa L2). La instrumentación de las tres primeras métricas por subcapa es criterio de cierre de esa ronda, no de aceptación.
 
 **Supersedes:** nada. **Completa:** [ADR-IMT-0001-ARCH](ADR-IMT-0001-ARCH.md) añadiendo la organización analítica transversal que ese ADR no detalló.
 
@@ -470,3 +470,4 @@ Este ADR es **transversal** y respeta todos los principios P1-P7 de [ADR-IMT-000
 |---|---|---|
 | 2026-10-17 | 1.0 | Creación del ADR. Promovido desde la ronda de exploración 3. Define 5 capas (3 lentes de datos + prescriptiva + validación), 12 subcapas de las lentes de datos (D1-D4, Dx1-Dx4, P1-P4), 6 subcapas de validación (V1-V6), métricas de calidad por lente, mapeo a servicios, flujo end-to-end y patrón mental de 5 preguntas. |
 | 2026-10-18 | 1.1 | **Congruencia 0001→0002→0003.** Elimina el servicio fantasma `funnel`: el funnel determinista y la capa de validación son una capa lógica dentro de **`core`** (ahí viven `pipeline_stage`, `project`; el schema `validation` es propiedad de `core_owner`), consistente con la topología de 7 servicios de ADR-0001 v2.3 §E2. Corrige la lista de gates (eran 8 nombres con «Build»; el funnel canónico son **7 gates G1–G7 sin Build**). Unifica el catálogo de eventos con ADR-0003: `funnel.gate_decision` (antes `gate_passed`/`gate_evaluated`), `funnel.kill_trigger_event` (antes `kill_trigger_fired`), y añade `component.evaluated` al catálogo. |
+| 2026-10-18 | 1.1 | **Aceptado por el operador** (`status: accepted`, `stage: promoted`). Fuente de verdad para la ronda 2 de implementación (capa L2). |

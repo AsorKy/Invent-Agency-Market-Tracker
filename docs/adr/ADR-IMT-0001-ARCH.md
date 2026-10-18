@@ -5,7 +5,7 @@
 | ADR | ADR-IMT-0001-ARCH |
 | Version | 2.3 |
 | Layer / run | L1 / Round 1: Backend base: ingestion, data, services, events, security, CI/CD, base reporting |
-| Vault status | proposed (staged) |
+| Status | accepted (promoted), decided 2026-10-18 |
 | Authority | Source of truth for implementation (see `AGENTS.md`). On conflict, the higher-numbered amendment wins over the base text |
 | Language | Spanish. All other repository documentation is English |
 | Origin | Exported from the project vault on 2026-10-18. Do not edit here; see `docs/README.md` |
@@ -13,7 +13,7 @@
 
 > **Versión vigente: 2.3** (Enmienda 2 aplicada 2026-10-18; Enmienda 1 aplicada 2026-10-17). **Regla de precedencia: ante cualquier conflicto entre el cuerpo base y una enmienda, gana la enmienda de mayor número (E2 > E1 > base).** La base del documento sigue siendo v2.1; la **Enmienda 1 (§E1 al final)** define las funcionalidades de usuario y revisa topología, caché del Brief, outbox+inbox y pipeline. Las secciones de la base afectadas llevan la nota «**Ver §E1.N**».
 
-> **Estado:** `staged` — rev. 2026-10-17. Reemplaza a la v1: la v1 era un diseño de pipeline único; la v2 lo separa en servicios con base propia, patrón outbox, gateway único y una UX con design tokens que replica el idioma "sidebar oscuro + tablero + panel de atención". Nada construido todavía.
+> **Estado:** `accepted` (2026-10-18) — rev. 2026-10-17. Reemplaza a la v1: la v1 era un diseño de pipeline único; la v2 lo separa en servicios con base propia, patrón outbox, gateway único y una UX con design tokens que replica el idioma "sidebar oscuro + tablero + panel de atención". Nada construido todavía.
 
 ## 0. Resumen ejecutivo
 
@@ -1606,3 +1606,4 @@ Actualiza §14.2 con los servicios separados:
 | 2026-10-17 | **2.2** | **Enmienda 1 (§E1): funcionalidades de usuario definidas como contrato.** La topología sube a **7 servicios + streamlit** (separa `identity` Django y `brief` FastAPI, renombra `analytics`→`pulse`). Nuevo contrato de usuario completo (acceso, roles, multi-tenant, Pulse operativo, Brief con stale-while-revalidate + single-flight + reglas por tenant, pipeline con máquina de estados y 409 por conflicto, imports como jobs en segundo plano, webhooks HMAC). Patrón outbox completado con **inbox** y **republish**. Nueva taxonomía de datos (timestamptz ms, cadenas UTC, días locales, JSONB). Seguridad reforzada con X-Edge-Secret, CSRF doble envío y redacción de PII en logs. Pipeline CI/CD a **11 etapas** con catálogo smoke S1–S13. Matriz de fallos revisada. 5 decisiones cerradas, 3 nuevas abiertas. |
 | 2026-10-17 | **2.1** | **Toda la visualización de datos pasa a Streamlit.** Nuevo servicio `streamlit` como contenedor Docker aparte, multi-page (`Home.py` + 7 páginas en `/pages`), consume `/api/v1/analytics/*` y `/api/v1/ml/*` vía gateway. Theming sincronizado con los design tokens del frontend Next.js. Cross-filter con `session_state`, caché con `@st.cache_data`, deep-linking con `st.query_params`. Deployment detrás de Caddy con WebSocket proxied. Vizro, Dash y Superset descartados; Evidence.dev queda opcional para reportes estáticos. |
 | 2026-10-18 | **2.3** | **Enmienda 2 (§E2): congruencia de base.** Mapa canónico de **7 schemas · 14 roles** para L1 (8 schemas · 14 roles en el estado final, con `validation` operado por `core`). Registry canónico de 7 servicios + streamlit; `analytics` absorbido por `pulse`; no existe servicio `funnel`. Schema socioeconómico canónico: `socio`. Tabla `brief` fuera de `core`. Puntos de extensión para L2 y L3 (§E2.3). Regla de precedencia (E2 > E1 > base). Cuerpo base §0, §2, §5.1, §6.1, §6.2, §13.4, §16.1 y §21 alineado; el ADR de habeas data pasa a llamarse `ADR-IMT-0006-HABEAS`. |
+| 2026-10-18 | **2.3** | **Aceptado por el operador** (`status: accepted`, `stage: promoted`). Fuente de verdad para la ronda 1 de implementación (capa L1). |

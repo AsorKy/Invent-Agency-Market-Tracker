@@ -1,6 +1,6 @@
 # Invent Market Tracker - Specification
 
-Status: ACTIVE DRAFT v2 (2026-10-18). Derived from ADR-IMT-0001-ARCH v2.3, ADR-IMT-0002-LENS v1.1, and ADR-IMT-0003-PRED v1.2 in `docs/adr/`. All requirements are `proposed` until the owner reviews them; after review, flip them to `accepted` and regenerate `TASKS.md`.
+Status: ACCEPTED v3 (2026-10-18). Derived from ADR-IMT-0001-ARCH v2.3, ADR-IMT-0002-LENS v1.1, and ADR-IMT-0003-PRED v1.2 in `docs/adr/`, all three `accepted` on 2026-10-18. Requirements are `accepted`; run 1 implements the `layer: L1`, `scope: run1` ones listed in `TASKS.md`.
 
 This file turns the ADRs into requirements that agents can implement and verify. It is the middle layer of the source-of-truth chain defined in `AGENTS.md`: ADRs, then this file, then `TASKS.md`, then code.
 
@@ -11,8 +11,8 @@ This file turns the ADRs into requirements that agents can implement and verify.
 - `layer`: `L1` (ADR-0001, backend base), `L2` (ADR-0002, analytics), `L3` (ADR-0003, predictive).
 - `phase`: for L1, the roadmap phase F0 to F6 of ADR-0001 section 21. For L2 and L3, `R2` and `R3` (the run that implements them).
 - `scope`: `run1` (implement in the current run, verifiable offline with mocks and datagen), `deferred` (specified for L1 but needs an external service or the frontend, so it is not part of run 1), `later-run` (L2 or L3, implemented only when that run opens).
-- Every task in `TASKS.md` cites at least one requirement ID. Every requirement with `phase: F0` and `status: accepted` must be cited by at least one task. `ops/check_traceability.py` (task T-002) enforces both rules.
-- `status` values: `proposed` (not yet confirmed by the owner), `accepted`, `deprecated`.
+- Every task in `TASKS.md` cites at least one requirement ID. Every requirement with `layer: L1`, `scope: run1`, and `status: accepted` must be cited by at least one task. `ops/check_traceability.py` (task T-002) enforces both rules.
+- `status` values: `proposed` (not yet confirmed by the owner), `accepted`, `deprecated`. The ADRs behind these requirements are `accepted`.
 - An agent in run 1 implements only `layer: L1` and `scope: run1` requirements. It must not implement `later-run` requirements, but it must satisfy the extension points `REQ-EXT-*` so that runs 2 and 3 need only additive changes.
 
 ## 1. Scope and layers
@@ -39,15 +39,23 @@ When all three layers are done, the platform:
 - Governs every analytical component with a pre-registered experiment sheet and an ADOPT, ITERATE, or KILL decision.
 - Shows freshness, degradation, and quality metadata on every card, in Streamlit and (later) in the Next.js app.
 - Ships through an 11-stage CI/CD pipeline with smoke tests, automatic rollback, and verified encrypted backups.
+- Starts with one command (`make invent-tracker`), runs on mock data out of the box, and switches to live Bright Data and other sources by editing `.env` only, with real data reaching the public API that the frontend consumes.
 
 ### 1.2 Current run (run 1, layer L1)
 
-In scope now: every `L1` requirement marked `scope: run1`. Execution order follows phases F0, F1, F2, then the offline-verifiable parts of F3 to F5. Use `services/mocks` and `datagen` instead of Bright Data, RUES, Supabase, or Docker.
+Goal of run 1: a consolidated, tested backend that the owner can start with `make invent-tracker`, that shows seeded demo data through the public API, and that turns to live data when credentials are added to `.env`.
+
+In scope now: every `L1` requirement marked `scope: run1`. Execution order follows phases F0, F1, F2, then F3. The sandbox has no Docker, Supabase, Bright Data, or RUES, so run 1 proves behavior with unit tests, fakes, and recorded fixtures. The owner then runs `make invent-tracker`, `make test-integration`, and `make verify-live` on a machine with Docker and credentials.
+
+Delivered by run 1 and activated later by the owner:
+
+- The live Bright Data connector, with polling fallback, written against the documented Datasets API and tested with recorded fixtures (REQ-ING-004, REQ-ING-008). Credentials and dataset IDs are supplied through `.env` (REQ-RUN-004).
+- The public API and OpenAPI contract that the frontend consumes (REQ-API-001 to REQ-API-003).
 
 Out of scope now:
 
 - The frontend (`frontend/`), including the Next.js app, design tokens, and the visual identity ADR. Requirements for it exist only as `scope: deferred`.
-- Real connectors for Bright Data, RUES, DANE, and OSM.
+- A live RUES connector (the interface and a mock are in scope), and live connectors for DANE and OSM.
 - Deployment to Vercel, Hetzner, or Railway.
 - Everything marked `later-run`.
 
@@ -120,7 +128,7 @@ Template entry:
 
 ```text
 ### REQ-<AREA>-<NNN> Short title
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F0
 - scope: run1
@@ -135,7 +143,7 @@ Template entry:
 ### Quality and traceability
 
 ### REQ-QA-001 Static checks pass on every commit
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F0
 - scope: run1
@@ -145,7 +153,7 @@ Template entry:
 - tasks: T-001, T-007
 
 ### REQ-QA-002 Unit test suite exists and runs offline
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F0
 - scope: run1
@@ -155,7 +163,7 @@ Template entry:
 - tasks: T-001, T-003, T-004, T-005, T-006
 
 ### REQ-QA-003 Coverage thresholds
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F2
 - scope: run1
@@ -164,8 +172,28 @@ Template entry:
 - verify: `pytest --cov=libs --cov=services --cov-fail-under=80`
 - tasks: none yet
 
+### REQ-QA-004 Offline pipeline test
+- status: accepted
+- layer: L1
+- phase: F2
+- scope: run1
+- source: ADR-IMT-0001 sections 7, E1.9 (smoke S5, S7)
+- statement: One test pushes a mock snapshot through webhook, processor, entity resolution, company upsert and signal creation, outbox relay, pulse rollup, ml score, auto-qualification, and brief, using in-memory fake repositories and fake Redis Streams, and asserts the final payloads of `/api/v1/leads`, `/api/v1/leads/{id}/brief`, and `/api/v1/pulse/*` served through the gateway application. It runs inside `make test`.
+- verify: `pytest -q tests/unit/test_pipeline_flow.py`
+- tasks: none yet
+
+### REQ-QA-005 Integration test tier
+- status: accepted
+- layer: L1
+- phase: F2
+- scope: run1
+- source: ADR-IMT-0001 sections 17 (stage 3), 5.5
+- statement: `make test-integration` runs `tests/integration` against Postgres and Redis (the Compose services or URLs given by environment variables): migrations apply to an empty database, role grants isolate schemas, the outbox relay publishes to real Redis Streams, and the flow of REQ-QA-004 produces rows in every expected schema. The tests carry the `integration` marker and are skipped when no database URL is configured, so `make test` stays offline. The owner runs this tier.
+- verify: `pytest -q tests/integration --collect-only`
+- tasks: none yet
+
 ### REQ-TRC-001 Spec to task traceability
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F0
 - scope: run1
@@ -177,7 +205,7 @@ Template entry:
 ### Architecture and topology
 
 ### REQ-ARC-001 Service topology matches the catalog
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F0
 - scope: run1
@@ -187,7 +215,7 @@ Template entry:
 - tasks: none yet
 
 ### REQ-ARC-002 Ownership registry covers every service
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F0
 - scope: run1
@@ -199,7 +227,7 @@ Template entry:
 ### Data and migrations
 
 ### REQ-DAT-001 Schemas and roles match the ADR
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F0
 - scope: run1
@@ -209,7 +237,7 @@ Template entry:
 - tasks: T-008
 
 ### REQ-DAT-002 Time and pagination conventions
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F0
 - scope: run1
@@ -219,7 +247,7 @@ Template entry:
 - tasks: T-003
 
 ### REQ-DAT-003 Data taxonomy
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F0
 - scope: run1
@@ -229,7 +257,7 @@ Template entry:
 - tasks: none yet
 
 ### REQ-DAT-004 Pooler-safe database drivers
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F0
 - scope: run1
@@ -239,7 +267,7 @@ Template entry:
 - tasks: none yet
 
 ### REQ-DAT-005 Database security
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F1
 - scope: run1
@@ -249,7 +277,7 @@ Template entry:
 - tasks: none yet
 
 ### REQ-DAT-006 Extensions and roles bootstrap
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F0
 - scope: run1
@@ -259,7 +287,7 @@ Template entry:
 - tasks: none yet
 
 ### REQ-DAT-007 Expand/contract guardian
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F0
 - scope: run1
@@ -269,7 +297,7 @@ Template entry:
 - tasks: none yet
 
 ### REQ-DAT-008 Deterministic synthetic data
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F0
 - scope: run1
@@ -281,7 +309,7 @@ Template entry:
 ### Gateway
 
 ### REQ-GW-001 Gateway health, readiness, and isolation
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F0
 - scope: run1
@@ -291,7 +319,7 @@ Template entry:
 - tasks: T-004
 
 ### REQ-GW-002 Edge secret, CSRF, rate limit, request ID
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F0
 - scope: run1
@@ -301,7 +329,7 @@ Template entry:
 - tasks: T-004
 
 ### REQ-GW-003 JWT verification and service routing
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F2
 - scope: run1
@@ -313,7 +341,7 @@ Template entry:
 ### Identity
 
 ### REQ-IDN-001 Identity service and RBAC
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F2
 - scope: run1
@@ -323,7 +351,7 @@ Template entry:
 - tasks: none yet
 
 ### REQ-IDN-002 Session lifecycle
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F2
 - scope: run1
@@ -333,7 +361,7 @@ Template entry:
 - tasks: none yet
 
 ### REQ-IDN-003 Tenant isolation
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F2
 - scope: run1
@@ -345,7 +373,7 @@ Template entry:
 ### Ingest and orchestration
 
 ### REQ-ING-001 Raw snapshot ingestion and change detection
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F1
 - scope: run1
@@ -355,7 +383,7 @@ Template entry:
 - tasks: none yet
 
 ### REQ-SEC-002 Signed Bright Data webhook with replay window
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F0
 - scope: run1
@@ -365,7 +393,7 @@ Template entry:
 - tasks: T-006
 
 ### REQ-ING-002 Budget and failure handling
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F1
 - scope: run1
@@ -375,7 +403,7 @@ Template entry:
 - tasks: none yet
 
 ### REQ-ING-003 Entity resolution against RUES
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F1
 - scope: run1
@@ -384,18 +412,18 @@ Template entry:
 - verify: `pytest -q tests/unit/test_entity_resolution.py`
 - tasks: none yet
 
-### REQ-ING-004 Source connectors on mocks
-- status: proposed
+### REQ-ING-004 Source connectors, mock and live
+- status: accepted
 - layer: L1
 - phase: F1
 - scope: run1
-- source: ADR-IMT-0001 sections 4.1, 4.4
-- statement: Google Maps and Computrabajo ingestion (trigger plus webhook) and the RUES delta lookup run end to end against `services/mocks`. Real connectors are deferred.
-- verify: `pytest -q tests/unit/test_ingest_flow.py`
+- source: ADR-IMT-0001 sections 4.1, 4.4, E1.1
+- statement: `ingest` defines a `SourceConnector` interface (trigger a collection, fetch a snapshot, normalize a record). A mock implementation (backed by `services/mocks`) and a Bright Data implementation (Datasets API: trigger with a notify URL, progress, snapshot download, Bearer token) are selected by `INGEST_MODE`. Provider fields map to canonical fields through versioned mapping files in `libs/domain/source_mappings/<source>.yaml`, so a field change needs a file edit, not code. Sources: maps, computrabajo (F1), linkedin_companies, linkedin_jobs, instagram (F2). The RUES lookup has an interface and a mock only.
+- verify: `pytest -q tests/unit/test_connectors.py` using `httpx.MockTransport` and recorded fixtures under `tests/fixtures/`; no test touches the network.
 - tasks: none yet
 
 ### REQ-ING-005 Imports as background jobs
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F2
 - scope: run1
@@ -405,7 +433,7 @@ Template entry:
 - tasks: none yet
 
 ### REQ-ING-006 Enrichment agent contract
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F3
 - scope: run1
@@ -415,7 +443,7 @@ Template entry:
 - tasks: none yet
 
 ### REQ-ING-007 Bright Data mock
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F0
 - scope: run1
@@ -424,8 +452,28 @@ Template entry:
 - verify: `pytest -q tests/unit/test_mocks.py`
 - tasks: none yet
 
+### REQ-ING-008 Polling fallback without a public webhook
+- status: accepted
+- layer: L1
+- phase: F1
+- scope: run1
+- source: ADR-IMT-0001 sections 4.1, 4.3
+- statement: When `INGEST_POLL_ENABLED=true` (default in the local profile), each triggered collection is tracked in `ingest.pending_snapshot` and polled until ready, so ingestion works without a public webhook URL. A snapshot delivered by both webhook and polling is stored once (REQ-ING-001).
+- verify: `pytest -q tests/unit/test_ingest_poll.py`
+- tasks: none yet
+
+### REQ-ING-009 From snapshot to company and signal
+- status: accepted
+- layer: L1
+- phase: F1
+- scope: run1
+- source: ADR-IMT-0001 sections 4.1, 5.3, E2.1
+- statement: After entity resolution, the ingest processor upserts the company and creates signals in `core` only through core's internal API with the service token, using the mapping files of REQ-ING-004. A record that fails mapping or resolution is stored in `ingest.failed_record` with its reason and does not block the rest of the batch.
+- verify: `pytest -q tests/unit/test_ingest_to_core.py`
+- tasks: none yet
+
 ### REQ-ORC-001 n8n workflows are orchestration only
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F0
 - scope: run1
@@ -437,7 +485,7 @@ Template entry:
 ### Core
 
 ### REQ-COR-001 Core domain model
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F1
 - scope: run1
@@ -447,7 +495,7 @@ Template entry:
 - tasks: none yet
 
 ### REQ-COR-002 Lead state machine and optimistic concurrency
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F2
 - scope: run1
@@ -457,7 +505,7 @@ Template entry:
 - tasks: none yet
 
 ### REQ-COR-003 Outcomes from day one
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F1
 - scope: run1
@@ -467,7 +515,7 @@ Template entry:
 - tasks: none yet
 
 ### REQ-COR-004 Tenant configuration with ETag
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F2
 - scope: run1
@@ -477,7 +525,7 @@ Template entry:
 - tasks: none yet
 
 ### REQ-COR-005 Lead activities and conversion to project
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F2
 - scope: run1
@@ -487,7 +535,7 @@ Template entry:
 - tasks: none yet
 
 ### REQ-COR-006 Rule-based lead score
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F1
 - scope: run1
@@ -496,10 +544,30 @@ Template entry:
 - verify: `pytest -q tests/unit/test_scoring.py`
 - tasks: none yet
 
+### REQ-COR-007 Company upsert API
+- status: accepted
+- layer: L1
+- phase: F1
+- scope: run1
+- source: ADR-IMT-0001 sections 5.1, 5.3, E1.4
+- statement: `POST /internal/core/companies/upsert` creates or updates a company by NIT or by canonical key (name, city, source IDs), keeps history (SCD2), bumps `version`, and emits `company.updated` (or the creation event) in the same transaction. Repeating the same payload changes nothing.
+- verify: `pytest -q tests/unit/test_company_upsert.py`
+- tasks: none yet
+
+### REQ-COR-008 Automatic qualification from scores
+- status: accepted
+- layer: L1
+- phase: F2
+- scope: run1
+- source: ADR-IMT-0001 sections E1.1, E1.6
+- statement: `core` consumes `lead.score_updated` and creates the lead (Discovered) or advances it to Qualified or Hot using `tenant_config.brief_rules` (`min_score_for_hot`, default 70, and `min_score_for_qualified`, default 50). It never moves a lead backward and never overrides a human-set status. Each automatic move writes an `audit_log` entry and new leads emit `lead.created`.
+- verify: `pytest -q tests/unit/test_auto_qualification.py`
+- tasks: none yet
+
 ### Events and workers
 
 ### REQ-EVT-001 Transactional outbox with at-least-once relay
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F0
 - scope: run1
@@ -509,7 +577,7 @@ Template entry:
 - tasks: T-005
 
 ### REQ-EVT-002 Idempotent consumers
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F0
 - scope: run1
@@ -519,7 +587,7 @@ Template entry:
 - tasks: T-005
 
 ### REQ-EVT-003 Dead letter queue
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F1
 - scope: run1
@@ -529,7 +597,7 @@ Template entry:
 - tasks: none yet
 
 ### REQ-EVT-004 Republish
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F2
 - scope: run1
@@ -539,7 +607,7 @@ Template entry:
 - tasks: none yet
 
 ### REQ-EVT-005 Event catalog and envelope
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F0
 - scope: run1
@@ -549,7 +617,7 @@ Template entry:
 - tasks: none yet
 
 ### REQ-EVT-006 Process supervisor
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F0
 - scope: run1
@@ -559,7 +627,7 @@ Template entry:
 - tasks: none yet
 
 ### REQ-EVT-007 Graceful shutdown
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F1
 - scope: run1
@@ -571,7 +639,7 @@ Template entry:
 ### Pulse, Brief, and ML (L1 part)
 
 ### REQ-PUL-001 Pulse endpoints and response rules
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F2
 - scope: run1
@@ -581,7 +649,7 @@ Template entry:
 - tasks: none yet
 
 ### REQ-PUL-002 Incremental rollups
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F2
 - scope: run1
@@ -591,7 +659,7 @@ Template entry:
 - tasks: none yet
 
 ### REQ-PUL-003 dbt star model and semantic layer
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F2
 - scope: run1
@@ -601,7 +669,7 @@ Template entry:
 - tasks: none yet
 
 ### REQ-BRF-001 Brief cache with stale-while-revalidate
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F3
 - scope: run1
@@ -611,7 +679,7 @@ Template entry:
 - tasks: none yet
 
 ### REQ-BRF-002 Single-flight regeneration and fallback
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F3
 - scope: run1
@@ -621,7 +689,7 @@ Template entry:
 - tasks: none yet
 
 ### REQ-BRF-003 Per-tenant alert rules
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F3
 - scope: run1
@@ -631,7 +699,7 @@ Template entry:
 - tasks: none yet
 
 ### REQ-ML-001 Scoring service with single-flight
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F1
 - scope: run1
@@ -641,7 +709,7 @@ Template entry:
 - tasks: none yet
 
 ### REQ-ML-002 Segmentation pipeline
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F3
 - scope: run1
@@ -651,7 +719,7 @@ Template entry:
 - tasks: none yet
 
 ### REQ-ML-003 Semantic embeddings
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F3
 - scope: deferred
@@ -663,7 +731,7 @@ Template entry:
 ### Streamlit reporting
 
 ### REQ-STR-001 Multipage app and card contract
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F2
 - scope: run1
@@ -673,7 +741,7 @@ Template entry:
 - tasks: none yet
 
 ### REQ-STR-002 Stateless container
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F2
 - scope: run1
@@ -683,7 +751,7 @@ Template entry:
 - tasks: none yet
 
 ### REQ-STR-003 Theme sync
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F2
 - scope: deferred
@@ -695,7 +763,7 @@ Template entry:
 ### Security and compliance
 
 ### REQ-SEC-001 Log redaction
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F0
 - scope: run1
@@ -705,7 +773,7 @@ Template entry:
 - tasks: T-003
 
 ### REQ-SEC-004 Secrets handling
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F0
 - scope: run1
@@ -715,7 +783,7 @@ Template entry:
 - tasks: none yet
 
 ### REQ-SEC-005 Zero trust between services
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F1
 - scope: run1
@@ -725,7 +793,7 @@ Template entry:
 - tasks: none yet
 
 ### REQ-CMP-001 Habeas data compliance
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F2
 - scope: run1
@@ -737,7 +805,7 @@ Template entry:
 ### Resilience, CI/CD, backups, operations
 
 ### REQ-RES-001 Health and readiness
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F0
 - scope: run1
@@ -747,7 +815,7 @@ Template entry:
 - tasks: none yet
 
 ### REQ-RES-002 Failure matrix
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F2
 - scope: run1
@@ -757,7 +825,7 @@ Template entry:
 - tasks: none yet
 
 ### REQ-CI-001 CI runs the unit stage
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F0
 - scope: run1
@@ -767,7 +835,7 @@ Template entry:
 - tasks: T-007
 
 ### REQ-CI-002 Eleven-stage pipeline
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F1
 - scope: run1
@@ -777,7 +845,7 @@ Template entry:
 - tasks: none yet
 
 ### REQ-CI-003 Smoke catalog and rollback
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F1
 - scope: deferred
@@ -787,7 +855,7 @@ Template entry:
 - tasks: none yet
 
 ### REQ-BAK-001 Verified encrypted backups
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F1
 - scope: run1
@@ -797,7 +865,7 @@ Template entry:
 - tasks: none yet
 
 ### REQ-OBS-001 Structured logs and metrics
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F1
 - scope: run1
@@ -807,7 +875,7 @@ Template entry:
 - tasks: none yet
 
 ### REQ-DEP-001 Local stack
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F0
 - scope: run1
@@ -816,10 +884,114 @@ Template entry:
 - verify: `make compose-config`
 - tasks: none yet
 
+### Run, operate, and go live
+
+### REQ-RUN-001 One command starts the application
+- status: accepted
+- layer: L1
+- phase: F1
+- scope: run1
+- source: owner requirement 2026-10-18; ADR-IMT-0001 section 16
+- statement: `make invent-tracker` is the single command that starts the whole application. It creates `.env` from `.env.example` when missing (generating local-only secrets without printing them), builds the images, runs migrations, starts every service and worker, loads demo data on the first run, waits until the gateway `/ready` is green, and prints the service URLs and next steps. Running it again is safe. `make invent-tracker-down` stops it and `make invent-tracker-reset` removes volumes after confirmation.
+- verify: `make -n invent-tracker` lists the steps; `pytest -q tests/unit/test_make_targets.py` parses the Makefile. The owner runs it once with Docker.
+- tasks: none yet
+
+### REQ-RUN-002 Migration runner
+- status: accepted
+- layer: L1
+- phase: F0
+- scope: run1
+- source: ADR-IMT-0001 sections 8.2, 17 (stage 7)
+- statement: `ops/migrate.py` applies `migrations/*.sql` in filename order, one transaction per file, records each in `public.schema_migration` (version, checksum, applied_at), refuses a file whose checksum changed, and is idempotent. Compose runs it as a one-shot `migrate` service that every database-backed service waits for with `service_completed_successfully`. Local role passwords are generated into `.env`.
+- verify: `pytest -q tests/unit/test_migrate.py` with a fake connection.
+- tasks: none yet
+
+### REQ-RUN-003 Demo data
+- status: accepted
+- layer: L1
+- phase: F1
+- scope: run1
+- source: ADR-IMT-0001 section 15.2
+- statement: `make seed` (also run on the first start) loads the `datagen` dataset through the public code paths, never by writing into another service's schema, so the outbox, consumers, scores, rollups, and briefs produce data for every list endpoint. It is idempotent and tags its rows `source=demo`; `make seed-clear` removes them.
+- verify: `pytest -q tests/unit/test_seed.py`
+- tasks: none yet
+
+### REQ-RUN-004 Mock to live switch
+- status: accepted
+- layer: L1
+- phase: F1
+- scope: run1
+- source: owner requirement 2026-10-18; ADR-IMT-0001 sections 4.1, 4.4
+- statement: `INGEST_MODE=mock|live` selects the connector set. Each source (`maps`, `computrabajo`, `linkedin_companies`, `linkedin_jobs`, `instagram`, `rues`) has `SOURCE_<NAME>_ENABLED`, a dataset ID variable, and a credential variable, all listed in `.env.example` without values. Live mode with a missing credential fails fast at startup with a message that names the variable and never shows a value. Going live needs only editing `.env` and re-running `make invent-tracker`.
+- verify: `pytest -q tests/unit/test_source_config.py`
+- tasks: none yet
+
+### REQ-RUN-005 Doctor command
+- status: accepted
+- layer: L1
+- phase: F1
+- scope: run1
+- source: owner requirement 2026-10-18; secrets policy
+- statement: `make doctor` reports, by variable name only, which credentials and settings are set, which sources are active and in which mode, the health of each service, and whether the configured webhook URL is reachable. It never prints a value.
+- verify: `pytest -q tests/unit/test_doctor.py` plants a sentinel secret and asserts it never appears in the output.
+- tasks: none yet
+
+### REQ-RUN-006 Live verification command
+- status: accepted
+- layer: L1
+- phase: F3
+- scope: run1
+- source: owner requirement 2026-10-18
+- statement: `make verify-live SOURCE=<name>` triggers one bounded collection (at most 5 records) for a live source, follows it through ingest and core, and reports pass or fail per hop (trigger, snapshot, normalize, resolve, signal, score, API read). It refuses to run in mock mode.
+- verify: `pytest -q tests/unit/test_verify_live.py` with fakes. The owner runs the command with real credentials.
+- tasks: none yet
+
+### REQ-DOC-001 Go-live runbook
+- status: accepted
+- layer: L1
+- phase: F3
+- scope: run1
+- source: owner requirement 2026-10-18
+- statement: `docs/runbooks/go-live.md` (English) explains where credentials go (names only), how to enable each source, how to expose the webhook (tunnel) or use the polling fallback, how to adjust field mappings, how to run `make doctor` and `make verify-live`, how data reaches the API, how to point the frontend at the gateway, and a troubleshooting table.
+- verify: `pytest -q tests/unit/test_runbook.py` checks that every `SOURCE_*` and mode variable appears in both the runbook and `.env.example`.
+- tasks: none yet
+
+### Public API for the frontend
+
+### REQ-API-001 OpenAPI contract
+- status: accepted
+- layer: L1
+- phase: F2
+- scope: run1
+- source: ADR-IMT-0001 sections 12.6, E1.9 (stage contracts)
+- statement: `make openapi` writes `docs/api/openapi.json` from the gateway application, describing every public `/api/v1` route with request and response schemas, error bodies, and the headers `X-As-Of`, `X-Brief-Cache`, `ETag`, and `Idempotency-Key` where relevant. A test fails when a public route is missing from the document or the committed file is stale.
+- verify: `pytest -q tests/unit/test_openapi.py`
+- tasks: none yet
+
+### REQ-API-002 Public route table
+- status: accepted
+- layer: L1
+- phase: F2
+- scope: run1
+- source: ADR-IMT-0001 sections 12.4, E1.1, E1.5, E2.2
+- statement: The gateway exposes the endpoints the frontend screens need: `POST /auth/session`, `GET /me`, `POST /logout`; `GET /leads` (filters state, service_line, city, segment, min_score, cursor), `POST /leads`, `GET /leads/{id}`, `PATCH /leads/{id}/status`, `POST /leads/{id}/activities`, `GET /leads/{id}/brief`; `GET /pipeline/kanban`; `GET /companies`, `GET /signals`; `GET /projects`, `POST /projects`; `GET /pulse/*`; `GET /ops/health`; imports and jobs; `GET` and `PUT /admin/tenant-config`. Routes of L2 and L3 resources return 404 `not_in_layer` until their run. No route points to `analytics`.
+- verify: `pytest -q tests/unit/test_gateway_routes.py` and `pytest -q tests/unit/test_openapi.py`
+- tasks: none yet
+
+### REQ-API-003 Local profile for a browser frontend
+- status: accepted
+- layer: L1
+- phase: F2
+- scope: run1
+- source: ADR-IMT-0001 sections 13.1, E1.8
+- statement: A `local` profile lets a browser app served from `FRONTEND_ORIGIN` call the gateway: CORS allowlist with credentials, session cookie names without the `__Host-` prefix and with `Secure=false`, and seeded development users (one per role) whose passwords are generated into `.env`. The `production` profile keeps the attributes of REQ-IDN-002. Both profiles are covered by tests.
+- verify: `pytest -q tests/unit/test_profiles.py`
+- tasks: none yet
+
 ### Extension points for L2 and L3
 
 ### REQ-EXT-001 Tolerant event registry
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F2
 - scope: run1
@@ -829,7 +1001,7 @@ Template entry:
 - tasks: none yet
 
 ### REQ-EXT-002 Open tenant configuration
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F2
 - scope: run1
@@ -839,7 +1011,7 @@ Template entry:
 - tasks: none yet
 
 ### REQ-EXT-003 Schema list drives bootstrap and checks
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F0
 - scope: run1
@@ -849,7 +1021,7 @@ Template entry:
 - tasks: none yet
 
 ### REQ-EXT-004 Analytics-ready responses and outcomes
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F2
 - scope: run1
@@ -861,7 +1033,7 @@ Template entry:
 ### Frontend (deferred)
 
 ### REQ-FE-001 Next.js ERP application
-- status: proposed
+- status: accepted
 - layer: L1
 - phase: F5
 - scope: deferred
@@ -875,7 +1047,7 @@ Template entry:
 All L2 requirements are `later-run`. They are specified now so that run 1 leaves the right extension points (section 4.1, REQ-EXT-*). Do not implement them in run 1.
 
 ### REQ-LNS-001 Lens tagging and quality metrics
-- status: proposed
+- status: accepted
 - layer: L2
 - phase: R2
 - scope: later-run
@@ -885,7 +1057,7 @@ All L2 requirements are `later-run`. They are specified now so that run 1 leaves
 - tasks: none yet
 
 ### REQ-LNS-002 Five-question checklist
-- status: proposed
+- status: accepted
 - layer: L2
 - phase: R2
 - scope: later-run
@@ -895,7 +1067,7 @@ All L2 requirements are `later-run`. They are specified now so that run 1 leaves
 - tasks: none yet
 
 ### REQ-LNS-003 Descriptive aggregation (D1)
-- status: proposed
+- status: accepted
 - layer: L2
 - phase: R2
 - scope: later-run
@@ -905,7 +1077,7 @@ All L2 requirements are `later-run`. They are specified now so that run 1 leaves
 - tasks: none yet
 
 ### REQ-LNS-004 Profiling and topics (D2, D3)
-- status: proposed
+- status: accepted
 - layer: L2
 - phase: R2
 - scope: later-run
@@ -915,7 +1087,7 @@ All L2 requirements are `later-run`. They are specified now so that run 1 leaves
 - tasks: none yet
 
 ### REQ-LNS-005 Attribution (Dx1)
-- status: proposed
+- status: accepted
 - layer: L2
 - phase: R2
 - scope: later-run
@@ -925,7 +1097,7 @@ All L2 requirements are `later-run`. They are specified now so that run 1 leaves
 - tasks: none yet
 
 ### REQ-LNS-006 Causal inference (Dx2)
-- status: proposed
+- status: accepted
 - layer: L2
 - phase: R2
 - scope: later-run
@@ -935,7 +1107,7 @@ All L2 requirements are `later-run`. They are specified now so that run 1 leaves
 - tasks: none yet
 
 ### REQ-LNS-007 Drift and explainability (Dx3, Dx4)
-- status: proposed
+- status: accepted
 - layer: L2
 - phase: R2
 - scope: later-run
@@ -945,7 +1117,7 @@ All L2 requirements are `later-run`. They are specified now so that run 1 leaves
 - tasks: none yet
 
 ### REQ-LNS-008 Metric pack library
-- status: proposed
+- status: accepted
 - layer: L2
 - phase: R2
 - scope: later-run
@@ -955,7 +1127,7 @@ All L2 requirements are `later-run`. They are specified now so that run 1 leaves
 - tasks: none yet
 
 ### REQ-LNS-009 Deterministic funnel in core
-- status: proposed
+- status: accepted
 - layer: L2
 - phase: R2
 - scope: later-run
@@ -966,7 +1138,7 @@ All L2 requirements are `later-run`. They are specified now so that run 1 leaves
 - note: blocked by decision D-06 (checklist content per gate).
 
 ### REQ-LNS-010 Validation schema and metrics (V1 to V6)
-- status: proposed
+- status: accepted
 - layer: L2
 - phase: R2
 - scope: later-run
@@ -976,7 +1148,7 @@ All L2 requirements are `later-run`. They are specified now so that run 1 leaves
 - tasks: none yet
 
 ### REQ-LNS-011 Validation decision thresholds
-- status: proposed
+- status: accepted
 - layer: L2
 - phase: R2
 - scope: later-run
@@ -986,7 +1158,7 @@ All L2 requirements are `later-run`. They are specified now so that run 1 leaves
 - tasks: none yet
 
 ### REQ-LNS-012 Event chain with source_version
-- status: proposed
+- status: accepted
 - layer: L2
 - phase: R2
 - scope: later-run
@@ -996,7 +1168,7 @@ All L2 requirements are `later-run`. They are specified now so that run 1 leaves
 - tasks: none yet
 
 ### REQ-LNS-013 Validation page
-- status: proposed
+- status: accepted
 - layer: L2
 - phase: R2
 - scope: later-run
@@ -1010,7 +1182,7 @@ All L2 requirements are `later-run`. They are specified now so that run 1 leaves
 All L3 requirements are `later-run`. Phase values in the statements are the ADR roadmap phases.
 
 ### REQ-PRD-001 Rule baseline v0 (P1)
-- status: proposed
+- status: accepted
 - layer: L3
 - phase: R3
 - scope: later-run
@@ -1020,7 +1192,7 @@ All L3 requirements are `later-run`. Phase values in the statements are the ADR 
 - tasks: none yet
 
 ### REQ-PRD-002 Calibrated LightGBM (P1)
-- status: proposed
+- status: accepted
 - layer: L3
 - phase: R3
 - scope: later-run
@@ -1030,7 +1202,7 @@ All L3 requirements are `later-run`. Phase values in the statements are the ADR 
 - tasks: none yet
 
 ### REQ-PRD-003 Uplift modeling (P1)
-- status: proposed
+- status: accepted
 - layer: L3
 - phase: R3
 - scope: later-run
@@ -1040,7 +1212,7 @@ All L3 requirements are `later-run`. Phase values in the statements are the ADR 
 - tasks: none yet
 
 ### REQ-PRD-004 Forecasting (P2)
-- status: proposed
+- status: accepted
 - layer: L3
 - phase: R3
 - scope: later-run
@@ -1050,7 +1222,7 @@ All L3 requirements are `later-run`. Phase values in the statements are the ADR 
 - tasks: none yet
 
 ### REQ-PRD-005 ICP pyramid (P3)
-- status: proposed
+- status: accepted
 - layer: L3
 - phase: R3
 - scope: later-run
@@ -1060,7 +1232,7 @@ All L3 requirements are `later-run`. Phase values in the statements are the ADR 
 - tasks: none yet
 
 ### REQ-PRD-006 Learning to rank (P3)
-- status: proposed
+- status: accepted
 - layer: L3
 - phase: R3
 - scope: later-run
@@ -1070,7 +1242,7 @@ All L3 requirements are `later-run`. Phase values in the statements are the ADR 
 - tasks: none yet
 
 ### REQ-PRD-007 Monte Carlo simulation (P4)
-- status: proposed
+- status: accepted
 - layer: L3
 - phase: R3
 - scope: later-run
@@ -1080,7 +1252,7 @@ All L3 requirements are `later-run`. Phase values in the statements are the ADR 
 - tasks: none yet
 
 ### REQ-PRD-008 NLP ladder
-- status: proposed
+- status: accepted
 - layer: L3
 - phase: R3
 - scope: later-run
@@ -1090,7 +1262,7 @@ All L3 requirements are `later-run`. Phase values in the statements are the ADR 
 - tasks: none yet
 
 ### REQ-PRD-009 Graphs by level
-- status: proposed
+- status: accepted
 - layer: L3
 - phase: R3
 - scope: later-run
@@ -1100,7 +1272,7 @@ All L3 requirements are `later-run`. Phase values in the statements are the ADR 
 - tasks: none yet
 
 ### REQ-PRD-010 Experiment protocol
-- status: proposed
+- status: accepted
 - layer: L3
 - phase: R3
 - scope: later-run
@@ -1110,7 +1282,7 @@ All L3 requirements are `later-run`. Phase values in the statements are the ADR 
 - tasks: none yet
 
 ### REQ-PRD-011 One-statistic validators
-- status: proposed
+- status: accepted
 - layer: L3
 - phase: R3
 - scope: later-run
@@ -1120,7 +1292,7 @@ All L3 requirements are `later-run`. Phase values in the statements are the ADR 
 - tasks: none yet
 
 ### REQ-PRD-012 Territorial hierarchy and IOZ
-- status: proposed
+- status: accepted
 - layer: L3
 - phase: R3
 - scope: later-run
@@ -1130,7 +1302,7 @@ All L3 requirements are `later-run`. Phase values in the statements are the ADR 
 - tasks: none yet
 
 ### REQ-PRD-013 Geo-adaptive funnel
-- status: proposed
+- status: accepted
 - layer: L3
 - phase: R3
 - scope: later-run
@@ -1140,7 +1312,7 @@ All L3 requirements are `later-run`. Phase values in the statements are the ADR 
 - tasks: none yet
 
 ### REQ-PRD-014 Zone nodes and zone lookalike
-- status: proposed
+- status: accepted
 - layer: L3
 - phase: R3
 - scope: later-run
@@ -1150,7 +1322,7 @@ All L3 requirements are `later-run`. Phase values in the statements are the ADR 
 - tasks: none yet
 
 ### REQ-PRD-015 Territory dashboards
-- status: proposed
+- status: accepted
 - layer: L3
 - phase: R3
 - scope: later-run
@@ -1160,7 +1332,7 @@ All L3 requirements are `later-run`. Phase values in the statements are the ADR 
 - tasks: none yet
 
 ### REQ-PRD-016 Rejected approaches stay out
-- status: proposed
+- status: accepted
 - layer: L3
 - phase: R3
 - scope: later-run
@@ -1179,24 +1351,31 @@ An agent must not resolve open decisions. A task that depends on one stays `bloc
 | D-02 | Keep `analytics` or replace it with `pulse` plus `streamlit` | `analytics` is replaced: `pulse` absorbs it and `services/analytics` is merged into `services/pulse`. Source: ADR-IMT-0001 section E1.2 and E2.2. | closed 2026-10-18 |
 | D-03 | Service count | 7 services plus Streamlit (gateway, identity, ingest, core, pulse, brief, ml); there is no `funnel` service. Source: ADR-IMT-0001 section E2.2 and ADR-IMT-0002 section 2.7. | closed 2026-10-18 |
 | D-04 | Ownership of identity, brief, pulse, streamlit, mocks | identity and brief: lead-backend-engineer. pulse and streamlit: second-backend-engineer. mocks: qa-reviewer. Source: proposal in `AGENTS.md`, section 3.1 of this file. | closed 2026-10-18 |
-| D-05 | Supabase tier and VPS provider for the MVP | Recommendation in ADR-IMT-0001 section 22: Supabase Free until F3 and Hetzner CPX21. Not decided. | open |
+| D-05 | Supabase tier and VPS provider for the MVP | Recommendation in ADR-IMT-0001 section 22: Supabase Free until F3 and Hetzner CPX21. Not decided. | open, does not block run 1 |
 | D-06 | Checklist content for gates G1 to G7 | The mechanism is specified (REQ-LNS-009); the checklists are agency knowledge to be authored by the owner. Blocks L2. | open |
-| D-07 | Retention window of `core.outbox_event` | Default 90 days. | open |
-| D-08 | Version `tenant_config` history (SCD2) | Recommended yes, so Brief can be reproduced with old rules. | open |
-| D-09 | Semantic summarizer for Brief in F3 | Recommended multilingual-e5 plus rules, with a small local LLM evaluated in F6. | open |
-| D-10 | Job runner: Celery or arq | ADR recommends Celery (already used by `procs.toml`). | open |
+| D-07 | Retention window of `core.outbox_event` | Default 90 days; run 1 uses the default. | open, default applies |
+| D-08 | Version `tenant_config` history (SCD2) | Recommended yes. Run 1 stores a `version` and keeps the previous row in an audit table; full SCD2 waits for the decision. | open, default applies |
+| D-09 | Semantic summarizer for Brief in F3 | Recommended multilingual-e5 plus rules. Run 1 ships the rule-based summarizer behind a replaceable interface. | open, default applies |
+| D-10 | Job runner: Celery or arq | ADR recommends Celery (already used by `procs.toml`). Run 1 keeps asyncio workers and the supervisor and does not add Celery. | open, default applies |
 | D-11 | Habeas data detail (ADR-IMT-0006-HABEAS) | Pending ADR. REQ-CMP-001 carries the minimum. | open |
-| D-12 | Frontend visual specification | Pending separate ADR. Frontend is out of scope for run 1. | open |
+| D-12 | Frontend visual specification | Pending separate ADR (ADR-IMT-0004-LOOK is `proposed`). Frontend is out of scope for run 1. | open, does not block run 1 |
+| D-13 | Bright Data dataset IDs and sample payloads | The owner supplies dataset IDs through `.env` and recorded sample responses under `tests/fixtures/brightdata/` before the run. Without samples the agent writes the connector from the ADR and the documented Datasets API, marks the field mappings `unverified`, and records that in the run report. | open, owner input |
+| D-14 | Identity framework | Django plus DRF (ADR-IMT-0001 section E1.2, decision E1-D2). If Django proves impractical in the sandbox after three focused attempts, mark the identity tasks `blocked`; do not substitute another framework without an owner decision. | closed 2026-10-18 |
+| D-15 | Live RUES connector | No official API is available to the sandbox. Run 1 delivers the interface and a mock; a live adapter is added when the owner provides access details. | open, does not block run 1 |
 
 ## 6. Definition of done per layer
 
 ### L1 (run 1)
 
 - Every `layer: L1` and `scope: run1` requirement is `done` in `TASKS.md` with evidence, or `blocked` with a recorded reason.
-- `make static`, `make test`, and `make compose-config` pass.
+- `make static`, `make test`, and `make compose-config` pass, and `make test` covers at least 80 percent of `libs` and `services` (90 percent of `libs/domain`).
+- `make test` includes the offline pipeline test (REQ-QA-004), so a reviewer can see one signal travel from a mock snapshot to the public API.
 - The repository conforms to ADR-IMT-0001 section E2.5: 7 schemas, 14 roles, 7 services plus Streamlit, no `analytics`, no `socioeconomic`.
 - All `REQ-EXT-*` requirements pass, so L2 and L3 need only additive changes.
-- `docs/runs/RUN-<run-id>.md` lists tasks done and blocked, commands, assumptions, changed files, and unresolved risks.
+- The owner can run `make invent-tracker` on a machine with Docker, open the gateway, and read seeded leads, briefs, and pulse metrics through `/api/v1` with the local profile.
+- The owner can add credentials to `.env`, run `make doctor` and `make verify-live`, and see live records arrive in `/api/v1/leads` without code changes (REQ-RUN-004 to REQ-RUN-006, `docs/runbooks/go-live.md`).
+- `docs/api/openapi.json` is current.
+- `docs/runs/RUN-<run-id>.md` lists tasks done and blocked, commands, assumptions (including every `unverified` field mapping), changed files, and unresolved risks.
 
 ### L2 (run 2)
 
@@ -1216,3 +1395,4 @@ An agent must not resolve open decisions. A task that depends on one stays `bloc
 | --- | --- |
 | 2026-10-18 | Initial template generated from the repository state and ADR-IMT-0001 v2.2.1. |
 | 2026-10-18 | Rewritten against ADR-IMT-0001 v2.3, ADR-IMT-0002 v1.1, and ADR-IMT-0003 v1.2. Added layers L1 to L3, the end-state definition, the service and schema catalogs, requirements for all three layers, extension points for runs 2 and 3, and decisions D-01 to D-04 closed. Existing requirement IDs are unchanged. |
+| 2026-10-18 | v3: ADRs accepted, all requirements `accepted`. Added run and go-live requirements (REQ-RUN-001 to 006, REQ-DOC-001), the public API for the frontend (REQ-API-001 to 003), the ingestion flow and live connector (REQ-ING-004 rewritten, REQ-ING-008, REQ-ING-009), company upsert and auto-qualification (REQ-COR-007, 008), and the offline and integration test tiers (REQ-QA-004, 005). Traceability now covers every accepted `L1` `run1` requirement. Decisions D-13 to D-15 added, D-14 closed. |

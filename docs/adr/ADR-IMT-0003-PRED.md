@@ -5,13 +5,13 @@
 | ADR | ADR-IMT-0003-PRED |
 | Version | 1.2 |
 | Layer / run | L3 / Round 3: Predictive layer: ML/NLP/graph components, experimental protocol, territorial extension |
-| Vault status | proposed (staged) |
+| Status | accepted (promoted), decided 2026-10-18 |
 | Authority | Source of truth for implementation (see `AGENTS.md`). On conflict, the higher-numbered amendment wins over the base text |
 | Language | Spanish. All other repository documentation is English |
 | Origin | Exported from the project vault on 2026-10-18. Do not edit here; see `docs/README.md` |
 
 
-> **Status:** proposed · **Decided:** — · **Supersedes:** — · **Acronym:** PRED
+> **Status:** accepted · **Decided:** 2026-10-18 · **Supersedes:** — · **Acronym:** PRED
 >
 > **Fijamos el catálogo cerrado de componentes de la lente predictiva (P1-P4), con tres reglas duras: (1) diccionario antes que modelo — NLP por escalera determinista; (2) todo componente ML se valida con un estadístico simple del LENS, nunca con otro modelo; (3) ningún componente entra sin responder las 5 preguntas de ADR-0002 §2.9 con validadores pre-registrados y decisión ADOPT/ITERATE/KILL. Además extendemos el LENS con la dimensión territorial: Índice de Oportunidad Zonal por comuna, umbrales de funnel geo-adaptativos justificados estadísticamente, nodos Zona en el grafo y dashboards con granularidad ciudad → comuna → H3.**
 
@@ -373,7 +373,7 @@ Nuevo tipo de nodo **Z** = comuna/corregimiento (~20-50 por ciudad; costo margin
 
 ## 7. Status & Supersession
 
-**Status:** `proposed` · **Stage:** `staged`. Pasa a `accepted` cuando el operador apruebe y la primera ficha experimental (previsiblemente la de la regla v0) esté escrita en `docs/experiments/`.
+**Status:** `accepted` · **Stage:** `promoted`. Aceptado por el operador el 2026-10-18; se implementa en la ronda 3 (capa L3). La primera ficha experimental (previsiblemente la de la regla v0) es criterio de cierre de esa ronda, no de aceptación.
 
 **Supersedes:** nada. **Completa:** [ADR-IMT-0002-LENS](ADR-IMT-0002-LENS.md) (puebla P1-P4 y extiende el LENS con la dimensión territorial) y [ADR-IMT-0001-ARCH](ADR-IMT-0001-ARCH.md) (el grafo Z y las tablas `socio.territory` y `socio.territory_index` extienden §E1.2 y §E2.1).
 
@@ -399,3 +399,4 @@ Nuevo tipo de nodo **Z** = comuna/corregimiento (~20-50 por ciudad; costo margin
 | 2026-10-17 | 1.0 | Creación. Consolida las rondas 4-5: catálogo cerrado de componentes P1-P4, NLP por escalera determinista, grafos N1/N2/N3 + nodos Z, Pirámide ICP, las 5 preguntas respondidas por componente con validadores deterministas de un solo estadístico, protocolo científico con ficha experimental pre-registrada y decisión ADOPT/ITERATE/KILL, y extensión territorial del LENS (IOZ por comuna, funnel geo-adaptativo con regla anti-proliferación, grafo de zonas, dashboards granulares ciudad→comuna→H3). |
 | 2026-10-18 | 1.2 | **Congruencia con ADR-0002 v1.1:** P4 Simulación corrige «vive en `funnel`» → worker del funnel **en `core`** (no existe servicio `funnel`; el funnel y la validación son capa lógica de `core`, ADR-0001 §E2). Catálogo de eventos alineado: `funnel.gate_decision` y `funnel.kill_trigger_event` son los nombres canónicos definidos en ADR-0002 §2.6. |
 | 2026-10-18 | 1.1 | Revisión de consistencia: `STUDY-IMT-0001-PYRAMID` renumerado a `STUDY-IMT-0004-PYRAMID` (el 0001 está reservado para `STUDY-IMT-0001-BRIGHT-DATA-ICP`); nota de alcance en §2.5 (LDA/BERTopic y Grafos pertenecen a las capas D/Dx del LENS, no a la subcapa P). Se añaden 4 figuras SVG embebidas: flujo de la capa P dentro del LENS (Fig. 1), Pirámide ICP (Fig. 2), arnés de validación baseline-en-sombra (Fig. 3) y ficha experimental como flujo de decisión (Fig. 4). |
+| 2026-10-18 | 1.2 | **Aceptado por el operador** (`status: accepted`, `stage: promoted`). Fuente de verdad para la ronda 3 de implementación (capa L3). |
