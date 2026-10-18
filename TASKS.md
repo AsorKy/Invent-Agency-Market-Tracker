@@ -608,7 +608,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_segmentation.py` -> 6 passed, 1 skipped (ml extra absent); make static and make test pass
 
 ### T-055 dbt star model and Parquet materialization
-- status: todo
+- status: done
 - spec: REQ-PUL-003
 - owner: second-backend-engineer
 - depends: T-050
@@ -617,7 +617,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `dbt parse --project-dir transform --profiles-dir transform` (profiles from `profiles.yml.example`)
 - note: dimensions and facts listed in REQ-PUL-003, schema tests, MetricFlow YAML for the core measures, and a Parquet export model or script. No database is available in the sandbox: parse and compile only.
-- evidence:
+- evidence: `dbt parse --project-dir transform --profiles-dir /tmp/dbtprof` (copy of profiles.yml.example) -> exit 0, 21 models, 9 metrics; compile not possible without a DB; make static passes
 
 ### T-056 Streamlit foundation and container
 - status: todo

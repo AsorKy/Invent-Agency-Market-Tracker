@@ -1,0 +1,144 @@
+# MetricFlow semantic layer: measures and metrics are defined once here (REQ-PUL-003).
+# Relates to the fact models in models/marts; dashboards and APIs query these
+# metrics instead of re-implementing the calculations.
+version: 2
+
+semantic_models:
+  - name: signals
+    description: "Signals observed per company."
+    model: ref('fact_signal')
+    defaults:
+      agg_time_dimension: observed_date
+    entities:
+      - name: signal
+        type: primary
+        expr: signal_id
+      - name: company
+        type: foreign
+        expr: company_id
+    dimensions:
+      - name: observed_date
+        type: time
+        type_params:
+          time_granularity: day
+      - name: source
+        type: categorical
+      - name: signal_type
+        type: categorical
+    measures:
+      - name: signal_count
+        description: "Number of signals."
+        agg: count
+        expr: signal_id
+      - name: signal_strength_sum
+        agg: sum
+        expr: strength
+      - name: signal_strength_avg
+        agg: average
+        expr: strength
+
+  - name: lead_outcomes
+    description: "Outcomes recorded on leads."
+    model: ref('fact_lead_outcome')
+    defaults:
+      agg_time_dimension: occurred_date
+    entities:
+      - name: outcome_record
+        type: primary
+        expr: outcome_id
+      - name: company
+        type: foreign
+        expr: company_id
+    dimensions:
+      - name: occurred_date
+        type: time
+        type_params:
+          time_granularity: day
+      - name: outcome
+        type: categorical
+      - name: service_line
+        type: categorical
+    measures:
+      - name: outcome_count
+        agg: count
+        expr: outcome_id
+      - name: won_count
+        agg: sum
+        expr: "case when outcome = 'won' then 1 else 0 end"
+
+  - name: lead_scores
+    description: "Daily lead score snapshot."
+    model: ref('fact_lead_score')
+    primary_entity: company
+    defaults:
+      agg_time_dimension: score_date
+    entities:
+      - name: company
+        type: foreign
+        expr: company_id
+    dimensions:
+      - name: score_date
+        type: time
+        type_params:
+          time_granularity: day
+      - name: model_version
+        type: categorical
+    measures:
+      - name: score_sum
+        agg: sum
+        expr: score
+      - name: scored_company_count
+        agg: count_distinct
+        expr: company_id
+      - name: hot_score_count
+        agg: sum
+        expr: "case when score >= 70 then 1 else 0 end"
+
+metrics:
+  - name: signal_count
+    label: Signals
+    type: simple
+    type_params:
+      measure: signal_count
+  - name: avg_signal_strength
+    label: Average signal strength
+    type: simple
+    type_params:
+      measure: signal_strength_avg
+  - name: outcome_count
+    label: Lead outcomes
+    type: simple
+    type_params:
+      measure: outcome_count
+  - name: won_count
+    label: Won leads
+    type: simple
+    type_params:
+      measure: won_count
+  - name: win_rate
+    label: Win rate
+    type: ratio
+    type_params:
+      numerator: won_count
+      denominator: outcome_count
+  - name: score_sum
+    label: Score sum
+    type: simple
+    type_params:
+      measure: score_sum
+  - name: scored_company_count
+    label: Scored companies
+    type: simple
+    type_params:
+      measure: scored_company_count
+  - name: avg_lead_score
+    label: Average lead score
+    type: ratio
+    type_params:
+      numerator: score_sum
+      denominator: scored_company_count
+  - name: hot_lead_count
+    label: Hot lead scores
+    type: simple
+    type_params:
+      measure: hot_score_count
