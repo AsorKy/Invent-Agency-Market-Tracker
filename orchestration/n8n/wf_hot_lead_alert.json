@@ -3,6 +3,8 @@
   "name": "wf_hot_lead_alert",
   "description": "Receive a hot lead event and forward it to the configured Telegram channel.",
   "active": false,
+  "versionId": "1.0.1",
+  "meta": {"payloadVersion": "1"},
   "settings": {"executionOrder": "v1"},
   "nodes": [
     {
@@ -14,7 +16,7 @@
       "position": [260, 300]
     },
     {
-      "parameters": {"method": "POST", "url": "={{$env.TELEGRAM_WEBHOOK_URL}}", "sendBody": true, "specifyBody": "json", "jsonBody": "={\"text\":\"Hot lead detected: {{$json.company_id}} - score {{$json.score}}\"}", "options": {"timeout": 5000}},
+      "parameters": {"method": "POST", "url": "={{$env.TELEGRAM_WEBHOOK_URL}}", "sendBody": true, "specifyBody": "json", "jsonBody": "={\"text\":\"Hot lead detected: lead {{$json.body.lead_id}} company {{$json.body.company_id}} tenant {{$json.body.tenant_id}} score {{$json.body.score}}\"}", "options": {"timeout": 5000}},
       "id": "notify-telegram",
       "name": "Notify commercial team",
       "type": "n8n-nodes-base.httpRequest",

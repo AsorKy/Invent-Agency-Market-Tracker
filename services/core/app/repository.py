@@ -110,20 +110,28 @@ class SqlCompanyTransaction:
         )
 
     async def add_outbox_event(
-        self, *, event_id: UUID, aggregate_id: UUID, version: int, payload: dict[str, object]
+        self,
+        *,
+        event_id: UUID,
+        tenant_id: UUID | None,
+        aggregate_id: UUID,
+        version: int,
+        payload: dict[str, object],
     ) -> None:
         await self.connection.execute(
             text(
                 """
                 INSERT INTO core.outbox_event
-                    (event_id, aggregate_type, aggregate_id, event_type, version, payload)
+                    (event_id, tenant_id, aggregate_type, aggregate_id, event_type, version,
+                     payload)
                 VALUES
-                    (:event_id, 'company', :aggregate_id, 'company.updated', :version,
+                    (:event_id, :tenant_id, 'company', :aggregate_id, 'company.updated', :version,
                      CAST(:payload AS jsonb))
                 """
             ),
             {
                 "event_id": event_id,
+                "tenant_id": tenant_id,
                 "aggregate_id": aggregate_id,
                 "version": version,
                 "payload": json.dumps(payload, default=str),
@@ -261,20 +269,28 @@ class SqlLeadTransaction:
         )
 
     async def add_outbox_event(
-        self, *, event_id: UUID, aggregate_id: UUID, version: int, payload: dict[str, object]
+        self,
+        *,
+        event_id: UUID,
+        tenant_id: UUID | None,
+        aggregate_id: UUID,
+        version: int,
+        payload: dict[str, object],
     ) -> None:
         await self.connection.execute(
             text(
                 """
                 INSERT INTO core.outbox_event
-                    (event_id, aggregate_type, aggregate_id, event_type, version, payload)
+                    (event_id, tenant_id, aggregate_type, aggregate_id, event_type, version,
+                     payload)
                 VALUES
-                    (:event_id, 'lead', :aggregate_id, 'lead.created', :version,
+                    (:event_id, :tenant_id, 'lead', :aggregate_id, 'lead.created', :version,
                      CAST(:payload AS jsonb))
                 """
             ),
             {
                 "event_id": event_id,
+                "tenant_id": tenant_id,
                 "aggregate_id": aggregate_id,
                 "version": version,
                 "payload": json.dumps(payload, default=str),
@@ -357,6 +373,7 @@ class SqlActionTransaction:
         self,
         *,
         event_id: UUID,
+        tenant_id: UUID | None,
         aggregate_type: str,
         aggregate_id: UUID,
         event_type: str,
@@ -366,14 +383,16 @@ class SqlActionTransaction:
             text(
                 """
                 INSERT INTO core.outbox_event
-                    (event_id, aggregate_type, aggregate_id, event_type, version, payload)
+                    (event_id, tenant_id, aggregate_type, aggregate_id, event_type, version,
+                     payload)
                 VALUES
-                    (:event_id, :aggregate_type, :aggregate_id, :event_type, 1,
+                    (:event_id, :tenant_id, :aggregate_type, :aggregate_id, :event_type, 1,
                      CAST(:payload AS jsonb))
                 """
             ),
             {
                 "event_id": event_id,
+                "tenant_id": tenant_id,
                 "aggregate_type": aggregate_type,
                 "aggregate_id": aggregate_id,
                 "event_type": event_type,
@@ -470,20 +489,28 @@ class SqlConfigTransaction:
         )
 
     async def add_outbox_event(
-        self, *, event_id: UUID, aggregate_id: UUID, version: int, payload: dict[str, object]
+        self,
+        *,
+        event_id: UUID,
+        tenant_id: UUID | None,
+        aggregate_id: UUID,
+        version: int,
+        payload: dict[str, object],
     ) -> None:
         await self.connection.execute(
             text(
                 """
                 INSERT INTO core.outbox_event
-                    (event_id, aggregate_type, aggregate_id, event_type, version, payload)
+                    (event_id, tenant_id, aggregate_type, aggregate_id, event_type, version,
+                     payload)
                 VALUES
-                    (:event_id, 'tenant', :aggregate_id, 'tenant.config_updated', :version,
-                     CAST(:payload AS jsonb))
+                    (:event_id, :tenant_id, 'tenant', :aggregate_id, 'tenant.config_updated',
+                     :version, CAST(:payload AS jsonb))
                 """
             ),
             {
                 "event_id": event_id,
+                "tenant_id": tenant_id,
                 "aggregate_id": aggregate_id,
                 "version": version,
                 "payload": json.dumps(payload, default=str),
@@ -572,7 +599,7 @@ class SqlOutboxTransaction:
             text(
                 """
                 SELECT e.id, e.event_id, e.aggregate_type, e.aggregate_id, e.event_type,
-                       e.version, e.payload, e.attempts, e.replay
+                       e.version, e.payload, e.attempts, e.replay, e.tenant_id
                 FROM core.outbox_event e
                 WHERE e.published_at IS NULL AND e.dead_lettered_at IS NULL
                   AND (e.next_attempt_at IS NULL OR e.next_attempt_at <= :now)
@@ -623,14 +650,17 @@ class SqlOutboxTransaction:
             text(
                 """
                 INSERT INTO core.outbox_dead_letter
-                    (event_id, event_type, payload, error, attempts, source_outbox_id, replay)
+                    (event_id, tenant_id, event_type, payload, error, attempts, source_outbox_id,
+                     replay)
                 VALUES
-                    (:event_id, :event_type, CAST(:payload AS jsonb), :error, :attempts,
+                    (:event_id, :tenant_id, :event_type, CAST(:payload AS jsonb), :error,
+                     :attempts,
                      :id, COALESCE(:replay, false))
                 """
             ),
             {
                 "event_id": row["event_id"],
+                "tenant_id": row.get("tenant_id"),
                 "event_type": row["event_type"],
                 "payload": json.dumps(row["payload"], default=str),
                 "error": error,
@@ -1022,7 +1052,8 @@ class CoreRepository:
             result = await connection.execute(
                 text(
                     """
-                    SELECT id, event_id, aggregate_type, aggregate_id, event_type, version, payload
+                    SELECT id, event_id, tenant_id, aggregate_type, aggregate_id, event_type,
+                           version, payload
                     FROM core.outbox_event
                     WHERE created_at >= :since AND id > :after_id
                       AND (CAST(:company_id AS text) IS NULL
@@ -1111,14 +1142,19 @@ class CoreRepository:
                 text(
                     """
                     INSERT INTO core.outbox_event
-                        (event_id, aggregate_type, aggregate_id, event_type, version, payload)
+                        (event_id, tenant_id, aggregate_type, aggregate_id, event_type, version,
+                     payload)
                     VALUES
-                        (:event_id, 'signal', :aggregate_id, 'signal.created', 1,
+                        (:event_id,
+                         (SELECT c.tenant_id FROM core.company c WHERE c.id = :company_id
+                          ORDER BY c.version DESC LIMIT 1),
+                         'signal', :aggregate_id, 'signal.created', 1,
                          CAST(:payload AS jsonb))
                     """
                 ),
                 {
                     "event_id": event_id,
+                    "company_id": signal.company_id,
                     "aggregate_id": signal_id,
                     "payload": json.dumps(payload | {"request_id": request_id}),
                 },

@@ -670,7 +670,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-035 Hot lead alert notifier
-- status: todo
+- status: done
 - spec: REQ-ALR-001
 - owner: lead-backend-engineer
 - depends: T-024, T-090
@@ -679,7 +679,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_hot_alert.py`
 - note: when auto-qualification or a user moves a lead to Hot, post one alert to `HOT_LEAD_WEBHOOK_URL` (mock Telegram locally), once per lead and version, with backoff on failure and no effect on the commit. Test the 60-second bound with a fake clock. The alert reads `tenant_id` from the event stream field added by T-090, never from the payload.
-- evidence:
+- evidence: `pytest -q tests/unit/test_hot_alert.py` -> 7 passed; make static OK; make test 555 passed. Post-commit on_hot callback (no Hot event exists); dedupe in process memory; tenant read from DB row not payload.
 
 ### T-048 LinkedIn and Instagram sources
 - status: todo
@@ -694,7 +694,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-049 Remaining n8n workflows
-- status: todo
+- status: done
 - spec: REQ-ORC-001
 - owner: second-backend-engineer
 - depends: T-047, T-035, T-090
@@ -703,7 +703,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_workflows.py` and `python ops/check_workflows.py`
 - note: workflows for linkedin companies backfill, linkedin jobs, instagram, RUES delta, socioeconomic refresh, hot lead alert (webhook trigger to Telegram), and ops health. Orchestration only, no secrets, credentials by n8n credential name.
-- evidence:
+- evidence: `pytest -q tests/unit/test_workflows.py` -> 31 passed; `python ops/check_workflows.py` OK (9 workflows); make static OK; make test 578 passed.
 
 ### T-059 Socioeconomic indicators and opportunity index
 - status: done
@@ -718,7 +718,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_socio_indices.py` -> 26 passed; make static and make test pass
 
 ### T-090 Tenant on the event stream
-- status: todo
+- status: done
 - spec: REQ-EVT-001, REQ-EVT-002, REQ-EVT-005
 - owner: lead-backend-engineer
 - depends: T-025, T-052
@@ -727,10 +727,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_event_tenant.py tests/unit/test_dead_letter.py tests/unit/test_republish.py tests/unit/test_pulse_consumer.py`
 - note: decision D-16. Every stream entry carries `tenant_id` (UUID as text) as its own field, built once in `stream_fields` and used by both relay loops and by republish. The statement that claims due events selects `tenant_id` from `core.outbox_event`. A row with a null tenant is never published: it goes to the dead letter queue at once with error `missing_tenant_id` and an ALERT line. Add a source-scan test that every INSERT into `core.outbox_event` in `services/core/app/` sets `tenant_id`. Consumers read the stream field first and the payload second; check the pulse, ml, and brief consumers and report any that ignores the field instead of editing outside the write scope.
-- evidence:
+- evidence: `pytest -q tests/unit/test_event_tenant.py tests/unit/test_dead_letter.py tests/unit/test_republish.py tests/unit/test_pulse_consumer.py` -> 24 passed; `make static` OK; `make test` 546 passed. Note: services/ml consumer ignores the stream tenant_id field (it does not use a tenant at all); services/brief has no stream consumer. Pulse already reads the field first. Fixtures in test_dead_letter.py and test_republish.py gained tenant_id.
 
 ### T-091 One relay: the dead letter loop is the only relay
-- status: todo
+- status: done
 - spec: REQ-EVT-001, REQ-EVT-003, REQ-EVT-006
 - owner: lead-backend-engineer
 - depends: T-090
@@ -739,10 +739,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_outbox.py tests/unit/test_dead_letter.py tests/unit/test_relay_wiring.py` and `python ops/check_configuration.py`
 - note: decision D-17. `services.core.app.outbox_relay.main` becomes a thin call into the dead letter loop (retry after 10 s, 30 s, 90 s, 5 min, 15 min, dead letter after the sixth failure). Delete the legacy loop and its duplicated SQL. Keep the module path `services.core.app.outbox_relay` so compose and `procs.toml` need no change; if a change is still needed, the coordinator makes it. Update in place the tests in `test_outbox.py` that pin the legacy `main` and keep every other assertion. `test_relay_wiring.py` checks that each relay command in compose and `procs.toml` names a module that exists and exposes `main`.
-- evidence:
+- evidence: `pytest -q tests/unit/test_outbox.py tests/unit/test_dead_letter.py tests/unit/test_relay_wiring.py` -> 12 passed; `python ops/check_configuration.py` OK; make static OK; make test 543 passed.
 
 ### T-092 Relay to consumers, end to end and offline
-- status: todo
+- status: done
 - spec: REQ-EVT-001, REQ-EVT-002, REQ-QA-004
 - owner: qa-reviewer
 - depends: T-091
@@ -751,7 +751,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_relay_to_consumers.py`
 - note: with fakeredis and fake database layers, create events for a lead, a signal, and an outcome in two tenants through the real core code paths, run one relay pass, run the pulse consumer on the stream, and assert: facts land under the right tenant; a replayed event is applied once; an event without tenant is dead-lettered and projects nothing; tenant A data never appears in tenant B. Report production defects instead of changing production code.
-- evidence:
+- evidence: `pytest -q tests/unit/test_relay_to_consumers.py` -> 5 passed; make static OK; make test 555 passed. No production defects; note city/service_line absent from Pulse event payloads (rollups use unknown).
 
 ### T-093 Unique indexes migration
 - status: done
