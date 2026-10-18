@@ -32,7 +32,8 @@ DYNAMIC_SKELETON_SKIPPED: dict[tuple[str, str], str] = {}
 
 # Tables with a tenant_id column that deliberately have no row level security.
 # SPEC requires RLS only for the core business tables; these are infrastructure
-# tables. UNVERIFIED: reasons are guesses from table names; pending an owner decision (core.location and core.signal are tenant business data and may need RLS). Key: schema.table.
+# tables. UNVERIFIED: reasons are guesses from table names; pending an owner
+# decision (core.location and core.signal may need RLS). Key: schema.table.
 RLS_EXEMPT: dict[str, str] = {
     "analytics.processed_event": "consumer idempotency ledger, written by the service only",
     "core.audit_log": "append-only audit trail written by the service, not tenant queried",
