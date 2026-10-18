@@ -50,6 +50,7 @@ def _events(count: int, company: UUID | None = None) -> list[dict[str, Any]]:
         {
             "id": i,
             "event_id": uuid4(),
+            "tenant_id": uuid4(),
             "aggregate_type": "lead",
             "aggregate_id": uuid4(),
             "event_type": "lead.created",

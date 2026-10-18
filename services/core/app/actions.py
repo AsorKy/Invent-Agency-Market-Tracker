@@ -103,6 +103,7 @@ class ActionTransaction(Protocol):
         self,
         *,
         event_id: UUID,
+        tenant_id: UUID | None,
         aggregate_type: str,
         aggregate_id: UUID,
         event_type: str,
@@ -152,6 +153,7 @@ async def record_outcome(
         await tx.insert_outcome(row)
         await tx.add_outbox_event(
             event_id=uuid4(),
+            tenant_id=row["tenant_id"],
             aggregate_type="lead",
             aggregate_id=lead_id,
             event_type=EventType.LEAD_OUTCOME_RECORDED.value,
@@ -203,6 +205,7 @@ async def log_activity(
         await tx.insert_activity(row)
         await tx.add_outbox_event(
             event_id=uuid4(),
+            tenant_id=row["tenant_id"],
             aggregate_type="lead",
             aggregate_id=lead_id,
             event_type=EventType.SIGNAL_ACTIVITY_LOGGED.value,
@@ -253,6 +256,7 @@ async def convert_to_project(
         await tx.insert_project(row)
         await tx.add_outbox_event(
             event_id=uuid4(),
+            tenant_id=row["tenant_id"],
             aggregate_type="project",
             aggregate_id=row["id"],
             event_type=EventType.SIGNAL_CONVERTED_TO_PROJECT.value,

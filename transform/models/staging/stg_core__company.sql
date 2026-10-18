@@ -1,5 +1,5 @@
 -- Current version of each company from the Core transactional plane.
--- Feeds dim_company, dim_sector and fact_company_snapshot; schema.yml documents it.
+-- Feeds mart_dim_company, mart_dim_sector and mart_fact_company_snapshot; schema.yml documents it.
 
 select
     id as company_id,

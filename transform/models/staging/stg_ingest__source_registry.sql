@@ -1,4 +1,4 @@
--- Registered ingestion sources; feeds dim_source.
+-- Registered ingestion sources; feeds mart_dim_source.
 
 select
     source,

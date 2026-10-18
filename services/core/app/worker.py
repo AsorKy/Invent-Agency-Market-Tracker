@@ -10,12 +10,14 @@ safe. ``import_loop`` runs queued import jobs beside it. It relates to
 
 import asyncio
 import logging
+import time
 from collections.abc import Callable, Mapping
 
 from libs.common.events_dispatch import Handler, dispatch_event
 from libs.common.redis_client import create_redis
 from libs.common.redis_streams import ensure_consumer_group, read_consumer_batch
 from libs.common.settings import get_settings
+from services.core.app.hot_alert import HotAlertNotifier, HotCallback
 from services.core.app.imports import process_next_job
 from services.core.app.qualification import QualificationUnitOfWork, handle_score_event
 from services.core.app.repository import CoreRepository
@@ -29,9 +31,10 @@ _log = logging.getLogger(__name__)
 
 def build_handlers(
     unit_of_work_factory: Callable[[], QualificationUnitOfWork],
+    on_hot: HotCallback | None = None,
 ) -> dict[str, Handler]:
     async def on_score_updated(fields: Mapping[str, str]) -> None:
-        await handle_score_event(unit_of_work_factory(), fields)
+        await handle_score_event(unit_of_work_factory(), fields, on_hot=on_hot)
 
     return {"lead.score_updated": on_score_updated}
 
@@ -54,7 +57,8 @@ async def main() -> None:
     if repository.engine is None:
         raise RuntimeError("DATABASE_URL is required for the core worker")
     redis = create_redis(settings.redis_url)
-    handlers = build_handlers(repository.qualification_unit_of_work)
+    notifier = HotAlertNotifier(settings.hot_lead_webhook_url, clock=time.monotonic)
+    handlers = build_handlers(repository.qualification_unit_of_work, notifier)
     imports = asyncio.create_task(import_loop(repository, settings.worker_failure_sleep_seconds))
     try:
         await ensure_consumer_group(redis, STREAM_NAME, GROUP_NAME)
@@ -83,6 +87,7 @@ async def main() -> None:
                         await asyncio.sleep(settings.worker_failure_sleep_seconds)
     finally:
         imports.cancel()
+        await notifier.drain()
         await redis.aclose()
         await repository.close()
 

@@ -7,6 +7,7 @@ relates to ``services/core/app/repository.py``, ``outbox_relay.py``, and the
 receive events derived from committed changes.
 """
 
+import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Annotated
@@ -34,6 +35,7 @@ from services.core.app.actions import (
     record_outcome,
 )
 from services.core.app.companies import CompanyUpsert, upsert_company
+from services.core.app.hot_alert import HotAlertNotifier
 from services.core.app.imports import (
     MAX_BYTES,
     ImportEntity,
@@ -77,7 +79,9 @@ configure_logging(settings.log_level)
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     repository = CoreRepository(settings.database_url)
     app.state.repository = repository
+    app.state.hot_alerts = HotAlertNotifier(settings.hot_lead_webhook_url, clock=time.monotonic)
     yield
+    await app.state.hot_alerts.drain()
     await repository.close()
 
 
@@ -246,7 +250,11 @@ async def change_lead_status(
     try:
         repository: CoreRepository = request.app.state.repository
         body = await change_status(
-            repository.lead_unit_of_work(), lead_id, payload, tenant_id=x_tenant_id
+            repository.lead_unit_of_work(),
+            lead_id,
+            payload,
+            tenant_id=x_tenant_id,
+            on_hot=getattr(request.app.state, "hot_alerts", None),
         )
         return JSONResponse(content=body)
     except LeadNotFoundError as exc:

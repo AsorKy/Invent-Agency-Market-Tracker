@@ -1,6 +1,6 @@
-{# Keep this project's dbt models in analytics without duplicating the schema as
-   analytics_analytics. Relates to dbt_project.yml and staging/mart models; it
-   makes Analytics reads find the exact tables created by the migration. #}
+{# Keep this project's dbt models in the custom schema (pulse) without
+   prefixing it with the target schema (for example public_pulse). Relates to
+   dbt_project.yml and the staging and mart models. #}
 {% macro generate_schema_name(custom_schema_name, node) -%}
     {%- if custom_schema_name is none -%}
         {{ target.schema }}

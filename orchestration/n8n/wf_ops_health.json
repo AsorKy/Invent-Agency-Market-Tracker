@@ -1,0 +1,138 @@
+{
+  "id": "wf-ops-health",
+  "name": "wf_ops_health",
+  "description": "Hourly health check of the core and ingest services; any failed call sends an email.",
+  "active": false,
+  "versionId": "1.0.0",
+  "meta": {
+    "payloadVersion": "1"
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Bogota"
+  },
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 * * * *"
+            }
+          ]
+        }
+      },
+      "id": "ops_health-schedule",
+      "name": "Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        260,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{$env.CORE_URL}}/health",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "id": "ops_health-core",
+      "name": "Check core health",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        520,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{$env.INGEST_URL}}/health",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "id": "ops_health-ingest",
+      "name": "Check ingest health",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        780,
+        300
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "ops_health-error",
+      "name": "Error trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        260,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{$env.OPS_ALERT_FROM}}",
+        "toEmail": "={{$env.OPS_ALERT_TO}}",
+        "subject": "Market Tracker health check is red",
+        "text": "A service health check failed. Open the n8n execution for details."
+      },
+      "credentials": {
+        "smtp": {
+          "id": "ops-smtp",
+          "name": "ops-smtp"
+        }
+      },
+      "id": "ops_health-email",
+      "name": "Email ops team",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        520,
+        520
+      ]
+    }
+  ],
+  "connections": {
+    "Schedule": {
+      "main": [
+        [
+          {
+            "node": "Check core health",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check core health": {
+      "main": [
+        [
+          {
+            "node": "Check ingest health",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error trigger": {
+      "main": [
+        [
+          {
+            "node": "Email ops team",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
