@@ -8,12 +8,10 @@ and ``orchestration/n8n/wf_maps_medellin.json``. It accepts external data
 without blocking the provider response.
 """
 
-import hashlib
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 
-import orjson
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 
@@ -26,6 +24,7 @@ from libs.common.security import valid_signed_webhook
 from libs.common.settings import get_settings
 from libs.contracts.api import BrightDataWebhook
 from services.ingest.app.repository import IngestRepository
+from services.ingest.app.snapshot import payload_sha256 as compute_payload_sha256
 
 settings = get_settings()
 configure_logging(settings.log_level)
@@ -75,8 +74,7 @@ async def bright_data_webhook(payload: BrightDataWebhook, request: Request) -> d
         replay_window_seconds=settings.bright_data_replay_window_seconds,
     ):
         raise HTTPException(status_code=401, detail="invalid_bright_data_signature")
-    normalized = orjson.dumps(payload.payload, option=orjson.OPT_SORT_KEYS)
-    payload_sha256 = hashlib.sha256(normalized).hexdigest()
+    payload_sha256 = compute_payload_sha256(payload.payload)
     try:
         repository: IngestRepository = request.app.state.repository
         row_id, created, queued = await repository.persist_snapshot(

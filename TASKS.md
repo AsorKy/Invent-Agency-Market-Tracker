@@ -452,7 +452,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-040 Raw snapshot ingestion and change detection
-- status: todo
+- status: done
 - spec: REQ-ING-001
 - owner: second-backend-engineer
 - depends: T-014, T-018
@@ -461,7 +461,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_ingest_snapshot.py`
 - note: store snapshots with sha256 and `UNIQUE(source, external_id, sha256)`, create new signals only for changed content, enqueue one processor job per snapshot, and keep the webhook response fast (202).
-- evidence:
+- evidence: `pytest -q tests/unit/test_ingest_snapshot.py` -> 8 passed; make static and make test pass
 
 ### T-041 Budget caps and failed fetch handling
 - status: todo
