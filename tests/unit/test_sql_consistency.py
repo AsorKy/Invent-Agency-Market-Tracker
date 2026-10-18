@@ -43,7 +43,13 @@ DYNAMIC_SQL: dict[tuple[str, str], str] = {
 
 # Names passed to text(...) that no static rule resolves to a string. Key:
 # (file, variable name). Empty: every variable is resolved or checked by fallback.
-UNRESOLVED_SQL: dict[tuple[str, str], str] = {}
+UNRESOLVED_SQL: dict[tuple[str, str], str] = {
+    ("services/ingest/app/to_core.py", "statement"): (
+        "flush() runs statements buffered as (sql, params) tuples whose SQL is a literal "
+        "inside the same class; the collector does not follow tuples yet, so those "
+        "statements are not analyzed. Follow-up: teach the collector tuple literals."
+    ),
+}
 
 # Constructs the analyzer cannot judge. Key: (file, problem message).
 UNSUPPORTED: dict[tuple[str, str], str] = {}
