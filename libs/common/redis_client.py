@@ -17,11 +17,14 @@ from libs.common.settings import get_settings
 
 def create_redis(redis_url: str) -> Redis:
     settings = get_settings()
-    return Redis.from_url(
-        redis_url,
-        decode_responses=True,
-        socket_timeout=settings.redis_socket_timeout_seconds,
-        socket_connect_timeout=settings.redis_socket_connect_timeout_seconds,
+    return cast(
+        Redis,
+        Redis.from_url(
+            redis_url,
+            decode_responses=True,
+            socket_timeout=settings.redis_socket_timeout_seconds,
+            socket_connect_timeout=settings.redis_socket_connect_timeout_seconds,
+        ),
     )
 
 

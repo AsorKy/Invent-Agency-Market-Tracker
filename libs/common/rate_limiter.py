@@ -65,9 +65,9 @@ class RedisSlidingWindowRateLimiter:
             _SLIDING_WINDOW_SCRIPT,
             1,
             key,
-            self.window_seconds,
+            str(self.window_seconds),
             str(uuid4()),
-            self.limit,
+            str(self.limit),
         )
         result = cast(list[int | str], await cast(Awaitable[Any], raw_result))
         allowed = bool(int(result[0]))

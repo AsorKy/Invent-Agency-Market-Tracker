@@ -78,7 +78,7 @@ class CoreRepository:
                         "source_external_id": source_external_id,
                     },
                 )
-                existing_signal_id = existing.scalar_one()
+                existing_signal_id: UUID = existing.scalar_one()
                 return existing_signal_id, None
             await connection.execute(
                 text(

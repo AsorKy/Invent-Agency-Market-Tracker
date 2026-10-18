@@ -34,7 +34,7 @@ async def read_consumer_batch(
         StreamBatch,
         await redis.xreadgroup(group, consumer, {stream: "0"}, count=count),
     )
-    if pending:
+    if any(entries for _stream, entries in pending):
         return pending
     return cast(
         StreamBatch,
