@@ -17,18 +17,18 @@ import sys
 from pathlib import Path
 
 TABLES = (
-    "dim_company",
-    "dim_location",
-    "dim_sector",
-    "dim_service_line",
-    "dim_source",
-    "dim_date",
-    "dim_territory",
-    "fact_signal",
-    "fact_company_snapshot",
-    "fact_lead_outcome",
-    "fact_lead_score",
-    "fact_territory_indicator",
+    "mart_dim_company",
+    "mart_dim_location",
+    "mart_dim_sector",
+    "mart_dim_service_line",
+    "mart_dim_source",
+    "mart_dim_date",
+    "mart_dim_territory",
+    "mart_fact_signal",
+    "mart_fact_company_snapshot",
+    "mart_fact_lead_outcome",
+    "mart_fact_lead_score",
+    "mart_fact_territory_indicator",
 )
 SCHEMA = "pulse"
 

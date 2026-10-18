@@ -69,12 +69,12 @@ models:
       - name: territory_code
         tests: [not_null]
 
-  - name: dim_company
+  - name: mart_dim_company
     description: "Company dimension, current version."
     columns:
       - name: company_id
         tests: [not_null, unique]
-  - name: dim_location
+  - name: mart_dim_location
     description: "Location dimension."
     columns:
       - name: location_id
@@ -82,29 +82,29 @@ models:
       - name: company_id
         tests:
           - relationships:
-              to: ref('dim_company')
+              to: ref('mart_dim_company')
               field: company_id
-  - name: dim_sector
+  - name: mart_dim_sector
     description: "Sector dimension (CIIU code)."
     columns:
       - name: sector_code
         tests: [not_null, unique]
-  - name: dim_service_line
+  - name: mart_dim_service_line
     description: "Service line dimension."
     columns:
       - name: service_line
         tests: [not_null, unique]
-  - name: dim_source
+  - name: mart_dim_source
     description: "Ingestion source dimension."
     columns:
       - name: source
         tests: [not_null, unique]
-  - name: dim_date
+  - name: mart_dim_date
     description: "Calendar dimension."
     columns:
       - name: date_day
         tests: [not_null, unique]
-  - name: dim_territory
+  - name: mart_dim_territory
     description: "Territory dimension."
     columns:
       - name: territory_code
@@ -118,7 +118,7 @@ models:
         granularity: day
         tests: [not_null, unique]
 
-  - name: fact_signal
+  - name: mart_fact_signal
     description: "Signal fact. Grain: one row per signal."
     columns:
       - name: signal_id
@@ -127,35 +127,35 @@ models:
         tests:
           - not_null
           - relationships:
-              to: ref('dim_company')
+              to: ref('mart_dim_company')
               field: company_id
       - name: observed_date
         tests: [not_null]
-  - name: fact_company_snapshot
+  - name: mart_fact_company_snapshot
     description: "Daily company snapshot. Grain: company per snapshot_date."
     columns:
       - name: company_id
         tests: [not_null]
-  - name: fact_lead_outcome
+  - name: mart_fact_lead_outcome
     description: "Lead outcome fact. Grain: one row per outcome."
     columns:
       - name: outcome_id
         tests: [not_null, unique]
       - name: outcome
         tests: [not_null]
-  - name: fact_lead_score
+  - name: mart_fact_lead_score
     description: "Daily lead score snapshot. Grain: company per score_date."
     columns:
       - name: company_id
         tests: [not_null]
       - name: score
         tests: [not_null]
-  - name: fact_territory_indicator
+  - name: mart_fact_territory_indicator
     description: "Territory indicator fact. Grain: territory, indicator, period."
     columns:
       - name: territory_code
         tests:
           - not_null
           - relationships:
-              to: ref('dim_territory')
+              to: ref('mart_dim_territory')
               field: territory_code

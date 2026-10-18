@@ -1,5 +1,5 @@
--- Leads from the Core transactional plane; feeds dim_service_line and
--- fact_lead_outcome.
+-- Leads from the Core transactional plane; feeds mart_dim_service_line and
+-- mart_fact_lead_outcome.
 
 select
     id as lead_id,
