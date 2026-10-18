@@ -7,7 +7,6 @@ nothing external is used. The module skips when runtime dependencies are absent.
 """
 
 import json
-from types import SimpleNamespace
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -66,113 +65,10 @@ def stream_message(
     }
 
 
-def install_relay(monkeypatch: pytest.MonkeyPatch, db: FakeDb, redis: RedisProxy) -> None:
-    monkeypatch.setattr(outbox_relay, "get_settings", make_settings)
-    monkeypatch.setattr(outbox_relay, "create_engine", lambda *_a, **_k: db)
-    monkeypatch.setattr(outbox_relay, "create_redis", lambda *_a, **_k: redis)
-
-
-async def stream_entries(redis: Any) -> list[dict[str, str]]:
-    return [fields for _id, fields in await redis.xrange(outbox_relay.STREAM_NAME)]
-
-
-async def test_relay_publishes_pending_events_once_and_marks_them(
-    monkeypatch: pytest.MonkeyPatch, fake_redis: Any
-) -> None:
-    db = FakeDb([outbox_row(1), outbox_row(2, "company.updated")])
-    install_relay(monkeypatch, db, RedisProxy(fake_redis))
-
-    assert await outbox_relay.relay_once() == 2
-    assert db.published == [1, 2]
-    assert db.disposed
-    entries = await stream_entries(fake_redis)
-    assert [e["event_id"] for e in entries] == [str(r["event_id"]) for r in db.outbox_rows]
-    assert [e["event_type"] for e in entries] == ["signal.created", "company.updated"]
-    assert json.loads(entries[0]["payload"]) == db.outbox_rows[0]["payload"]
-
-    # A second pass finds nothing pending, so nothing is published twice.
-    assert await outbox_relay.relay_once() == 0
-    assert len(await stream_entries(fake_redis)) == 2
-
-
-async def test_relay_without_database_publishes_nothing(
-    monkeypatch: pytest.MonkeyPatch, fake_redis: Any
-) -> None:
-    monkeypatch.setattr(outbox_relay, "get_settings", make_settings)
-    monkeypatch.setattr(outbox_relay, "create_engine", lambda *_a, **_k: None)
-    monkeypatch.setattr(outbox_relay, "create_redis", lambda *_a, **_k: RedisProxy(fake_redis))
-
-    assert await outbox_relay.relay_once() == 0
-    assert await stream_entries(fake_redis) == []
-
-
-async def test_relay_failure_keeps_unpublished_rows_pending_for_next_pass(
-    monkeypatch: pytest.MonkeyPatch, fake_redis: Any
-) -> None:
-    db = FakeDb([outbox_row(1), outbox_row(2), outbox_row(3)])
-    install_relay(monkeypatch, db, RedisProxy(fake_redis, fail_xadd_on_calls={2}))
-
-    with pytest.raises(ConnectionError):
-        await outbox_relay.relay_once()
-    assert db.published == [1]
-    assert db.disposed
-
-    assert await outbox_relay.relay_once() == 2
-    assert db.published == [1, 2, 3]
-    ids = [e["event_id"] for e in await stream_entries(fake_redis)]
-    assert ids == [str(r["event_id"]) for r in db.outbox_rows]
-
-
-async def test_relay_mark_failure_republishes_duplicate_at_least_once(
-    monkeypatch: pytest.MonkeyPatch, fake_redis: Any
-) -> None:
-    db = FakeDb([outbox_row(1)])
-    db.fail_next("UPDATE core.outbox_event")
-    install_relay(monkeypatch, db, RedisProxy(fake_redis))
-
-    with pytest.raises(ConnectionError):
-        await outbox_relay.relay_once()
-    assert db.published == []
-    assert await outbox_relay.relay_once() == 1
-    assert db.published == [1]
-    # At-least-once: the same event_id is in the stream twice; consumers deduplicate.
-    ids = [e["event_id"] for e in await stream_entries(fake_redis)]
-    assert ids == [str(db.outbox_rows[0]["event_id"])] * 2
-
-
-async def test_relay_main_retries_transient_failure_until_published(
-    monkeypatch: pytest.MonkeyPatch, fake_redis: Any
-) -> None:
-    db = FakeDb([outbox_row(1), outbox_row(2)])
-    install_relay(monkeypatch, db, RedisProxy(fake_redis, fail_xadd_on_calls={2}))
-
-    async def stop_after_first_pass(_seconds: float) -> None:
-        raise StopLoop
-
-    monkeypatch.setattr(
-        outbox_relay, "asyncio", SimpleNamespace(sleep=stop_after_first_pass, run=None)
-    )
-    with pytest.raises(StopLoop):
-        await outbox_relay.main()
-
-    assert db.published == [1, 2]
-    assert len(await stream_entries(fake_redis)) == 2
-
-
-async def test_relay_main_survives_exhausted_retries(
-    monkeypatch: pytest.MonkeyPatch, fake_redis: Any
-) -> None:
-    db = FakeDb([outbox_row(1)])
-    db.fail_next("FROM core.outbox_event", times=3)
-    install_relay(monkeypatch, db, RedisProxy(fake_redis))
-
-    async def stop(_seconds: float) -> None:
-        raise StopLoop
-
-    monkeypatch.setattr(outbox_relay, "asyncio", SimpleNamespace(sleep=stop, run=None))
-    with pytest.raises(StopLoop):  # reached the poll sleep, so the error was swallowed
-        await outbox_relay.main()
-    assert db.published == []
+def test_legacy_relay_loop_is_gone_and_main_is_the_dead_letter_loop() -> None:
+    assert not hasattr(outbox_relay, "relay_once")
+    assert outbox_relay.STREAM_NAME == "invent.events"
+    assert callable(outbox_relay.main)
 
 
 def install_consumer(

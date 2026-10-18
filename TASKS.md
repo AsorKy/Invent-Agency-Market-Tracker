@@ -730,7 +730,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_event_tenant.py tests/unit/test_dead_letter.py tests/unit/test_republish.py tests/unit/test_pulse_consumer.py` -> 24 passed; `make static` OK; `make test` 546 passed. Note: services/ml consumer ignores the stream tenant_id field (it does not use a tenant at all); services/brief has no stream consumer. Pulse already reads the field first. Fixtures in test_dead_letter.py and test_republish.py gained tenant_id.
 
 ### T-091 One relay: the dead letter loop is the only relay
-- status: todo
+- status: done
 - spec: REQ-EVT-001, REQ-EVT-003, REQ-EVT-006
 - owner: lead-backend-engineer
 - depends: T-090
@@ -739,7 +739,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_outbox.py tests/unit/test_dead_letter.py tests/unit/test_relay_wiring.py` and `python ops/check_configuration.py`
 - note: decision D-17. `services.core.app.outbox_relay.main` becomes a thin call into the dead letter loop (retry after 10 s, 30 s, 90 s, 5 min, 15 min, dead letter after the sixth failure). Delete the legacy loop and its duplicated SQL. Keep the module path `services.core.app.outbox_relay` so compose and `procs.toml` need no change; if a change is still needed, the coordinator makes it. Update in place the tests in `test_outbox.py` that pin the legacy `main` and keep every other assertion. `test_relay_wiring.py` checks that each relay command in compose and `procs.toml` names a module that exists and exposes `main`.
-- evidence:
+- evidence: `pytest -q tests/unit/test_outbox.py tests/unit/test_dead_letter.py tests/unit/test_relay_wiring.py` -> 12 passed; `python ops/check_configuration.py` OK; make static OK; make test 543 passed.
 
 ### T-092 Relay to consumers, end to end and offline
 - status: todo

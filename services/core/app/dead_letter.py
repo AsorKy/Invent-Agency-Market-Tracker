@@ -4,7 +4,7 @@
 attempt and schedules the next one after 10 s, 30 s, 90 s, 5 min and 15 min. A sixth failure moves
 the event to ``core.outbox_dead_letter`` and logs an ``ALERT`` line (REQ-EVT-003). Events of an
 aggregate stay in order: after one fails, its later events wait in the same pass. It relates to
-``outbox_relay.py`` (legacy loop), ``repository.py`` (SQL unit of work) and ``republish.py`` (shares
+``outbox_relay.py`` (entry point), ``repository.py`` (SQL unit of work) and ``republish.py`` (shares
 ``stream_fields``). One transaction per pass; cost is O(batch).
 """
 
