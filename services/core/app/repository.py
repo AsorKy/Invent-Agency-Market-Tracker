@@ -557,6 +557,104 @@ class SqlQualificationUnitOfWork(SqlCompanyUnitOfWork):
         return SqlQualificationTransaction(await self._context.__aenter__())
 
 
+class SqlOutboxTransaction:
+    """Outbox claim, publish bookkeeping, and dead lettering on one connection."""
+
+    def __init__(self, connection: AsyncConnection) -> None:
+        self.connection = connection
+
+    async def claim_due(self, now: datetime, limit: int) -> list[dict[str, object]]:
+        """Due, undelivered events; an aggregate with an earlier waiting event is held back."""
+        result = await self.connection.execute(
+            text(
+                """
+                SELECT e.id, e.event_id, e.aggregate_type, e.aggregate_id, e.event_type,
+                       e.version, e.payload, e.attempts, e.replay
+                FROM core.outbox_event e
+                WHERE e.published_at IS NULL AND e.dead_lettered_at IS NULL
+                  AND (e.next_attempt_at IS NULL OR e.next_attempt_at <= :now)
+                  AND NOT EXISTS (
+                      SELECT 1 FROM core.outbox_event p
+                      WHERE p.aggregate_id = e.aggregate_id AND p.id < e.id
+                        AND p.published_at IS NULL AND p.dead_lettered_at IS NULL
+                        AND p.next_attempt_at > :now
+                  )
+                ORDER BY e.id
+                LIMIT :limit
+                FOR UPDATE SKIP LOCKED
+                """
+            ),
+            {"now": now, "limit": limit},
+        )
+        return [dict(row) for row in result.mappings().all()]
+
+    async def mark_published(self, row_id: int, now: datetime) -> None:
+        await self.connection.execute(
+            text("UPDATE core.outbox_event SET published_at = :now WHERE id = :id"),
+            {"id": row_id, "now": now},
+        )
+
+    async def record_failure(
+        self, row_id: int, *, attempts: int, next_attempt_at: datetime, error: str
+    ) -> None:
+        await self.connection.execute(
+            text(
+                """
+                UPDATE core.outbox_event
+                SET attempts = :attempts, next_attempt_at = :next_attempt_at, last_error = :error
+                WHERE id = :id
+                """
+            ),
+            {
+                "id": row_id,
+                "attempts": attempts,
+                "next_attempt_at": next_attempt_at,
+                "error": error,
+            },
+        )
+
+    async def dead_letter(
+        self, row: dict[str, object], *, attempts: int, error: str, now: datetime
+    ) -> None:
+        await self.connection.execute(
+            text(
+                """
+                INSERT INTO core.outbox_dead_letter
+                    (event_id, event_type, payload, error, attempts, source_outbox_id, replay)
+                VALUES
+                    (:event_id, :event_type, CAST(:payload AS jsonb), :error, :attempts,
+                     :id, COALESCE(:replay, false))
+                """
+            ),
+            {
+                "event_id": row["event_id"],
+                "event_type": row["event_type"],
+                "payload": json.dumps(row["payload"], default=str),
+                "error": error,
+                "attempts": attempts,
+                "id": row["id"],
+                "replay": row.get("replay"),
+            },
+        )
+        await self.connection.execute(
+            text(
+                """
+                UPDATE core.outbox_event
+                SET attempts = :attempts, last_error = :error, dead_lettered_at = :now
+                WHERE id = :id
+                """
+            ),
+            {"id": row["id"], "attempts": attempts, "error": error, "now": now},
+        )
+
+
+class SqlOutboxUnitOfWork(SqlCompanyUnitOfWork):
+    """Same commit-or-rollback boundary, yielding outbox operations."""
+
+    async def __aenter__(self) -> SqlOutboxTransaction:  # type: ignore[override]
+        return SqlOutboxTransaction(await self._context.__aenter__())
+
+
 class SqlLeadUnitOfWork(SqlCompanyUnitOfWork):
     """Same commit-or-rollback boundary, yielding lead operations."""
 
@@ -592,6 +690,39 @@ class CoreRepository:
         if self.engine is None:
             raise RuntimeError("DATABASE_URL is required for core writes")
         return SqlQualificationUnitOfWork(self.engine)
+
+    def outbox_unit_of_work(self) -> SqlOutboxUnitOfWork:
+        if self.engine is None:
+            raise RuntimeError("DATABASE_URL is required for core writes")
+        return SqlOutboxUnitOfWork(self.engine)
+
+    async def list_outbox_events_since(
+        self, since: datetime, company_id: UUID | None, after_id: int, limit: int
+    ) -> list[dict[str, object]]:
+        """Page the append-only outbox log in id order for republishing."""
+        if self.engine is None:
+            raise RuntimeError("DATABASE_URL is required for core reads")
+        async with self.engine.connect() as connection:
+            result = await connection.execute(
+                text(
+                    """
+                    SELECT id, event_id, aggregate_type, aggregate_id, event_type, version, payload
+                    FROM core.outbox_event
+                    WHERE created_at >= :since AND id > :after_id
+                      AND (CAST(:company_id AS text) IS NULL
+                           OR payload->>'company_id' = CAST(:company_id AS text))
+                    ORDER BY id
+                    LIMIT :limit
+                    """
+                ),
+                {
+                    "since": since,
+                    "after_id": after_id,
+                    "company_id": str(company_id) if company_id else None,
+                    "limit": limit,
+                },
+            )
+            return [dict(row) for row in result.mappings().all()]
 
     async def close(self) -> None:
         if self.engine:

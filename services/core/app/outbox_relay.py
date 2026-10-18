@@ -1,7 +1,9 @@
 """Publish committed events from ``core.outbox_event`` to Redis.
 
 ``relay_once`` reads pending events, appends them to ``invent.events``, and
-sets ``published_at``; the main process repeats every second. It relates to
+sets ``published_at``; the main process repeats every second. The variant with
+the retry schedule and dead letter queue is ``dead_letter.py`` (run it with
+``python -m services.core.app.dead_letter``). It relates to
 ``CoreRepository.create_signal``, the analytics and ML consumers, and the
 outbox table in the migration. It decouples Core transactions from
 projections and supports at-least-once delivery with retries.

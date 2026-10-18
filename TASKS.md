@@ -356,7 +356,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_auto_qualification.py` -> 12 passed; make static OK; make test 311 passed.
 
 ### T-025 Dead letter queue and republish
-- status: todo
+- status: done
 - spec: REQ-EVT-003, REQ-EVT-004
 - owner: lead-backend-engineer
 - depends: T-020
@@ -365,7 +365,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_dead_letter.py tests/unit/test_republish.py`
 - note: backoff 10 s, 30 s, 90 s, 5 min, 15 min then `core.outbox_dead_letter` with an alert log line; `python -m services.core.app.republish --target <pulse|brief|ml> --since <date>` replays with `replay: true`, requires `--confirm`, and blocks writes to the target while running (lock key).
-- evidence:
+- evidence: `pytest -q tests/unit/test_dead_letter.py tests/unit/test_republish.py` -> 28 passed (incl. test_outbox); make static OK; make test 324 passed. NOTE: dead_letter relay not wired into compose/outbox_relay.main (test_outbox.py pins old relay); needs devops+qa follow-up.
 
 ### T-026 CSV imports as background jobs
 - status: todo
