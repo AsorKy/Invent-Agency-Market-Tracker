@@ -406,7 +406,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_retention.py` -> 16 passed; make static OK; make test 355 passed.
 
 ### T-030 Identity service: Django project, RBAC, JWKS
-- status: todo
+- status: done
 - spec: REQ-IDN-001
 - owner: lead-backend-engineer
 - depends: T-014, T-018
@@ -415,7 +415,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/unit/test_identity_rbac.py`
 - note: Django plus DRF in `services/identity`, tables in the `identity` schema, models for user, tenant, role (admin, strategist, intake, bd_rep, analyst), and scope (city, service line), an RS256 key pair with a JWKS endpoint, service tokens, and the Django admin only on the internal network. Tests use SQLite settings and the Django test client. Decision D-14: if Django proves impractical in the sandbox after three focused attempts, mark `blocked`.
-- evidence:
+- evidence: `pytest -q tests/unit/test_identity_rbac.py` -> 7 passed; make static and make test pass
 
 ### T-031 Identity sessions, CSRF, local profile, and dev users
 - status: todo
