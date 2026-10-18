@@ -476,7 +476,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_ingest_budget.py` -> 7 passed; make static and make test pass
 
 ### T-042 Connector interface, mapping files, and Bright Data mock
-- status: todo
+- status: done
 - spec: REQ-ING-004, REQ-ING-007
 - owner: second-backend-engineer
 - depends: T-040, T-015
@@ -485,7 +485,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/unit/test_connectors.py tests/unit/test_mocks.py`
 - note: define `SourceConnector` (trigger, fetch, normalize), the YAML mapping format, mapping files for maps and computrabajo, and the mock connector. Extend the Flask mock to emulate trigger, progress, snapshot download, latency, failure rate, and signed webhooks. If `tests/fixtures/brightdata/` contains real samples (decision D-13), build mappings from them; otherwise mark each mapping `unverified: true` and list it for the run report.
-- evidence:
+- evidence: `pytest -q tests/unit/test_connectors.py tests/unit/test_mocks.py` -> 29 passed; make static and make test pass; mappings unverified (no fixtures/brightdata)
 
 ### T-043 Bright Data live connector and polling fallback
 - status: todo
