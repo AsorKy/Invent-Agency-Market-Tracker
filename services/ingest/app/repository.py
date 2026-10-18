@@ -71,7 +71,7 @@ class IngestRepository:
                     "fetched_at": fetched_at,
                 },
             )
-            row_id = result.scalar_one_or_none()
+            row_id: Any = result.scalar_one_or_none()
             created = row_id is not None
             if row_id is None:
                 existing = await connection.execute(

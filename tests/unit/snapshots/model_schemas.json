@@ -1,0 +1,1110 @@
+{
+  "api.BriefAlert": {
+    "additionalProperties": false,
+    "description": "Represent a severity-coded alert shown in a company brief.",
+    "properties": {
+      "code": {
+        "title": "Code",
+        "type": "string"
+      },
+      "message": {
+        "title": "Message",
+        "type": "string"
+      },
+      "severity": {
+        "title": "Severity",
+        "type": "string"
+      }
+    },
+    "required": [
+      "code",
+      "severity",
+      "message"
+    ],
+    "title": "BriefAlert",
+    "type": "object"
+  },
+  "api.BriefResponse": {
+    "additionalProperties": false,
+    "description": "Return a versioned company brief with stale and degraded indicators.",
+    "properties": {
+      "company_id": {
+        "format": "uuid",
+        "title": "Company Id",
+        "type": "string"
+      },
+      "content": {
+        "additionalProperties": true,
+        "title": "Content",
+        "type": "object"
+      },
+      "degraded": {
+        "default": false,
+        "title": "Degraded",
+        "type": "boolean"
+      },
+      "generated_at": {
+        "minimum": 0,
+        "title": "Generated At",
+        "type": "integer"
+      },
+      "source_version": {
+        "minimum": 0,
+        "title": "Source Version",
+        "type": "integer"
+      },
+      "stale": {
+        "default": false,
+        "title": "Stale",
+        "type": "boolean"
+      },
+      "summarizer_version": {
+        "title": "Summarizer Version",
+        "type": "string"
+      }
+    },
+    "required": [
+      "company_id",
+      "source_version",
+      "content",
+      "generated_at",
+      "summarizer_version"
+    ],
+    "title": "BriefResponse",
+    "type": "object"
+  },
+  "api.BrightDataWebhook": {
+    "properties": {
+      "dataset_id": {
+        "title": "Dataset Id",
+        "type": "string"
+      },
+      "fetched_at": {
+        "format": "date-time",
+        "title": "Fetched At",
+        "type": "string"
+      },
+      "payload": {
+        "anyOf": [
+          {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          {
+            "items": {},
+            "type": "array"
+          }
+        ],
+        "title": "Payload"
+      },
+      "snapshot_id": {
+        "title": "Snapshot Id",
+        "type": "string"
+      },
+      "status": {
+        "default": "ready",
+        "title": "Status",
+        "type": "string"
+      }
+    },
+    "required": [
+      "snapshot_id",
+      "dataset_id"
+    ],
+    "title": "BrightDataWebhook",
+    "type": "object"
+  },
+  "api.ContractModel": {
+    "additionalProperties": false,
+    "description": "Base model for additive v2.2 contracts with strict extra-field handling.",
+    "properties": {},
+    "title": "ContractModel",
+    "type": "object"
+  },
+  "api.ImportJobAccepted": {
+    "$defs": {
+      "ImportJobStatus": {
+        "description": "Enumerate the lifecycle states returned by the jobs API.",
+        "enum": [
+          "queued",
+          "running",
+          "succeeded",
+          "failed"
+        ],
+        "title": "ImportJobStatus",
+        "type": "string"
+      }
+    },
+    "additionalProperties": false,
+    "description": "Return the asynchronous job handle created by an import request.",
+    "properties": {
+      "job_id": {
+        "title": "Job Id",
+        "type": "string"
+      },
+      "status": {
+        "$ref": "#/$defs/ImportJobStatus",
+        "default": "queued"
+      },
+      "status_url": {
+        "title": "Status Url",
+        "type": "string"
+      }
+    },
+    "required": [
+      "job_id",
+      "status_url"
+    ],
+    "title": "ImportJobAccepted",
+    "type": "object"
+  },
+  "api.ImportJobResponse": {
+    "$defs": {
+      "ImportJobStatus": {
+        "description": "Enumerate the lifecycle states returned by the jobs API.",
+        "enum": [
+          "queued",
+          "running",
+          "succeeded",
+          "failed"
+        ],
+        "title": "ImportJobStatus",
+        "type": "string"
+      },
+      "ImportProgress": {
+        "additionalProperties": false,
+        "description": "Return bounded counters for an import job.",
+        "properties": {
+          "duplicates": {
+            "minimum": 0,
+            "title": "Duplicates",
+            "type": "integer"
+          },
+          "errors": {
+            "minimum": 0,
+            "title": "Errors",
+            "type": "integer"
+          },
+          "processed": {
+            "minimum": 0,
+            "title": "Processed",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0,
+            "title": "Total",
+            "type": "integer"
+          },
+          "upserted": {
+            "minimum": 0,
+            "title": "Upserted",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "processed",
+          "upserted",
+          "duplicates",
+          "errors"
+        ],
+        "title": "ImportProgress",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "description": "Return the current state and progress of an import job.",
+    "properties": {
+      "error": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Error"
+      },
+      "finished_at": {
+        "anyOf": [
+          {
+            "minimum": 0,
+            "type": "integer"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Finished At"
+      },
+      "job_id": {
+        "title": "Job Id",
+        "type": "string"
+      },
+      "progress": {
+        "$ref": "#/$defs/ImportProgress"
+      },
+      "started_at": {
+        "anyOf": [
+          {
+            "minimum": 0,
+            "type": "integer"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Started At"
+      },
+      "status": {
+        "$ref": "#/$defs/ImportJobStatus"
+      }
+    },
+    "required": [
+      "job_id",
+      "status",
+      "progress"
+    ],
+    "title": "ImportJobResponse",
+    "type": "object"
+  },
+  "api.ImportProgress": {
+    "additionalProperties": false,
+    "description": "Return bounded counters for an import job.",
+    "properties": {
+      "duplicates": {
+        "minimum": 0,
+        "title": "Duplicates",
+        "type": "integer"
+      },
+      "errors": {
+        "minimum": 0,
+        "title": "Errors",
+        "type": "integer"
+      },
+      "processed": {
+        "minimum": 0,
+        "title": "Processed",
+        "type": "integer"
+      },
+      "total": {
+        "minimum": 0,
+        "title": "Total",
+        "type": "integer"
+      },
+      "upserted": {
+        "minimum": 0,
+        "title": "Upserted",
+        "type": "integer"
+      }
+    },
+    "required": [
+      "total",
+      "processed",
+      "upserted",
+      "duplicates",
+      "errors"
+    ],
+    "title": "ImportProgress",
+    "type": "object"
+  },
+  "api.PipelineBacklogResponse": {
+    "additionalProperties": false,
+    "description": "Return active lead volume and the current team capacity estimate.",
+    "properties": {
+      "active": {
+        "minimum": 0,
+        "title": "Active",
+        "type": "integer"
+      },
+      "as_of": {
+        "minimum": 0,
+        "title": "As Of",
+        "type": "integer"
+      },
+      "capacity_estimate": {
+        "minimum": 0,
+        "title": "Capacity Estimate",
+        "type": "integer"
+      },
+      "hot": {
+        "minimum": 0,
+        "title": "Hot",
+        "type": "integer"
+      }
+    },
+    "required": [
+      "active",
+      "hot",
+      "capacity_estimate",
+      "as_of"
+    ],
+    "title": "PipelineBacklogResponse",
+    "type": "object"
+  },
+  "api.PipelineTimeGroup": {
+    "additionalProperties": false,
+    "description": "Represent one p50/p90 lead-time group in Pulse.",
+    "properties": {
+      "key": {
+        "title": "Key",
+        "type": "string"
+      },
+      "low_sample": {
+        "default": false,
+        "title": "Low Sample",
+        "type": "boolean"
+      },
+      "n": {
+        "minimum": 0,
+        "title": "N",
+        "type": "integer"
+      },
+      "p50_days": {
+        "anyOf": [
+          {
+            "minimum": 0,
+            "type": "number"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "P50 Days"
+      },
+      "p90_days": {
+        "anyOf": [
+          {
+            "minimum": 0,
+            "type": "number"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "P90 Days"
+      }
+    },
+    "required": [
+      "key",
+      "n"
+    ],
+    "title": "PipelineTimeGroup",
+    "type": "object"
+  },
+  "api.PulsePoint": {
+    "additionalProperties": false,
+    "description": "Represent one time bucket in the unprocessed-signal rollup.",
+    "properties": {
+      "failed": {
+        "minimum": 0,
+        "title": "Failed",
+        "type": "integer"
+      },
+      "rate": {
+        "anyOf": [
+          {
+            "maximum": 1,
+            "minimum": 0,
+            "type": "number"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Rate"
+      },
+      "t": {
+        "title": "T",
+        "type": "string"
+      },
+      "total": {
+        "minimum": 0,
+        "title": "Total",
+        "type": "integer"
+      }
+    },
+    "required": [
+      "t",
+      "total",
+      "failed"
+    ],
+    "title": "PulsePoint",
+    "type": "object"
+  },
+  "api.ScoreFeatures": {
+    "properties": {
+      "company_id": {
+        "format": "uuid",
+        "title": "Company Id",
+        "type": "string"
+      },
+      "icp_fit": {
+        "maximum": 1,
+        "minimum": 0,
+        "title": "Icp Fit",
+        "type": "number"
+      },
+      "signal_strength": {
+        "maximum": 1,
+        "minimum": 0,
+        "title": "Signal Strength",
+        "type": "number"
+      },
+      "source_version": {
+        "default": "draft",
+        "title": "Source Version",
+        "type": "string"
+      },
+      "territory_opportunity": {
+        "maximum": 1,
+        "minimum": 0,
+        "title": "Territory Opportunity",
+        "type": "number"
+      }
+    },
+    "required": [
+      "company_id",
+      "icp_fit",
+      "signal_strength",
+      "territory_opportunity"
+    ],
+    "title": "ScoreFeatures",
+    "type": "object"
+  },
+  "api.ScoreResponse": {
+    "properties": {
+      "company_id": {
+        "format": "uuid",
+        "title": "Company Id",
+        "type": "string"
+      },
+      "score": {
+        "title": "Score",
+        "type": "integer"
+      },
+      "score_version": {
+        "title": "Score Version",
+        "type": "string"
+      },
+      "stale": {
+        "default": false,
+        "title": "Stale",
+        "type": "boolean"
+      },
+      "status": {
+        "title": "Status",
+        "type": "string"
+      }
+    },
+    "required": [
+      "company_id",
+      "score",
+      "status",
+      "score_version"
+    ],
+    "title": "ScoreResponse",
+    "type": "object"
+  },
+  "api.SignalCreate": {
+    "properties": {
+      "company_id": {
+        "format": "uuid",
+        "title": "Company Id",
+        "type": "string"
+      },
+      "observed_at": {
+        "format": "date-time",
+        "title": "Observed At",
+        "type": "string"
+      },
+      "payload": {
+        "additionalProperties": true,
+        "title": "Payload",
+        "type": "object"
+      },
+      "signal_type": {
+        "title": "Signal Type",
+        "type": "string"
+      },
+      "source": {
+        "title": "Source",
+        "type": "string"
+      },
+      "source_external_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Source External Id"
+      },
+      "strength": {
+        "default": 0.5,
+        "maximum": 1,
+        "minimum": 0,
+        "title": "Strength",
+        "type": "number"
+      }
+    },
+    "required": [
+      "company_id",
+      "source",
+      "signal_type",
+      "observed_at"
+    ],
+    "title": "SignalCreate",
+    "type": "object"
+  },
+  "api.SourceEfficiency": {
+    "additionalProperties": false,
+    "description": "Return source efficiency using decimal strings for monetary values.",
+    "properties": {
+      "cost_per_meeting": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Cost Per Meeting"
+      },
+      "cost_usd": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Cost Usd"
+      },
+      "leads": {
+        "minimum": 0,
+        "title": "Leads",
+        "type": "integer"
+      },
+      "meetings": {
+        "minimum": 0,
+        "title": "Meetings",
+        "type": "integer"
+      },
+      "name": {
+        "title": "Name",
+        "type": "string"
+      },
+      "roas": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Roas"
+      }
+    },
+    "required": [
+      "name",
+      "leads",
+      "meetings"
+    ],
+    "title": "SourceEfficiency",
+    "type": "object"
+  },
+  "api.SourceEfficiencyResponse": {
+    "$defs": {
+      "SourceEfficiency": {
+        "additionalProperties": false,
+        "description": "Return source efficiency using decimal strings for monetary values.",
+        "properties": {
+          "cost_per_meeting": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Cost Per Meeting"
+          },
+          "cost_usd": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Cost Usd"
+          },
+          "leads": {
+            "minimum": 0,
+            "title": "Leads",
+            "type": "integer"
+          },
+          "meetings": {
+            "minimum": 0,
+            "title": "Meetings",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "roas": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Roas"
+          }
+        },
+        "required": [
+          "name",
+          "leads",
+          "meetings"
+        ],
+        "title": "SourceEfficiency",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "description": "Return source efficiency rows and the timestamp of the rollup.",
+    "properties": {
+      "as_of": {
+        "minimum": 0,
+        "title": "As Of",
+        "type": "integer"
+      },
+      "sources": {
+        "items": {
+          "$ref": "#/$defs/SourceEfficiency"
+        },
+        "title": "Sources",
+        "type": "array"
+      }
+    },
+    "required": [
+      "sources",
+      "as_of"
+    ],
+    "title": "SourceEfficiencyResponse",
+    "type": "object"
+  },
+  "api.TimeInPipelineResponse": {
+    "$defs": {
+      "PipelineTimeGroup": {
+        "additionalProperties": false,
+        "description": "Represent one p50/p90 lead-time group in Pulse.",
+        "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "low_sample": {
+            "default": false,
+            "title": "Low Sample",
+            "type": "boolean"
+          },
+          "n": {
+            "minimum": 0,
+            "title": "N",
+            "type": "integer"
+          },
+          "p50_days": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "P50 Days"
+          },
+          "p90_days": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "P90 Days"
+          }
+        },
+        "required": [
+          "key",
+          "n"
+        ],
+        "title": "PipelineTimeGroup",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "description": "Return lead-time groups with low-sample annotations.",
+    "properties": {
+      "as_of": {
+        "minimum": 0,
+        "title": "As Of",
+        "type": "integer"
+      },
+      "groups": {
+        "items": {
+          "$ref": "#/$defs/PipelineTimeGroup"
+        },
+        "title": "Groups",
+        "type": "array"
+      }
+    },
+    "required": [
+      "groups",
+      "as_of"
+    ],
+    "title": "TimeInPipelineResponse",
+    "type": "object"
+  },
+  "api.TopSource": {
+    "additionalProperties": false,
+    "description": "Represent one ranked source of qualified leads.",
+    "properties": {
+      "conversion_rate": {
+        "anyOf": [
+          {
+            "maximum": 1,
+            "minimum": 0,
+            "type": "number"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Conversion Rate"
+      },
+      "qualified_leads": {
+        "minimum": 0,
+        "title": "Qualified Leads",
+        "type": "integer"
+      },
+      "source": {
+        "title": "Source",
+        "type": "string"
+      }
+    },
+    "required": [
+      "source",
+      "qualified_leads"
+    ],
+    "title": "TopSource",
+    "type": "object"
+  },
+  "api.TopSourcesResponse": {
+    "$defs": {
+      "TopSource": {
+        "additionalProperties": false,
+        "description": "Represent one ranked source of qualified leads.",
+        "properties": {
+          "conversion_rate": {
+            "anyOf": [
+              {
+                "maximum": 1,
+                "minimum": 0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Conversion Rate"
+          },
+          "qualified_leads": {
+            "minimum": 0,
+            "title": "Qualified Leads",
+            "type": "integer"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "qualified_leads"
+        ],
+        "title": "TopSource",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "description": "Return ranked lead sources and their freshness timestamp.",
+    "properties": {
+      "as_of": {
+        "minimum": 0,
+        "title": "As Of",
+        "type": "integer"
+      },
+      "ranking": {
+        "items": {
+          "$ref": "#/$defs/TopSource"
+        },
+        "title": "Ranking",
+        "type": "array"
+      }
+    },
+    "required": [
+      "ranking",
+      "as_of"
+    ],
+    "title": "TopSourcesResponse",
+    "type": "object"
+  },
+  "api.UnprocessedSignalsResponse": {
+    "$defs": {
+      "PulsePoint": {
+        "additionalProperties": false,
+        "description": "Represent one time bucket in the unprocessed-signal rollup.",
+        "properties": {
+          "failed": {
+            "minimum": 0,
+            "title": "Failed",
+            "type": "integer"
+          },
+          "rate": {
+            "anyOf": [
+              {
+                "maximum": 1,
+                "minimum": 0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Rate"
+          },
+          "t": {
+            "title": "T",
+            "type": "string"
+          },
+          "total": {
+            "minimum": 0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "t",
+          "total",
+          "failed"
+        ],
+        "title": "PulsePoint",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "description": "Return signal processing counts with an explicit freshness timestamp.",
+    "properties": {
+      "as_of": {
+        "minimum": 0,
+        "title": "As Of",
+        "type": "integer"
+      },
+      "points": {
+        "items": {
+          "$ref": "#/$defs/PulsePoint"
+        },
+        "title": "Points",
+        "type": "array"
+      },
+      "stale": {
+        "default": false,
+        "title": "Stale",
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "points",
+      "as_of"
+    ],
+    "title": "UnprocessedSignalsResponse",
+    "type": "object"
+  },
+  "events.DomainEvent": {
+    "$defs": {
+      "EventType": {
+        "enum": [
+          "signal.created",
+          "company.updated",
+          "lead.created",
+          "lead.outcome_recorded",
+          "lead.score_updated",
+          "signal.activity_logged",
+          "signal.converted_to_project",
+          "tenant.config_updated",
+          "ingest.quarantine"
+        ],
+        "title": "EventType",
+        "type": "string"
+      }
+    },
+    "additionalProperties": false,
+    "description": "Describe a replayable event with compatibility defaults for F0 producers.",
+    "properties": {
+      "aggregate_id": {
+        "format": "uuid",
+        "title": "Aggregate Id",
+        "type": "string"
+      },
+      "aggregate_type": {
+        "title": "Aggregate Type",
+        "type": "string"
+      },
+      "created_at": {
+        "format": "date-time",
+        "title": "Created At",
+        "type": "string"
+      },
+      "event_id": {
+        "format": "uuid",
+        "title": "Event Id",
+        "type": "string"
+      },
+      "event_type": {
+        "$ref": "#/$defs/EventType"
+      },
+      "occurred_at": {
+        "format": "date-time",
+        "title": "Occurred At",
+        "type": "string"
+      },
+      "payload": {
+        "additionalProperties": true,
+        "title": "Payload",
+        "type": "object"
+      },
+      "replay": {
+        "default": false,
+        "title": "Replay",
+        "type": "boolean"
+      },
+      "request_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Request Id"
+      },
+      "schema_version": {
+        "default": 1,
+        "minimum": 1,
+        "title": "Schema Version",
+        "type": "integer"
+      },
+      "source_version": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Source Version"
+      },
+      "tenant_id": {
+        "anyOf": [
+          {
+            "format": "uuid",
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Tenant Id"
+      },
+      "version": {
+        "default": 1,
+        "title": "Version",
+        "type": "integer"
+      }
+    },
+    "required": [
+      "event_type",
+      "aggregate_type",
+      "aggregate_id",
+      "occurred_at",
+      "payload"
+    ],
+    "title": "DomainEvent",
+    "type": "object"
+  },
+  "events.EventType.values": [
+    "company.updated",
+    "ingest.quarantine",
+    "lead.created",
+    "lead.outcome_recorded",
+    "lead.score_updated",
+    "signal.activity_logged",
+    "signal.converted_to_project",
+    "signal.created",
+    "tenant.config_updated"
+  ],
+  "events.ReservedEventType.values": [
+    "company.matched",
+    "component.evaluated",
+    "funnel.gate_decision",
+    "funnel.kill_trigger_event",
+    "funnel.pivot_requested",
+    "funnel.project_killed",
+    "project.forecast_updated",
+    "project.pipeline_updated",
+    "review.candidate",
+    "signal.explained",
+    "signal.scored",
+    "signal.tagged"
+  ]
+}
