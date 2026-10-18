@@ -4,8 +4,14 @@
 -- and migrations/20261017_0002_arch_v22_foundations.sql. Run it as a database
 -- administrator after the schemas exist. Replace the CHANGE_ME passwords with
 -- values supplied by a secret manager; this file intentionally contains no
--- real credentials. Apply schema migrations with the corresponding *_owner
+-- real credentials. The generator ops/bootstrap_roles.py emits the same
+-- statements from ops/schemas.py. Apply schema migrations with the corresponding *_owner
 -- role and run application services with the corresponding *_app role.
+
+CREATE EXTENSION IF NOT EXISTS vector;
+CREATE EXTENSION IF NOT EXISTS postgis;
+CREATE EXTENSION IF NOT EXISTS pg_cron;
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
 DO $$
 BEGIN

@@ -188,7 +188,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_taxonomy.py tests/unit/test_db_settings.py` -> 6 passed, 1 skipped (db settings need sqlalchemy, unverified offline)
 
 ### T-010 Migration guardian and schema-list bootstrap
-- status: todo
+- status: done
 - spec: REQ-DAT-006, REQ-DAT-007, REQ-EXT-003
 - owner: database-engineer
 - depends: T-008
@@ -197,7 +197,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_migration_guard.py` and `python ops/check_migrations.py`
 - note: one list (`ops/schemas.py`) drives the guardian and the role bootstrap. The guardian rejects DROP, RENAME, ALTER TYPE, and NOT NULL without default outside `contract_` files, and a `contract_` file in the same commit as application code (use a `--base` git ref option, tested with fixtures). The bootstrap enables pgvector, postgis, pg_cron, and pg_trgm idempotently and creates `_owner` and `_app` roles with no cross-schema grants. A test adds a fake schema to the list and expects both to accept it.
-- evidence:
+- evidence: `pytest -q tests/unit/test_migration_guard.py tests/unit/test_schema_catalog.py` -> 29 passed, 1 xfailed; `python ops/check_migrations.py` -> OK
 
 ### T-011 Event catalog, envelope, and tolerant consumers
 - status: done
