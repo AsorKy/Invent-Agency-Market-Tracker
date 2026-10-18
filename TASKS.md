@@ -500,7 +500,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-044 Entity resolution against RUES (mock lookup)
-- status: todo
+- status: done
 - spec: REQ-ING-003
 - owner: second-backend-engineer
 - depends: T-040
@@ -509,7 +509,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/unit/test_entity_resolution.py`
 - note: thresholds 0.9 and 0.6, `entity_match_log` for review, `rues_lookup_queue`, quarantine after two failed attempts, and a `RuesLookup` interface with a mock. Splink is optional: use a pure-Python scorer (rapidfuzz or difflib) behind the same interface and record that choice in the run report.
-- evidence:
+- evidence: `pytest -q tests/unit/test_entity_resolution.py` -> 8 passed; make static/test pass
 
 ### T-045 Processor to core flow
 - status: todo
