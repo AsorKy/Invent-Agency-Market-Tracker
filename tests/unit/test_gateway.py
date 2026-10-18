@@ -30,7 +30,7 @@ from services.gateway.app import main as gw  # noqa: E402
 
 REAL_ASYNC_CLIENT = httpx.AsyncClient
 UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
-CSRF_COOKIE = "__Host-csrf"
+CSRF_COOKIE = "csrf"  # local profile name; production uses "__Host-csrf"
 
 
 class Upstream:
@@ -141,7 +141,6 @@ async def test_ready_ok_when_redis_and_all_upstreams_respond(
         "redis",
         "ingest",
         "core",
-        "analytics",
         "identity",
         "pulse",
         "brief",
@@ -250,9 +249,9 @@ async def test_public_resource_is_translated_to_internal_path_with_query(
     ("public", "internal", "port_attr"),
     [
         ("/api/v1/ingest/runs", "/internal/ingest/runs", "ingest_url"),
-        ("/api/v1/market/summary", "/internal/analytics/market/summary", "analytics_url"),
+        ("/api/v1/market/summary", "/internal/pulse/market/summary", "pulse_url"),
         ("/api/v1/scores/7", "/internal/ml/scores/7", "ml_url"),
-        ("/api/v1/auth/session", "/internal/identity/auth/session", "identity_url"),
+        ("/api/v1/me", "/internal/identity/me", "identity_url"),
         ("/api/v1/imports/3", "/internal/core/imports/3", "core_url"),
         ("/api/v1/leads/9/brief", "/internal/brief/leads/9", "brief_url"),
         ("/api/v1/leads/9", "/internal/core/leads/9", "core_url"),
@@ -413,8 +412,7 @@ async def test_csrf_matching_double_submit_is_forwarded(
 
     assert response.status_code == 200
     sent = upstream.requests[0]
-    assert sent.headers["X-CSRF-Token"] == "tok123"
-    assert f"{CSRF_COOKIE}=tok123" in sent.headers["Cookie"]
+    assert "Cookie" not in sent.headers  # session cookies reach identity only
 
 
 @pytest.mark.parametrize("method", ["PUT", "PATCH", "DELETE"])
@@ -460,15 +458,15 @@ async def test_csrf_disabled_by_default_allows_unsafe_method(
     assert response.status_code == 200
 
 
-async def test_identity_validation_enabled_without_validator_fails_closed(
+async def test_identity_validation_enabled_requires_credentials(
     client: Any, upstream: Upstream, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     override_security(monkeypatch, identity_validation_enabled=True)
 
     response = await client.get("/api/v1/companies")
 
-    assert response.status_code == 503
-    assert response.json() == {"detail": "identity_validation_not_configured"}
+    assert response.status_code == 401
+    assert response.json() == {"detail": "authentication_required"}
     assert upstream.requests == []
 
 
