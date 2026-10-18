@@ -47,7 +47,7 @@ RECORDS = {
 def test_mapping_loads_and_is_unverified(source: str) -> None:
     mapping = load_mapping(source)
     assert mapping.source == source and mapping.version >= 1
-    has_samples = (MAPPINGS_DIR.parents[2] / "tests" / "fixtures" / "brightdata").is_dir()
+    has_samples = (MAPPINGS_DIR.parents[2] / "tests" / "fixtures" / "brightdata" / "captured").is_dir()
     assert mapping.unverified is not has_samples
 
 

@@ -1,0 +1,32 @@
+[
+  {
+    "job_posting_id": "syn-lij-1",
+    "job_title": "Data Engineer",
+    "company_name": "Compania Uno",
+    "job_location": "Bogota, Colombia",
+    "job_base_pay_range": "$3M-$5M",
+    "job_summary": "Synthetic summary.",
+    "job_seniority_level": "Mid-Senior level",
+    "job_employment_type": "Full-time",
+    "job_posted_date": "2026-10-03",
+    "url": "https://www.linkedin.com/jobs/view/1",
+    "apply_link": "https://uno.example.com/apply",
+    "job_function": "Engineering",
+    "_synthetic": true
+  },
+  {
+    "job_posting_id": "syn-lij-2",
+    "job_title": "Sales Lead",
+    "company_name": "Compania Dos",
+    "job_location": "Medellin, Colombia",
+    "job_base_pay_range": "$2M-$3M",
+    "job_summary": "Synthetic summary.",
+    "job_seniority_level": "Associate",
+    "job_employment_type": "Full-time",
+    "job_posted_date": "2026-10-04",
+    "url": "https://www.linkedin.com/jobs/view/2",
+    "apply_link": "https://dos.example.com/apply",
+    "job_function": "Sales",
+    "_synthetic": true
+  }
+]

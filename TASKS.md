@@ -790,7 +790,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-096 Mapping verification harness
-- status: todo
+- status: done
 - spec: REQ-ING-004, REQ-RUN-006
 - owner: second-backend-engineer
 - depends: T-042, T-048
@@ -799,7 +799,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_verify_mappings.py` and `make static`
 - note: closes decision D-13 without hand-collected samples. (1) `ops/verify_mappings.py --samples DIR` runs each source mapping over the sample files of that source and reports unmapped fields present in the sample, required mapped fields missing from the sample, type failures, and a coverage ratio; it exits non-zero below `--min-coverage` (default 0.8). (2) `--capture` stores up to 3 records per source, redacted with `libs/common/log_redaction.py`, under `tests/fixtures/brightdata/captured/`; `make verify-live` (T-076) calls it after the first real snapshot. (3) A mapping flips to `unverified: false` only through a tool run over real or captured samples, never by hand. (4) Fixtures under `tests/fixtures/brightdata/synthetic/` use the documented Datasets API field names, carry `"_synthetic": true`, never count as verification, and exist only to test the harness.
-- evidence:
+- evidence: `pytest -q tests/unit/test_verify_mappings.py` 10 passed; make static/test pass (has_samples checks in test_connectors*.py now look at brightdata/captured/)
 
 ### T-097 dbt mart naming
 - status: todo
