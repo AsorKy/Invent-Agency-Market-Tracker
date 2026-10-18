@@ -18,6 +18,8 @@ static:
 	python ops/check_configuration.py
 	python ops/check_language.py
 	python ops/check_script_docs.py
+	python ops/check_traceability.py
+	python ops/check_workflows.py
 	python -m compileall -q libs services datagen ops
 	ruff check libs services datagen ops
 	ruff format --check libs services datagen ops

@@ -272,7 +272,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_registry.py` -> 5 passed; AGENTS.md roster synced by coordinator
 
 ### T-017 Guards: workflows, secrets, and static wiring
-- status: todo
+- status: done
 - spec: REQ-ORC-001, REQ-SEC-004
 - owner: devops-engineer
 - depends: T-002
@@ -281,7 +281,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_guards.py` and `make static`
 - note: add a workflow checker (no code nodes, no secret-like values, no business logic nodes) and wire `ops/check_traceability.py` and the workflow checker into `make static`. Add a secret-pattern scan over tracked text files that reports file names and counts only, never matched text.
-- evidence:
+- evidence: `pytest -q tests/unit/test_guards.py` -> 7 passed; all check_*.py OK, ruff clean, `mypy ops` clean; `make static` fully runnable only in CI (py3.11 sandbox cannot parse PEP 695 in libs/common/retry.py)
 
 ### T-018 Schema additions for run 1 (expand migration)
 - status: done
