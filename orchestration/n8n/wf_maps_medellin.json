@@ -1,36 +1,186 @@
 {
   "id": "wf-maps-medellin",
   "name": "wf_maps_medellin",
-  "description": "Schedule Bright Data for Medellin and deliver the webhook to the ingest service through the gateway.",
+  "description": "Daily Google Maps Medellin run: check the ingest budget, trigger Bright Data with the ingest webhook as notify URL, and notify the team.",
   "active": false,
-  "settings": {"executionOrder": "v1", "timezone": "America/Bogota"},
+  "versionId": "1.0.0",
+  "meta": {
+    "payloadVersion": "1"
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Bogota"
+  },
   "nodes": [
     {
-      "parameters": {"rule": {"interval": [{"field": "cronExpression", "expression": "0 6 * * *"}]}},
-      "id": "maps-schedule",
-      "name": "Daily 06:00 COT",
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 6 * * *"
+            }
+          ]
+        }
+      },
+      "id": "maps_medellin-schedule",
+      "name": "Schedule",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [260, 300]
+      "position": [
+        260,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{$env.INGEST_URL}}/internal/ingest/budget/maps",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ingest-internal",
+          "name": "ingest-internal-header"
+        }
+      },
+      "id": "maps_medellin-budget",
+      "name": "Check ingest budget",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        520,
+        300
+      ]
     },
     {
       "parameters": {
         "method": "POST",
         "url": "={{$env.BRIGHT_DATA_API_URL}}/datasets/v3/trigger",
-        "sendHeaders": true,
-        "headerParameters": {"parameters": [{"name": "Authorization", "value": "=Bearer {{$env.BRIGHT_DATA_API_TOKEN}}"}]},
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\"dataset_id\":\"google-maps-medellin\",\"inputs\":{\"city\":\"Medellin\",\"country\":\"CO\"},\"notify\":\"{{$env.INGEST_WEBHOOK_URL}}\"}",
-        "options": {"timeout": 10000}
+        "jsonBody": "={\"dataset_id\":\"google-maps-medellin\",\"inputs\":{\"city\": \"Medellin\", \"country\": \"CO\"},\"notify\":\"{{$env.INGEST_WEBHOOK_URL}}\"}",
+        "options": {
+          "timeout": 10000
+        }
       },
-      "id": "trigger-bright-data",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "brightdata-api",
+          "name": "brightdata-api-header"
+        }
+      },
+      "id": "maps_medellin-trigger",
       "name": "Trigger Bright Data",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [520, 300]
+      "position": [
+        780,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.TELEGRAM_WEBHOOK_URL}}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"text\":\"Ingest run started: google-maps-medellin\"}",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "id": "maps_medellin-notify-ok",
+      "name": "Notify run started",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1040,
+        300
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "maps_medellin-error",
+      "name": "Error trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        260,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.TELEGRAM_WEBHOOK_URL}}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"text\":\"Ingest run failed or blocked by budget: google-maps-medellin\"}",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "id": "maps_medellin-notify-fail",
+      "name": "Notify run failed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        520,
+        520
+      ]
     }
   ],
-  "connections": {"Daily 06:00 COT": {"main": [[{"node": "Trigger Bright Data", "type": "main", "index": 0}]]}}
+  "connections": {
+    "Schedule": {
+      "main": [
+        [
+          {
+            "node": "Check ingest budget",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check ingest budget": {
+      "main": [
+        [
+          {
+            "node": "Trigger Bright Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger Bright Data": {
+      "main": [
+        [
+          {
+            "node": "Notify run started",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error trigger": {
+      "main": [
+        [
+          {
+            "node": "Notify run failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
 }
-

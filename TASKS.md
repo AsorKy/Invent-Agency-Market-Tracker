@@ -536,7 +536,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-047 n8n source workflows
-- status: todo
+- status: done
 - spec: REQ-ORC-001
 - owner: second-backend-engineer
 - depends: T-017, T-042
@@ -545,7 +545,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_workflows.py` and `python ops/check_workflows.py`
 - note: versioned workflows for maps and computrabajo (trigger, notify URL, budget check, notification) that call ingest only; no code nodes, no secrets; credentials referenced by n8n credential names.
-- evidence:
+- evidence: `pytest -q tests/unit/test_workflows.py` 8 passed; `python ops/check_workflows.py` OK; make static/test pass
 
 ### T-050 Merge analytics into pulse
 - status: todo
