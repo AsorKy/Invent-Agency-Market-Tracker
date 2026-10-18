@@ -19,6 +19,7 @@ from fastapi.responses import JSONResponse, Response
 
 from libs.common.db import check_database
 from libs.common.internal_auth import require_internal_token
+from libs.common.lifecycle import graceful_lifespan, instrument_app
 from libs.common.logging import configure_logging
 from libs.common.redis_client import check_redis
 from libs.common.request_id import RequestIdMiddleware
@@ -50,8 +51,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     await repository.close()
 
 
-app = FastAPI(title="Invent Market Tracker Pulse", version=settings.app_version, lifespan=lifespan)
+app = FastAPI(
+    title="Invent Market Tracker Pulse",
+    version=settings.app_version,
+    lifespan=graceful_lifespan(lifespan),
+)
 app.add_middleware(RequestIdMiddleware)
+instrument_app(app, "pulse")
 
 
 @app.middleware("http")

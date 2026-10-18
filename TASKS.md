@@ -838,7 +838,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_failure_matrix.py` 16 passed; make static/test pass; production defects listed in run report
 
 ### T-062 Graceful shutdown, structured logs, and metrics
-- status: todo
+- status: done
 - spec: REQ-EVT-007, REQ-OBS-001
 - owner: lead-backend-engineer
 - depends: T-060, T-061
@@ -847,7 +847,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_lifespan.py tests/unit/test_logging.py`
 - note: one shared lifespan helper (stop accepting, wait 25 s, flush the relay, ack the batch, close pools), one-line JSON logs with `request_id`, and Prometheus metrics at `/internal/metrics` for every service.
-- evidence:
+- evidence: `pytest -q tests/unit/test_lifespan.py tests/unit/test_logging.py` 15 passed; make static/test pass. Gaps: no shutdown hooks registered by workers yet; request_id not propagated to consumers
 
 ### T-063 Verified encrypted backups
 - status: todo
