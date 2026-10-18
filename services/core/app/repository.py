@@ -495,6 +495,68 @@ class SqlConfigUnitOfWork(SqlCompanyUnitOfWork):
         return SqlConfigTransaction(await self._context.__aenter__())
 
 
+class SqlQualificationTransaction(SqlLeadTransaction):
+    """Inbox, lookups, and lead writes for automatic qualification."""
+
+    async def mark_processed(self, event_id: UUID) -> bool:
+        result = await self.connection.execute(
+            text(
+                """
+                INSERT INTO core.processed_event (event_id) VALUES (:event_id)
+                ON CONFLICT (event_id) DO NOTHING
+                RETURNING event_id
+                """
+            ),
+            {"event_id": event_id},
+        )
+        return result.scalar_one_or_none() is not None
+
+    async def get_company_tenant(self, company_id: UUID) -> tuple[bool, UUID | None]:
+        result = await self.connection.execute(
+            text("SELECT tenant_id FROM core.company WHERE id = :id"), {"id": company_id}
+        )
+        row = result.first()
+        return (row is not None, row[0] if row else None)
+
+    async def get_config(self, tenant_id: UUID) -> dict[str, object] | None:
+        return await SqlConfigTransaction(self.connection).get_config(tenant_id)
+
+    async def find_leads(self, company_id: UUID) -> list[dict[str, object]]:
+        result = await self.connection.execute(
+            text(
+                """
+                SELECT id, tenant_id, company_id, service_line, stage, version
+                FROM core.lead WHERE company_id = :company_id
+                ORDER BY created_at, id
+                FOR UPDATE
+                """
+            ),
+            {"company_id": company_id},
+        )
+        return [dict(row) for row in result.mappings().all()]
+
+    async def has_manual_transition(self, lead_id: UUID) -> bool:
+        result = await self.connection.execute(
+            text(
+                """
+                SELECT 1 FROM core.audit_log
+                WHERE aggregate_type = 'lead' AND aggregate_id = :id
+                  AND action = 'lead.status_changed'
+                LIMIT 1
+                """
+            ),
+            {"id": lead_id},
+        )
+        return result.first() is not None
+
+
+class SqlQualificationUnitOfWork(SqlCompanyUnitOfWork):
+    """Same commit-or-rollback boundary, yielding qualification operations."""
+
+    async def __aenter__(self) -> SqlQualificationTransaction:  # type: ignore[override]
+        return SqlQualificationTransaction(await self._context.__aenter__())
+
+
 class SqlLeadUnitOfWork(SqlCompanyUnitOfWork):
     """Same commit-or-rollback boundary, yielding lead operations."""
 
@@ -525,6 +587,11 @@ class CoreRepository:
         if self.engine is None:
             raise RuntimeError("DATABASE_URL is required for core writes")
         return SqlConfigUnitOfWork(self.engine)
+
+    def qualification_unit_of_work(self) -> SqlQualificationUnitOfWork:
+        if self.engine is None:
+            raise RuntimeError("DATABASE_URL is required for core writes")
+        return SqlQualificationUnitOfWork(self.engine)
 
     async def close(self) -> None:
         if self.engine:

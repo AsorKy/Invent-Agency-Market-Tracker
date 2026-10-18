@@ -344,7 +344,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_tenant_config.py` -> 9 passed; make static OK; make test 299 passed. Models in services/core/app/tenant_config.py (contracts frozen).
 
 ### T-024 Automatic qualification consumer
-- status: todo
+- status: done
 - spec: REQ-COR-008
 - owner: lead-backend-engineer
 - depends: T-023
@@ -353,7 +353,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_auto_qualification.py`
 - note: consume `lead.score_updated` with the inbox pattern; create or advance leads by the tenant thresholds; never move backward or override a human-set status; write `audit_log`; emit `lead.created` for new leads.
-- evidence:
+- evidence: `pytest -q tests/unit/test_auto_qualification.py` -> 12 passed; make static OK; make test 311 passed.
 
 ### T-025 Dead letter queue and republish
 - status: todo

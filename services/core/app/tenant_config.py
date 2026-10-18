@@ -25,6 +25,7 @@ class AlertRules(BaseModel):
     no_contact_days_warning: int = Field(default=5, ge=0)
     no_contact_days_critical: int = Field(default=15, ge=0)
     require_rues_match: bool = True
+    min_score_for_qualified: int = Field(default=50, ge=0, le=100)
     min_score_for_hot: int = Field(default=70, ge=0, le=100)
     max_quarantine_days: int = Field(default=7, ge=0)
 
