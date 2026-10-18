@@ -584,7 +584,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-053 ML scoring service with single-flight and rule score
-- status: todo
+- status: done
 - spec: REQ-ML-001, REQ-COR-006
 - owner: second-backend-engineer
 - depends: T-014, T-018
@@ -593,7 +593,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/unit/test_scoring.py tests/unit/test_ml_singleflight.py`
 - note: deterministic weighted rule (ICP fit, signal intensity, territory placeholder) with weights from `core.lead_score_rule` and tenant config, `source_version` and `stale` handling, the Redis lock, and `lead.score_updated` publication. Pure scoring logic lives in `libs/domain/scoring.py`.
-- evidence:
+- evidence: `pytest -q tests/unit/test_scoring.py tests/unit/test_ml_singleflight.py` -> 13 passed; make static and make test pass
 
 ### T-054 ML segmentation pipeline
 - status: todo
