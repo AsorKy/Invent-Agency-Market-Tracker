@@ -129,7 +129,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_gateway.py` -> 1 skipped (fastapi/httpx/fakeredis missing offline); ~45 cases written from code reading, unverified until CI
 
 ### T-005 Outbox relay and idempotent consumer tests
-- status: todo
+- status: done
 - spec: REQ-QA-002, REQ-EVT-001, REQ-EVT-002
 - owner: qa-reviewer
 - depends: T-001
@@ -138,7 +138,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/unit/test_outbox.py`
 - note: use fakes for the database and Redis. Verify unpublished events are published once marked, retried on failure, and that a repeated event ID is applied once by each consumer (ml and the pulse consumer under its current name).
-- evidence:
+- evidence: `pytest -q tests/unit/test_outbox.py` -> 1 skipped (fakeredis/fastapi stack missing offline); written from code reading, unverified until CI
 
 ### T-006 Ingest webhook signature tests
 - status: done
