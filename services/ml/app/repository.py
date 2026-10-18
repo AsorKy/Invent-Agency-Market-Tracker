@@ -13,6 +13,7 @@ from uuid import UUID
 from sqlalchemy import text
 
 from libs.common.db import create_engine
+from libs.domain.scoring import ScoreWeights, resolve_weights
 
 
 class MlRepository:
@@ -81,7 +82,7 @@ class MlRepository:
                     await connection.execute(
                         text(
                             """
-                        SELECT company_id, score, stale, score_version
+                        SELECT company_id, score, stale, score_version, source_version
                         FROM ml.lead_score WHERE company_id = :company_id
                         """
                         ),
@@ -92,3 +93,28 @@ class MlRepository:
                 .first()
             )
             return dict(row) if row else None
+
+    async def mark_stale(self, company_id: UUID) -> None:
+        if self.engine is None:
+            raise RuntimeError("DATABASE_URL is required for ml writes")
+        async with self.engine.begin() as connection:
+            await connection.execute(
+                text("UPDATE ml.lead_score SET stale = true WHERE company_id = :company_id"),
+                {"company_id": company_id},
+            )
+
+    async def load_weights(self, tenant_id: UUID) -> ScoreWeights:
+        """Read ``core.lead_score_rule`` rows for a tenant; defaults without a database."""
+        if self.engine is None:
+            return ScoreWeights()
+        async with self.engine.connect() as connection:
+            rows = (
+                await connection.execute(
+                    text(
+                        "SELECT rule_name, weight, active FROM core.lead_score_rule "
+                        "WHERE tenant_id = :tenant_id"
+                    ),
+                    {"tenant_id": tenant_id},
+                )
+            ).all()
+        return resolve_weights((str(r[0]), r[1], bool(r[2])) for r in rows)

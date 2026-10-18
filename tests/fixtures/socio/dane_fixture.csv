@@ -1,0 +1,11 @@
+city,territory_code,territory_name,gdp_per_capita,formality_rate,youth_employment_rate,business_growth_rate,web_share,ecommerce_share,app_share,prospect_density
+Bogota,B01,Chapinero,42000,78,62,6.5,70,45,20,14
+Bogota,B02,Usaquen,45000,80,64,7.0,75,50,25,12
+Bogota,B03,Suba,30000,65,55,5.0,40,20,8,18
+Bogota,B04,Engativa,28000,60,52,4.5,35,15,6,16
+Bogota,B05,Kennedy,22000,50,48,3.0,30,10,4,20
+Bogota,B06,Bosa,18000,42,44,2.5,25,8,3,9
+Medellin,M01,El Poblado,48000,82,66,7.5,80,55,30,10
+Medellin,M02,Laureles,38000,75,60,6.0,45,25,10,15
+Medellin,M03,Belen,26000,58,50,4.0,32,12,5,13
+Cali,C01,Comuna 2,33000,70,58,5.5,50,30,12,11

@@ -1,18 +1,21 @@
 """Expose the ARCH-0001 v2.2 Pulse metric shell.
 
-The application owns the five operational metric endpoints, common freshness
+The application owns the five operational metric endpoints, the market and
+segment endpoints merged from the former analytics service, common freshness
 metadata, browser cache headers, and empty-data behavior. It relates to
 ``services/pulse/app/repository.py`` for read-model access and to the shared
 health helpers used by the other backend services. It is used behind the
 gateway while the event-driven Pulse projections are implemented.
 """
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
+from typing import Annotated
+from uuid import UUID
 
-from fastapi import Depends, FastAPI, Query, Request
-from fastapi.responses import JSONResponse
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
+from fastapi.responses import JSONResponse, Response
 
 from libs.common.db import check_database
 from libs.common.internal_auth import require_internal_token
@@ -20,26 +23,28 @@ from libs.common.logging import configure_logging
 from libs.common.redis_client import check_redis
 from libs.common.request_id import RequestIdMiddleware
 from libs.common.settings import get_settings
+from libs.contracts.pulse import CACHE_CONTROL, is_stale
 from services.pulse.app.models import (
+    OpsHealthResponse,
     PipelineBacklogResponse,
     PipelineTimeResponse,
     SourceEfficiencyResponse,
+    SourceFreshness,
+    TerritoryOpportunityResponse,
     TopSourcesResponse,
     UnprocessedSignalsResponse,
 )
 from services.pulse.app.repository import PulseRepository
+from services.pulse.app.socio_loader import SocioDataError
 
 settings = get_settings()
 configure_logging(settings.log_level)
-
-STALE_AFTER_MS = 26 * 60 * 60 * 1000
-CACHE_CONTROL = "private, max-age=60"
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Create and close the service-local read repository."""
-    repository = PulseRepository(settings.database_url)
+    repository = PulseRepository(settings.database_url, settings.socio_data_dir)
     app.state.repository = repository
     yield
     await repository.close()
@@ -47,6 +52,17 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(title="Invent Market Tracker Pulse", version=settings.app_version, lifespan=lifespan)
 app.add_middleware(RequestIdMiddleware)
+
+
+@app.middleware("http")
+async def pulse_cache_header(
+    request: Request, call_next: Callable[[Request], Awaitable[Response]]
+) -> Response:
+    """Add the browser cache header to every successful Pulse response."""
+    response = await call_next(request)
+    if request.url.path.startswith("/internal/pulse/") and response.status_code == 200:
+        response.headers["Cache-Control"] = CACHE_CONTROL
+    return response
 
 
 def _now_ms() -> int:
@@ -57,7 +73,7 @@ def _now_ms() -> int:
 def _freshness(as_of: datetime | None) -> tuple[int, bool]:
     """Convert a source timestamp to API metadata and apply the 26-hour rule."""
     as_of_ms = int(as_of.timestamp() * 1000) if as_of is not None else _now_ms()
-    return as_of_ms, _now_ms() - as_of_ms > STALE_AFTER_MS
+    return as_of_ms, is_stale(as_of_ms, _now_ms())
 
 
 def _json_response(payload: object, *, as_of: int) -> JSONResponse:
@@ -87,6 +103,26 @@ async def ready() -> JSONResponse:
             "dependencies": {"database": database, "redis": redis},
         },
     )
+
+
+@app.get("/internal/pulse/market", dependencies=[Depends(require_internal_token)])
+@app.get("/internal/pulse/market/overview", dependencies=[Depends(require_internal_token)])
+async def market_overview(
+    request: Request,
+    x_tenant_id: Annotated[UUID | None, Header(alias="X-Tenant-Id")] = None,
+) -> dict[str, object]:
+    """Return 90-day market totals from the Pulse daily rollup."""
+    repository: PulseRepository = request.app.state.repository
+    try:
+        return await repository.market_overview(tenant_id=x_tenant_id)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@app.get("/internal/pulse/segments", dependencies=[Depends(require_internal_token)])
+async def segments() -> None:
+    """Report that the segment read model is not built yet."""
+    raise HTTPException(status_code=501, detail="segment_read_model_pending")
 
 
 @app.get(
@@ -169,4 +205,44 @@ async def top_sources(
     )
     as_of, stale = _freshness(source_as_of)
     payload = TopSourcesResponse(ranking=rows, as_of=as_of, stale=stale)
+    return _json_response(payload.model_dump(mode="json"), as_of=as_of)
+
+
+@app.get("/internal/pulse/ops/health", dependencies=[Depends(require_internal_token)])
+async def ops_health(request: Request) -> JSONResponse:
+    """Return per-source freshness and outbox backlog for the Ops page."""
+    sources, backlog, source_as_of = await request.app.state.repository.ops_health()
+    as_of, stale = _freshness(source_as_of)
+    now = _now_ms()
+    rows = [
+        SourceFreshness(
+            source=row.source,
+            as_of=row.as_of,
+            stale=row.as_of is not None and is_stale(row.as_of, now),
+        )
+        for row in sources
+    ]
+    payload = OpsHealthResponse(sources=rows, outbox_backlog=backlog, as_of=as_of, stale=stale)
+    return _json_response(payload.model_dump(mode="json"), as_of=as_of)
+
+
+@app.get("/internal/pulse/territory/opportunity", dependencies=[Depends(require_internal_token)])
+async def territory_opportunity(
+    request: Request,
+    city: str | None = Query(default=None, max_length=80),
+    limit: int = Query(default=50, ge=1, le=500),
+) -> JSONResponse:
+    """Return territories ranked by the opportunity index IOP."""
+    try:
+        (
+            rows,
+            source_as_of,
+            method_version,
+        ) = await request.app.state.repository.territory_opportunity(city=city, limit=limit)
+    except SocioDataError as exc:
+        raise HTTPException(status_code=503, detail="socio_data_invalid") from exc
+    as_of, stale = _freshness(source_as_of)
+    payload = TerritoryOpportunityResponse(
+        territories=rows, as_of=as_of, stale=stale, method_version=method_version
+    )
     return _json_response(payload.model_dump(mode="json"), as_of=as_of)

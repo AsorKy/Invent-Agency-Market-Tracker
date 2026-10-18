@@ -1,4 +1,4 @@
-# Minimal dbt project configuration for Invent Market Tracker.
+# dbt project configuration for Invent Market Tracker.
 # Relates to transform/models and the SQL migration; the schema macro prevents
 # dbt from generating analytics_analytics in local environments.
 name: invent_market_tracker
@@ -15,7 +15,8 @@ models:
   invent_market_tracker:
     +materialized: view
     staging:
-      +schema: analytics
+      +schema: pulse
     marts:
-      +schema: analytics
+      +schema: pulse
+      +materialized: table
 

@@ -1,16 +1,18 @@
-"""Consume Core events and project signals into analytics.
+"""Consume Core events and project signals into the Pulse schema.
 
-The consumer creates the Redis ``analytics`` group, records each ``event_id``
-in ``analytics.processed_event``, and materializes ``signal.created`` in
-``analytics.fact_signal`` within a transaction. It relates to
-``services/core/app/outbox_relay.py``, ``AnalyticsRepository``, and the SQL
-migration. It is used as an idempotent worker so market endpoints read
-rebuildable projections.
+The consumer creates the Redis ``pulse`` group, records each ``event_id`` in the
+consumer-owned ``pulse.processed_event``, and materializes ``signal.created`` in
+``pulse.fact_signal`` within one transaction, and updates only the affected
+local day of ``pulse.daily_rollup`` (``rollups.py``) for ``signal.created`` and
+``lead.outcome_recorded``. It relates to
+``services/core/app/outbox_relay.py``, ``PulseRepository``, and the Pulse SQL
+migration. It is an idempotent worker so Pulse endpoints read rebuildable
+projections. Events without a tenant id cannot be stored under the tenant
+policies, so they are skipped and acknowledged.
 """
 
 import asyncio
 import json
-from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import text
@@ -21,57 +23,58 @@ from libs.common.redis_client import create_redis
 from libs.common.redis_streams import ensure_consumer_group, read_consumer_batch
 from libs.common.retry import retry_with_backoff
 from libs.common.settings import get_settings
+from libs.common.tenant import set_tenant_context
+from services.pulse.app.rollups import apply_outcome, apply_signal
 
 STREAM_NAME = "invent.events"
-GROUP_NAME = "analytics"
-CONSUMER_NAME = "analytics-worker"
+GROUP_NAME = "pulse"
+CONSUMER_NAME = "pulse-worker"
+
+
+def _tenant_id(event: dict[str, str], payload: dict[str, object]) -> UUID | None:
+    """Return the tenant id from the event envelope or the payload, if present."""
+    raw = event.get("tenant_id") or payload.get("tenant_id")
+    return UUID(str(raw)) if raw else None
 
 
 async def process_event(connection: AsyncConnection, event: dict[str, str]) -> None:
+    """Apply one stream message once; a repeated ``event_id`` is a no-op."""
     event_id = UUID(event["event_id"])
+    payload = json.loads(event["payload"])
+    tenant_id = _tenant_id(event, payload)
+    if tenant_id is None:
+        return
+    await set_tenant_context(connection, tenant_id)
     inserted = await connection.execute(
         text(
             """
-            INSERT INTO analytics.processed_event (event_id)
-            VALUES (:event_id)
+            INSERT INTO pulse.processed_event (event_id, tenant_id, event_type, replay)
+            VALUES (:event_id, :tenant_id, :event_type, :replay)
             ON CONFLICT (event_id) DO NOTHING
             RETURNING event_id
             """
         ),
-        {"event_id": event_id},
+        {
+            "event_id": event_id,
+            "tenant_id": tenant_id,
+            "event_type": event["event_type"],
+            "replay": event.get("replay", "false") == "true",
+        },
     )
     if inserted.scalar_one_or_none() is None:
         return
 
-    if event["event_type"] != "signal.created":
-        return
-    payload = json.loads(event["payload"])
-    await connection.execute(
-        text(
-            """
-            INSERT INTO analytics.fact_signal
-                (signal_id, company_id, source, signal_type, observed_at, strength)
-            VALUES (:signal_id, :company_id, :source, :signal_type,
-                    :observed_at, :strength)
-            ON CONFLICT (signal_id) DO NOTHING
-            """
-        ),
-        {
-            "signal_id": UUID(payload["signal_id"]),
-            "company_id": UUID(payload["company_id"]),
-            "source": payload["source"],
-            "signal_type": payload["signal_type"],
-            "observed_at": datetime.fromisoformat(payload["observed_at"].replace("Z", "+00:00")),
-            "strength": payload["strength"],
-        },
-    )
+    if event["event_type"] == "signal.created":
+        await apply_signal(connection, tenant_id, payload)
+    elif event["event_type"] == "lead.outcome_recorded":
+        await apply_outcome(connection, tenant_id, payload)
 
 
 async def main() -> None:
     settings = get_settings()
     engine = create_engine(settings.database_url, pool_size=2)
     if engine is None:
-        raise RuntimeError("DATABASE_URL is required for analytics consumer")
+        raise RuntimeError("DATABASE_URL is required for pulse consumer")
     redis = create_redis(settings.redis_url)
     try:
         await ensure_consumer_group(redis, STREAM_NAME, GROUP_NAME)

@@ -9,9 +9,10 @@ It prioritizes leads audibly while outcomes accumulate.
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from uuid import UUID, uuid4
+from typing import Annotated
+from uuid import UUID
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 from libs.common.db import check_database
@@ -21,8 +22,8 @@ from libs.common.redis_client import check_redis, create_redis
 from libs.common.request_id import RequestIdMiddleware
 from libs.common.settings import get_settings
 from libs.contracts.api import ScoreFeatures, ScoreResponse
-from libs.domain.scoring import calculate_rule_score
 from services.ml.app.repository import MlRepository
+from services.ml.app.scoring_service import ScoringService
 
 settings = get_settings()
 configure_logging(settings.log_level)
@@ -62,69 +63,20 @@ async def ready() -> JSONResponse:
     response_model=ScoreResponse,
     dependencies=[Depends(require_internal_token)],
 )
-async def regenerate_score(features: ScoreFeatures, request: Request) -> ScoreResponse:
-    lock_key = f"lock:score:{features.company_id}"
-    owner_id = str(uuid4())
-    acquired = await request.app.state.redis.set(
-        lock_key,
-        owner_id,
-        nx=True,
-        px=settings.score_lock_ttl_seconds * 1000,
+async def regenerate_score(
+    features: ScoreFeatures,
+    request: Request,
+    x_tenant_id: Annotated[UUID | None, Header()] = None,
+) -> ScoreResponse:
+    repository: MlRepository = request.app.state.repository
+    service = ScoringService(
+        repository, request.app.state.redis, lock_ttl_seconds=settings.score_lock_ttl_seconds
     )
-    if not acquired:
-        previous = await request.app.state.repository.latest_score(features.company_id)
-        return ScoreResponse(
-            company_id=features.company_id,
-            score=int(previous["score"]) if previous else 0,
-            status="in_progress",
-            stale=True,
-            score_version=str(previous["score_version"]) if previous else "pending",
-        )
-
     try:
-        breakdown = calculate_rule_score(
-            icp_fit=features.icp_fit,
-            signal_strength=features.signal_strength,
-            territory_opportunity=features.territory_opportunity,
-        )
-        score_version = f"rule-f1:{features.source_version}"
-        await request.app.state.repository.upsert_score(
-            company_id=features.company_id,
-            score=breakdown.score,
-            is_hot=breakdown.is_hot,
-            source_version=features.source_version,
-            score_version=score_version,
-        )
-        await request.app.state.redis.xadd(
-            "invent.events",
-            {
-                "event_id": str(uuid4()),
-                "event_type": "lead.score_updated",
-                "aggregate_type": "company",
-                "aggregate_id": str(features.company_id),
-                "score": str(breakdown.score),
-                "is_hot": str(breakdown.is_hot).lower(),
-            },
-        )
-        return ScoreResponse(
-            company_id=features.company_id,
-            score=breakdown.score,
-            status="computed",
-            score_version=score_version,
-        )
+        weights = await repository.load_weights(x_tenant_id) if x_tenant_id else None
+        return await service.regenerate(features, weights)
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
-    finally:
-        release_lock_script = (
-            "if redis.call('get', KEYS[1]) == ARGV[1] "
-            "then return redis.call('del', KEYS[1]) else return 0 end"
-        )
-        await request.app.state.redis.eval(
-            release_lock_script,
-            1,
-            lock_key,
-            owner_id,
-        )
 
 
 @app.get("/internal/ml/scores/{company_id}", dependencies=[Depends(require_internal_token)])

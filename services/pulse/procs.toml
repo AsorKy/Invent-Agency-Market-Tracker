@@ -1,6 +1,15 @@
-# Pulse processes for the v2.2 service shell. The API relates to app/main.py;
-# a worker and rollup process will be added when the Pulse event consumer is implemented.
+# Pulse processes for an ARCH-0001-compatible supervisor. The API relates to
+# app/main.py and the consumer to app/consumer.py, which projects invent.events
+# into the pulse schema.
 [[proc]]
 name = "api"
 cmd = ["uvicorn", "services.pulse.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 probe = "http://127.0.0.1:8000/health"
+
+[[proc]]
+name = "consumer"
+cmd = ["python", "-m", "services.pulse.app.consumer"]
+heartbeat = "/tmp/hb/consumer"
+
+# Daily close job: run on a schedule (n8n or cron), not as a long-lived process:
+# python -m services.pulse.app.rollup_close --tenant <uuid>

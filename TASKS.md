@@ -548,7 +548,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_workflows.py` 8 passed; `python ops/check_workflows.py` OK; make static/test pass
 
 ### T-050 Merge analytics into pulse
-- status: todo
+- status: done
 - spec: REQ-ARC-001
 - owner: second-backend-engineer
 - depends: T-014, T-018
@@ -557,10 +557,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/unit/test_pulse_consumer.py` and `python -c "import pathlib,sys; sys.exit(1 if pathlib.Path('services/analytics').exists() else 0)"`
 - note: port the analytics consumer, repository, and market and segment endpoints into `services/pulse` using the `pulse` schema and the consumer-owned `processed_event`, then delete `services/analytics`. Do not edit compose or the gateway route table (T-073 and T-032 own them).
-- evidence:
+- evidence: `pytest -q tests/unit/test_pulse_consumer.py` -> 6 passed; services/analytics removed; make static and make test pass
 
 ### T-051 Pulse endpoints, freshness, and response rules
-- status: todo
+- status: done
 - spec: REQ-PUL-001, REQ-EXT-004
 - owner: second-backend-engineer
 - depends: T-050
@@ -569,10 +569,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_pulse_contract.py`
 - note: the five Pulse endpoints plus `ops/health` with `as_of`, `stale` after 26 hours, `low_sample`, null for no data, optional `method_version`, and `Cache-Control: private, max-age=60`.
-- evidence:
+- evidence: `pytest -q tests/unit/test_pulse_contract.py` -> 25 passed; make static and make test pass
 
 ### T-052 Pulse incremental rollups
-- status: todo
+- status: done
 - spec: REQ-PUL-002
 - owner: second-backend-engineer
 - depends: T-050
@@ -581,10 +581,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_rollups.py`
 - note: event-driven update of only the affected local day, `local_day(ts, city)` for grouping, and a daily close job.
-- evidence:
+- evidence: `pytest -q tests/unit/test_rollups.py` -> 8 passed; make static and make test pass
 
 ### T-053 ML scoring service with single-flight and rule score
-- status: todo
+- status: done
 - spec: REQ-ML-001, REQ-COR-006
 - owner: second-backend-engineer
 - depends: T-014, T-018
@@ -593,10 +593,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/unit/test_scoring.py tests/unit/test_ml_singleflight.py`
 - note: deterministic weighted rule (ICP fit, signal intensity, territory placeholder) with weights from `core.lead_score_rule` and tenant config, `source_version` and `stale` handling, the Redis lock, and `lead.score_updated` publication. Pure scoring logic lives in `libs/domain/scoring.py`.
-- evidence:
+- evidence: `pytest -q tests/unit/test_scoring.py tests/unit/test_ml_singleflight.py` -> 13 passed; make static and make test pass
 
 ### T-054 ML segmentation pipeline
-- status: todo
+- status: done
 - spec: REQ-ML-002
 - owner: second-backend-engineer
 - depends: T-053, T-013
@@ -605,10 +605,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_segmentation.py`
 - note: nightly batch on datagen data: firmographic features, UMAP plus HDBSCAN with K-Prototypes comparison, `ml.company_segment`, and a versioned `ml.model_version`. Use fixed random seeds. Skip heavy imports at module load so the service starts without the `ml` extra.
-- evidence:
+- evidence: `pytest -q tests/unit/test_segmentation.py` -> 6 passed, 1 skipped (ml extra absent); make static and make test pass
 
 ### T-055 dbt star model and Parquet materialization
-- status: todo
+- status: done
 - spec: REQ-PUL-003
 - owner: second-backend-engineer
 - depends: T-050
@@ -617,10 +617,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `dbt parse --project-dir transform --profiles-dir transform` (profiles from `profiles.yml.example`)
 - note: dimensions and facts listed in REQ-PUL-003, schema tests, MetricFlow YAML for the core measures, and a Parquet export model or script. No database is available in the sandbox: parse and compile only.
-- evidence:
+- evidence: `dbt parse --project-dir transform --profiles-dir /tmp/dbtprof` (copy of profiles.yml.example) -> exit 0, 21 models, 9 metrics; compile not possible without a DB; make static passes
 
 ### T-056 Streamlit foundation and container
-- status: todo
+- status: done
 - spec: REQ-STR-001, REQ-STR-002
 - owner: second-backend-engineer
 - depends: T-051
@@ -629,10 +629,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_streamlit_helpers.py`
 - note: real Streamlit app with `st.navigation`, `safe_fetch` returning (data, error) with `as_of`, stale warning, per-card error and retry, role gating, session-state filters with `st.query_params`, and export visibility rules. No database credentials; reads Parquet and the gateway API. The replacement of the temporary uvicorn shell in compose is T-073.
-- evidence:
+- evidence: `pytest -q tests/unit/test_streamlit_helpers.py` -> 15 passed; make static and make test pass (313 passed)
 
 ### T-057 Streamlit pages 1 to 4
-- status: todo
+- status: done
 - spec: REQ-STR-001
 - owner: second-backend-engineer
 - depends: T-056
@@ -641,7 +641,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_streamlit_pages_a.py` (Streamlit AppTest)
 - note: Market, Leads, Segmentos, and Territorios pages. Territorios shows only what L1 provides and an explicit placeholder for the IOZ (L3).
-- evidence:
+- evidence: `pytest -q tests/unit/test_streamlit_pages_a.py` -> 9 passed; make static and make test pass
 
 ### T-058 Streamlit pages 5 to 7
 - status: todo
@@ -692,7 +692,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-059 Socioeconomic indicators and opportunity index
-- status: todo
+- status: done
 - spec: REQ-SOC-001
 - owner: second-backend-engineer
 - depends: T-050, T-018
@@ -701,7 +701,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/unit/test_socio_indices.py`
 - note: loader for indicator files from `SOCIO_DATA_DIR`, z-scores within city, IPET, IMD, and IOP with PCA or entropy weights and `method_version`, the `/territory/opportunity` read endpoint, and a fixture dataset. Pure index math lives in `libs/domain/socio.py`. Spatial autocorrelation (Moran's I) is L3 and out of scope here.
-- evidence:
+- evidence: `pytest -q tests/unit/test_socio_indices.py` -> 26 passed; make static and make test pass
 
 ### T-060 Zero trust between services
 - status: todo

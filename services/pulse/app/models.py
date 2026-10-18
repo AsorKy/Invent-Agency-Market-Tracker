@@ -6,7 +6,9 @@ zero. The module relates to ``main.py`` and ``repository.py`` and is used to
 validate the five operational metric response shapes.
 """
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
+
+from libs.contracts.pulse import is_low_sample
 
 
 class SignalPoint(BaseModel):
@@ -24,6 +26,7 @@ class UnprocessedSignalsResponse(BaseModel):
     points: list[SignalPoint]
     as_of: int
     stale: bool
+    method_version: str | None = None
 
 
 class PipelineBacklog(BaseModel):
@@ -39,6 +42,7 @@ class PipelineBacklogResponse(PipelineBacklog):
 
     as_of: int
     stale: bool
+    method_version: str | None = None
 
 
 class SourceEfficiency(BaseModel):
@@ -58,6 +62,7 @@ class SourceEfficiencyResponse(BaseModel):
     sources: list[SourceEfficiency]
     as_of: int
     stale: bool
+    method_version: str | None = None
 
 
 class PipelineTimeGroup(BaseModel):
@@ -67,7 +72,14 @@ class PipelineTimeGroup(BaseModel):
     p50_days: float | None = Field(default=None, ge=0)
     p90_days: float | None = Field(default=None, ge=0)
     n: int = Field(ge=0)
-    low_sample: bool
+    low_sample: bool = False
+
+    @model_validator(mode="after")
+    def _apply_low_sample(self) -> "PipelineTimeGroup":
+        """Force the low-sample flag whenever n is below five."""
+        if is_low_sample(self.n):
+            self.low_sample = True
+        return self
 
 
 class PipelineTimeResponse(BaseModel):
@@ -76,6 +88,7 @@ class PipelineTimeResponse(BaseModel):
     groups: list[PipelineTimeGroup]
     as_of: int
     stale: bool
+    method_version: str | None = None
 
 
 class TopSource(BaseModel):
@@ -92,3 +105,52 @@ class TopSourcesResponse(BaseModel):
     ranking: list[TopSource]
     as_of: int
     stale: bool
+    method_version: str | None = None
+
+
+class SourceFreshness(BaseModel):
+    """Represent the last successful load of one data source."""
+
+    source: str
+    as_of: int | None = None
+    stale: bool = False
+
+
+class OpsHealthResponse(BaseModel):
+    """Return pipeline freshness per source and the outbox backlog."""
+
+    sources: list[SourceFreshness]
+    outbox_backlog: int | None = Field(default=None, ge=0)
+    as_of: int
+    stale: bool
+    method_version: str | None = None
+
+
+class TerritoryOpportunity(BaseModel):
+    """Represent one ranked territory with its composite indices (0..1 in city)."""
+
+    rank: int = Field(ge=1)
+    city: str
+    territory_code: str
+    territory_name: str
+    ipet: float = Field(ge=0, le=1)
+    imd: float = Field(ge=0, le=1)
+    iop: float = Field(ge=0, le=1)
+    n_in_city: int = Field(ge=0)
+    low_sample: bool = False
+
+    @model_validator(mode="after")
+    def _apply_low_sample(self) -> "TerritoryOpportunity":
+        """Force the low-sample flag whenever the city has fewer than five territories."""
+        if is_low_sample(self.n_in_city):
+            self.low_sample = True
+        return self
+
+
+class TerritoryOpportunityResponse(BaseModel):
+    """Return ranked territories and freshness metadata."""
+
+    territories: list[TerritoryOpportunity]
+    as_of: int
+    stale: bool
+    method_version: str | None = None

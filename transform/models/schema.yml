@@ -1,6 +1,6 @@
-# Contracts and tests for the core source and staging/mart models.
-# Relates to SQL files in models/ and the read models queried by
-# services/analytics/app/repository.py.
+# Sources, contracts and tests for the star model (REQ-PUL-003).
+# Relates to the SQL files in models/staging and models/marts and to
+# models/semantic.yml, which defines the measures once.
 version: 2
 
 sources:
@@ -13,6 +13,25 @@ sources:
             tests: [not_null, unique]
           - name: company_id
             tests: [not_null]
+      - name: company
+        columns:
+          - name: id
+            tests: [not_null]
+      - name: location
+      - name: lead
+      - name: lead_outcome
+  - name: ingest
+    schema: ingest
+    tables:
+      - name: source_registry
+  - name: ml
+    schema: ml
+    tables:
+      - name: score_history
+  - name: socio
+    schema: socio
+    tables:
+      - name: indicator_normalized
 
 models:
   - name: stg_core__signal
@@ -20,6 +39,123 @@ models:
     columns:
       - name: signal_id
         tests: [not_null, unique]
-  - name: fact_signal
-    description: "Signal fact table; the first piece of the star model."
+  - name: stg_core__company
+    description: "Current company versions (valid_to is null)."
+    columns:
+      - name: company_id
+        tests: [not_null, unique]
+  - name: stg_core__location
+    columns:
+      - name: location_id
+        tests: [not_null, unique]
+  - name: stg_core__lead
+    columns:
+      - name: lead_id
+        tests: [not_null, unique]
+  - name: stg_core__lead_outcome
+    columns:
+      - name: outcome_id
+        tests: [not_null, unique]
+  - name: stg_ingest__source_registry
+    columns:
+      - name: source
+        tests: [not_null, unique]
+  - name: stg_ml__score_history
+    columns:
+      - name: score_history_id
+        tests: [not_null, unique]
+  - name: stg_socio__indicator_normalized
+    columns:
+      - name: territory_code
+        tests: [not_null]
 
+  - name: dim_company
+    description: "Company dimension, current version."
+    columns:
+      - name: company_id
+        tests: [not_null, unique]
+  - name: dim_location
+    description: "Location dimension."
+    columns:
+      - name: location_id
+        tests: [not_null, unique]
+      - name: company_id
+        tests:
+          - relationships:
+              to: ref('dim_company')
+              field: company_id
+  - name: dim_sector
+    description: "Sector dimension (CIIU code)."
+    columns:
+      - name: sector_code
+        tests: [not_null, unique]
+  - name: dim_service_line
+    description: "Service line dimension."
+    columns:
+      - name: service_line
+        tests: [not_null, unique]
+  - name: dim_source
+    description: "Ingestion source dimension."
+    columns:
+      - name: source
+        tests: [not_null, unique]
+  - name: dim_date
+    description: "Calendar dimension."
+    columns:
+      - name: date_day
+        tests: [not_null, unique]
+  - name: dim_territory
+    description: "Territory dimension."
+    columns:
+      - name: territory_code
+        tests: [not_null, unique]
+  - name: metricflow_time_spine
+    description: "Day-grain time spine for MetricFlow."
+    time_spine:
+      standard_granularity_column: date_day
+    columns:
+      - name: date_day
+        granularity: day
+        tests: [not_null, unique]
+
+  - name: fact_signal
+    description: "Signal fact. Grain: one row per signal."
+    columns:
+      - name: signal_id
+        tests: [not_null, unique]
+      - name: company_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_company')
+              field: company_id
+      - name: observed_date
+        tests: [not_null]
+  - name: fact_company_snapshot
+    description: "Daily company snapshot. Grain: company per snapshot_date."
+    columns:
+      - name: company_id
+        tests: [not_null]
+  - name: fact_lead_outcome
+    description: "Lead outcome fact. Grain: one row per outcome."
+    columns:
+      - name: outcome_id
+        tests: [not_null, unique]
+      - name: outcome
+        tests: [not_null]
+  - name: fact_lead_score
+    description: "Daily lead score snapshot. Grain: company per score_date."
+    columns:
+      - name: company_id
+        tests: [not_null]
+      - name: score
+        tests: [not_null]
+  - name: fact_territory_indicator
+    description: "Territory indicator fact. Grain: territory, indicator, period."
+    columns:
+      - name: territory_code
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_territory')
+              field: territory_code
