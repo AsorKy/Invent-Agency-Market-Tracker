@@ -596,7 +596,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_scoring.py tests/unit/test_ml_singleflight.py` -> 13 passed; make static and make test pass
 
 ### T-054 ML segmentation pipeline
-- status: todo
+- status: done
 - spec: REQ-ML-002
 - owner: second-backend-engineer
 - depends: T-053, T-013
@@ -605,7 +605,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_segmentation.py`
 - note: nightly batch on datagen data: firmographic features, UMAP plus HDBSCAN with K-Prototypes comparison, `ml.company_segment`, and a versioned `ml.model_version`. Use fixed random seeds. Skip heavy imports at module load so the service starts without the `ml` extra.
-- evidence:
+- evidence: `pytest -q tests/unit/test_segmentation.py` -> 6 passed, 1 skipped (ml extra absent); make static and make test pass
 
 ### T-055 dbt star model and Parquet materialization
 - status: todo
