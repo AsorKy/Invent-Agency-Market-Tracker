@@ -9,12 +9,20 @@ and retries transient failures.
 """
 
 import asyncio
+from datetime import UTC, datetime
 from uuid import UUID
 
 from libs.common.redis_streams import ensure_consumer_group, read_consumer_batch
 from libs.common.retry import retry_with_backoff
 from libs.common.settings import get_settings
+from libs.domain.entity_resolution import EntityResolver, MockRuesLookup
 from services.ingest.app.repository import IngestRepository
+from services.ingest.app.to_core import (
+    HttpCoreClient,
+    SnapshotFlow,
+    SqlFailureSink,
+    SqlResolutionStore,
+)
 
 STREAM_NAME = "invent.ingest"
 GROUP_NAME = "ingest-processors"
@@ -29,6 +37,31 @@ async def main() -> None:
         enqueue_mark_ttl_seconds=settings.ingest_enqueue_mark_ttl_seconds,
     )
     redis = repository.redis
+    core = HttpCoreClient(
+        settings.core_url,
+        settings.internal_service_token,
+        timeout_seconds=settings.upstream_timeout_seconds,
+    )
+    if repository.engine is not None:
+        store = SqlResolutionStore()
+        # No live RUES client exists yet (REQ-ING-003 uses a mock lookup).
+        rues = MockRuesLookup([])
+        repository.resolution_store = store
+        repository.flow = SnapshotFlow(
+            core=core,
+            failures=SqlFailureSink(repository.engine),
+            resolve=lambda candidate: EntityResolver(rues, store, now=datetime.now(UTC)).resolve(
+                candidate
+            ),
+            dataset_sources={
+                str(dataset_id): source
+                for source in settings.enabled_sources()
+                if (dataset_id := getattr(settings, f"source_{source}_dataset_id", None))
+            },
+            retry_attempts=settings.upstream_retry_attempts,
+            retry_base_delay_seconds=settings.upstream_retry_base_delay_seconds,
+            retry_max_delay_seconds=settings.upstream_retry_max_delay_seconds,
+        )
     try:
         await ensure_consumer_group(redis, STREAM_NAME, GROUP_NAME)
         while True:
@@ -63,6 +96,7 @@ async def main() -> None:
                         continue
                     await redis.xack(STREAM_NAME, GROUP_NAME, message_id)
     finally:
+        await core.aclose()
         await repository.close()
 
 

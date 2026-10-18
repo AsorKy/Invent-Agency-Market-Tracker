@@ -526,7 +526,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_entity_resolution.py` -> 8 passed; make static/test pass
 
 ### T-045 Processor to core flow
-- status: todo
+- status: done
 - spec: REQ-ING-009
 - owner: second-backend-engineer
 - depends: T-044, T-042, T-020
@@ -535,7 +535,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/unit/test_ingest_to_core.py`
 - note: after resolution call core's upsert and signal endpoints through an injectable client with the service token; apply the mapping files; write failures to `ingest.failed_record`; never block the batch. Any SQL this task adds (the SQL resolution store and the core client adapter) must keep `tests/unit/test_sql_consistency.py` green when that file exists, and every `ON CONFLICT` target must be backed by a unique index (T-093).
-- evidence:
+- evidence: `pytest -q tests/unit/test_ingest_to_core.py` 11 passed; make static/test pass
 
 ### T-046 Enrichment agent contract
 - status: todo
