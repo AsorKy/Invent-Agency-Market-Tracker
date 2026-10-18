@@ -55,10 +55,8 @@ def test_live_mode_builds_bright_data_connectors() -> None:
     assert connectors["maps"].dataset_id == "gd_maps"
 
 
-def test_live_mode_skips_sources_without_mapping_and_rues() -> None:
+def test_live_mode_skips_rues_without_mapping() -> None:
     settings = live(
-        source_instagram_enabled=True,
-        source_instagram_dataset_id="gd_ig",
         source_rues_enabled=True,
         source_rues_dataset_id="gd_rues",
     )

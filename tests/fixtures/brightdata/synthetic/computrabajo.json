@@ -1,0 +1,26 @@
+[
+  {
+    "job_id": "syn-ct-1",
+    "title": "Analista de datos",
+    "company": "Empresa Uno",
+    "city": "Bogota",
+    "salary": "COP 4.000.000",
+    "description": "Synthetic posting.",
+    "posted_at": "2026-10-01",
+    "url": "https://co.computrabajo.example/job/1",
+    "contract_type": "full time",
+    "_synthetic": true
+  },
+  {
+    "job_id": "syn-ct-2",
+    "title": "Vendedor",
+    "company": "Empresa Dos",
+    "city": "Cali",
+    "salary": "COP 2.000.000",
+    "description": "Synthetic posting.",
+    "posted_at": "2026-10-02",
+    "url": "https://co.computrabajo.example/job/2",
+    "contract_type": "part time",
+    "_synthetic": true
+  }
+]

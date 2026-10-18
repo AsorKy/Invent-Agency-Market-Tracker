@@ -526,7 +526,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_entity_resolution.py` -> 8 passed; make static/test pass
 
 ### T-045 Processor to core flow
-- status: todo
+- status: done
 - spec: REQ-ING-009
 - owner: second-backend-engineer
 - depends: T-044, T-042, T-020
@@ -535,10 +535,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/unit/test_ingest_to_core.py`
 - note: after resolution call core's upsert and signal endpoints through an injectable client with the service token; apply the mapping files; write failures to `ingest.failed_record`; never block the batch. Any SQL this task adds (the SQL resolution store and the core client adapter) must keep `tests/unit/test_sql_consistency.py` green when that file exists, and every `ON CONFLICT` target must be backed by a unique index (T-093).
-- evidence:
+- evidence: `pytest -q tests/unit/test_ingest_to_core.py` 11 passed; make static/test pass
 
 ### T-046 Enrichment agent contract
-- status: todo
+- status: done
 - spec: REQ-ING-006
 - owner: second-backend-engineer
 - depends: T-045
@@ -547,7 +547,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_enrichment.py`
 - note: replaceable `EnrichmentAgent` interface (mock in run 1), rate limit and daily budget, `pending_retry` with backoff on provider failure, and a Brief warning code rather than a 500.
-- evidence:
+- evidence: `pytest -q tests/unit/test_enrichment.py` 7 passed; make static/test pass
 
 ### T-047 n8n source workflows
 - status: done
@@ -682,7 +682,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_hot_alert.py` -> 7 passed; make static OK; make test 555 passed. Post-commit on_hot callback (no Hot event exists); dedupe in process memory; tenant read from DB row not payload.
 
 ### T-048 LinkedIn and Instagram sources
-- status: todo
+- status: done
 - spec: REQ-ING-004
 - owner: second-backend-engineer
 - depends: T-043
@@ -691,7 +691,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_connectors_more.py`
 - note: add mappings and connector configuration for linkedin_companies, linkedin_jobs, and instagram. Mark each mapping `unverified: true` unless real samples exist under `tests/fixtures/brightdata/`.
-- evidence:
+- evidence: `pytest -q tests/unit/test_connectors_more.py` 13 passed; make static/test pass (test_source_config.py adjusted: instagram now has a mapping)
 
 ### T-049 Remaining n8n workflows
 - status: done
@@ -790,7 +790,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: real PostgreSQL 16 (system install, not Docker): 6 passed incl. migrations twice and PREPARE of all 105 statements; `pytest --collect-only` 6 collected; make static/test pass. RLS gap on 9 tenant_id tables recorded in RLS_EXEMPT pending owner decision
 
 ### T-096 Mapping verification harness
-- status: todo
+- status: done
 - spec: REQ-ING-004, REQ-RUN-006
 - owner: second-backend-engineer
 - depends: T-042, T-048
@@ -799,7 +799,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_verify_mappings.py` and `make static`
 - note: closes decision D-13 without hand-collected samples. (1) `ops/verify_mappings.py --samples DIR` runs each source mapping over the sample files of that source and reports unmapped fields present in the sample, required mapped fields missing from the sample, type failures, and a coverage ratio; it exits non-zero below `--min-coverage` (default 0.8). (2) `--capture` stores up to 3 records per source, redacted with `libs/common/log_redaction.py`, under `tests/fixtures/brightdata/captured/`; `make verify-live` (T-076) calls it after the first real snapshot. (3) A mapping flips to `unverified: false` only through a tool run over real or captured samples, never by hand. (4) Fixtures under `tests/fixtures/brightdata/synthetic/` use the documented Datasets API field names, carry `"_synthetic": true`, never count as verification, and exist only to test the harness.
-- evidence:
+- evidence: `pytest -q tests/unit/test_verify_mappings.py` 10 passed; make static/test pass (has_samples checks in test_connectors*.py now look at brightdata/captured/)
 
 ### T-097 dbt mart naming
 - status: done
