@@ -418,7 +418,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_identity_rbac.py` -> 7 passed; make static and make test pass
 
 ### T-031 Identity sessions, CSRF, local profile, and dev users
-- status: todo
+- status: done
 - spec: REQ-IDN-002
 - owner: lead-backend-engineer
 - depends: T-030, T-015
@@ -427,7 +427,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_identity_session.py`
 - note: login sets the cookie attributes of REQ-IDN-002 in the production profile; the local profile drops the `__Host-` prefix and `Secure`; sliding renewal, 30 minutes of inactivity, 12 hours absolute, logout invalidation. A management command creates one development user per role with passwords taken from the environment (never hard-coded).
-- evidence:
+- evidence: `pytest -q tests/unit/test_identity_session.py` -> 9 passed; make static and make test pass
 
 ### T-032 Gateway: JWT/JWKS, route table, tenant propagation, local profile
 - status: todo

@@ -9,7 +9,7 @@ from any request that did not arrive over the internal network.
 from django.contrib import admin
 from django.urls import path
 
-from services.identity.iam import views
+from services.identity.iam import session_views, views
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -18,4 +18,8 @@ urlpatterns = [
     path(".well-known/jwks.json", views.jwks),
     path("internal/identity/service-token", views.ServiceTokenView.as_view()),
     path("internal/identity/tokens/user", views.UserTokenView.as_view()),
+    path("internal/identity/auth/session", session_views.LoginView.as_view()),
+    path("internal/identity/me", session_views.MeView.as_view()),
+    path("internal/identity/auth/validate", session_views.ValidateView.as_view()),
+    path("internal/identity/logout", session_views.LogoutView.as_view()),
 ]

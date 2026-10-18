@@ -84,3 +84,29 @@ class MembershipScope(models.Model):
     class Meta:
         db_table = _table("membership_scope")
         managed = settings.IDENTITY_MANAGED_TABLES
+
+
+class Credential(models.Model):
+    """Password hash for a user. Lives beside ``user_account``; created by Django migrations."""
+
+    user_id = models.UUIDField(primary_key=True)
+    password_hash = models.TextField()
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = _table("credential")
+
+
+class AuthSession(models.Model):
+    """Server-side browser session. Only the SHA-256 of the cookie value is stored."""
+
+    key_hash = models.CharField(max_length=64, primary_key=True)
+    user_id = models.UUIDField(db_index=True)
+    tenant_id = models.UUIDField()
+    csrf_token = models.CharField(max_length=64)
+    created_at = models.DateTimeField()
+    last_seen_at = models.DateTimeField()
+    revoked_at = models.DateTimeField(null=True)
+
+    class Meta:
+        db_table = _table("auth_session")
