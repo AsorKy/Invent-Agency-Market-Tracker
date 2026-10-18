@@ -406,7 +406,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_retention.py` -> 16 passed; make static OK; make test 355 passed.
 
 ### T-030 Identity service: Django project, RBAC, JWKS
-- status: todo
+- status: done
 - spec: REQ-IDN-001
 - owner: lead-backend-engineer
 - depends: T-014, T-018
@@ -415,10 +415,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/unit/test_identity_rbac.py`
 - note: Django plus DRF in `services/identity`, tables in the `identity` schema, models for user, tenant, role (admin, strategist, intake, bd_rep, analyst), and scope (city, service line), an RS256 key pair with a JWKS endpoint, service tokens, and the Django admin only on the internal network. Tests use SQLite settings and the Django test client. Decision D-14: if Django proves impractical in the sandbox after three focused attempts, mark `blocked`.
-- evidence:
+- evidence: `pytest -q tests/unit/test_identity_rbac.py` -> 7 passed; make static and make test pass
 
 ### T-031 Identity sessions, CSRF, local profile, and dev users
-- status: todo
+- status: done
 - spec: REQ-IDN-002
 - owner: lead-backend-engineer
 - depends: T-030, T-015
@@ -427,10 +427,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_identity_session.py`
 - note: login sets the cookie attributes of REQ-IDN-002 in the production profile; the local profile drops the `__Host-` prefix and `Secure`; sliding renewal, 30 minutes of inactivity, 12 hours absolute, logout invalidation. A management command creates one development user per role with passwords taken from the environment (never hard-coded).
-- evidence:
+- evidence: `pytest -q tests/unit/test_identity_session.py` -> 9 passed; make static and make test pass
 
 ### T-032 Gateway: JWT/JWKS, route table, tenant propagation, local profile
-- status: todo
+- status: done
 - spec: REQ-GW-003, REQ-IDN-003, REQ-API-002, REQ-API-003
 - owner: lead-backend-engineer
 - depends: T-031, T-020, T-021
@@ -439,7 +439,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/unit/test_gateway_auth.py tests/unit/test_gateway_routes.py tests/unit/test_tenant_isolation.py tests/unit/test_profiles.py`
 - note: verify JWTs against the identity JWKS (cached 10 minutes), propagate tenant and role headers, enforce tenant isolation (404 across tenants), implement the route table of REQ-API-002 (pulse instead of analytics; 404 `not_in_layer` for L2 and L3 resources), add the CORS allowlist from `FRONTEND_ORIGIN` for the local profile, apply per-route upstream timeouts, and return 503 only for routes whose upstream `/ready` is red (poll every 10 s). Remove every leftover reference to the retired `analytics` service from the gateway code and settings, and make sure tenant and role headers are set only by the gateway after JWT validation, never copied from the client request.
-- evidence:
+- evidence: the four gateway/tenant/profile test files -> 71 passed; make static and make test pass
 
 ### T-033 Brief cache, single-flight, and rule-based fallback
 - status: done

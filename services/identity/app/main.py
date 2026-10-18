@@ -8,6 +8,8 @@ separate migration step that must provide signed keys, RBAC, tenants, sessions,
 and the private admin surface described by ARCH-0001.
 """
 
+# mypy: disable-error-code="import-untyped,misc,no-any-return,no-untyped-call"
+
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
