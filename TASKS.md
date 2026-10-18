@@ -224,7 +224,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_supervise.py tests/unit/test_health.py` -> 12 passed, 1 skipped (health needs fastapi, unverified offline); identity, streamlit, mocks lack a real /ready (xfail)
 
 ### T-013 Datagen determinism and snapshot-shaped output
-- status: todo
+- status: done
 - spec: REQ-DAT-008
 - owner: second-backend-engineer
 - depends: T-001
@@ -233,7 +233,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_datagen.py`
 - note: two runs with the same seed give identical output (hash compare); the default dataset has 200 companies across Medellin, Bogota, and Cali, about 1,500 signals over 180 days, and 50 leads with outcomes. Add `--as-snapshots` that emits provider-shaped records for maps and computrabajo (for the seed and the offline pipeline test). Only company data; no personal data.
-- evidence:
+- evidence: `pytest -q tests/unit/test_datagen.py` -> 4 passed; mypy datagen clean; snapshot field names are assumed (unverified mappings)
 
 ### T-014 Freeze shared contracts
 - status: todo

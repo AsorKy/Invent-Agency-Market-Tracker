@@ -103,6 +103,51 @@ def build_dataset(
     return {"companies": companies, "signals": signals, "leads": leads}
 
 
+def build_snapshots(
+    dataset: dict[str, list[dict[str, object]]], *, seed: int
+) -> dict[str, list[dict[str, object]]]:
+    """Return provider-shaped records for the ``maps`` and ``computrabajo`` sources.
+
+    Field names are plausible Bright Data dataset names (no versioned mapping file
+    exists yet). Only company-level data is emitted; no personal data.
+    """
+    rng = random.Random(f"invent-snapshots:{seed}")
+    companies = {str(c["id"]): c for c in dataset["companies"]}
+    maps: list[dict[str, object]] = []
+    for company in dataset["companies"]:
+        maps.append(
+            {
+                "place_id": f"ChIJ{str(company['id']).replace('-', '')[:24]}",
+                "name": company["legal_name"],
+                "category": rng.choice(("Software company", "Restaurant", "Marketing agency")),
+                "address": f"Calle {rng.randint(1, 99)} # {rng.randint(1, 99)}",
+                "city": company["city"],
+                "country": "CO",
+                "website": company["website"],
+                "rating": round(rng.uniform(3.0, 5.0), 1),
+                "reviews_count": rng.randint(0, 800),
+                "url": f"https://maps.example.com/place/{company['slug']}",
+            }
+        )
+    jobs: list[dict[str, object]] = []
+    for signal in dataset["signals"]:
+        if signal["signal_type"] != "job_opening":
+            continue
+        company = companies[str(signal["company_id"])]
+        jobs.append(
+            {
+                "job_id": f"ct-{str(signal['id'])[:12]}",
+                "job_title": rng.choice(("Data Analyst", "Developer", "Marketing Lead", "Chef")),
+                "company_name": company["legal_name"],
+                "location": f"{company['city']}, Colombia",
+                "date_posted": signal["observed_at"],
+                "salary_range": None,
+                "url": f"https://computrabajo.example.com/oferta/{str(signal['id'])[:12]}",
+            }
+        )
+    return {"maps": maps, "computrabajo": jobs}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Build deterministic synthetic Invent data")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -113,6 +158,11 @@ def main() -> int:
     build.add_argument("--seed", type=int, default=42)
     build.add_argument("--as-of", type=date.fromisoformat, default=date(2026, 1, 1))
     build.add_argument("--output", type=Path, default=Path("data/generated"))
+    build.add_argument(
+        "--as-snapshots",
+        action="store_true",
+        help="also emit provider-shaped maps and computrabajo snapshot files",
+    )
     args = parser.parse_args()
 
     try:
@@ -126,5 +176,10 @@ def main() -> int:
         (args.output / f"{name}.json").write_text(
             json.dumps(rows, ensure_ascii=False, indent=2), encoding="utf-8"
         )
+    if args.as_snapshots:
+        for name, rows in build_snapshots(dataset, seed=args.seed).items():
+            (args.output / f"snapshot_{name}.json").write_text(
+                json.dumps(rows, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
     print(f"Generated {sum(len(rows) for rows in dataset.values())} records in {args.output}")
     return 0
