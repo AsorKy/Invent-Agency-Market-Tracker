@@ -170,7 +170,9 @@ def test_omitted_fields_keep_stored_values_and_source_ids_merge() -> None:
 
 
 def test_canonical_key_without_nit_is_stable_and_accent_insensitive() -> None:
-    a = CompanyUpsert(legal_name="  Compa\u00f1\u00eda  Uno ", city="Bogot\u00e1", source_ids={"b": "2", "a": "1"})
+    a = CompanyUpsert(
+        legal_name="  Compa\u00f1\u00eda  Uno ", city="Bogot\u00e1", source_ids={"b": "2", "a": "1"}
+    )
     b = CompanyUpsert(legal_name="compania uno", city="bogota", source_ids={"a": "1", "b": "2"})
     assert company_slug(a) == company_slug(b)
     assert company_slug(a).startswith("ck-")

@@ -146,6 +146,146 @@ class SqlCompanyUnitOfWork:
         await self._context.__aexit__(exc_type, exc, tb)
 
 
+class SqlLeadTransaction:
+    """Lead writes bound to one open connection (one transaction)."""
+
+    def __init__(self, connection: AsyncConnection) -> None:
+        self.connection = connection
+
+    async def lock_key(self, key: str) -> None:
+        await self.connection.execute(
+            text("SELECT pg_advisory_xact_lock(hashtext(:key))"), {"key": key}
+        )
+
+    async def get_idempotency(self, tenant_id: UUID, key: str) -> dict[str, object] | None:
+        result = await self.connection.execute(
+            text(
+                """
+                SELECT request_hash, response_body FROM core.idempotency_key
+                WHERE tenant_id = :tenant_id AND idempotency_key = :key
+                  AND status = 'completed' AND expires_at > now()
+                """
+            ),
+            {"tenant_id": tenant_id, "key": key},
+        )
+        row = result.mappings().first()
+        return dict(row) if row else None
+
+    async def save_idempotency(
+        self,
+        *,
+        tenant_id: UUID,
+        key: str,
+        request_hash: str,
+        response: dict[str, object],
+        expires_at: datetime,
+    ) -> None:
+        await self.connection.execute(
+            text(
+                """
+                INSERT INTO core.idempotency_key
+                    (tenant_id, idempotency_key, request_hash, status, response_code,
+                     response_body, completed_at, expires_at)
+                VALUES
+                    (:tenant_id, :key, :request_hash, 'completed', 201,
+                     CAST(:response AS jsonb), now(), :expires_at)
+                ON CONFLICT (tenant_id, idempotency_key) DO UPDATE SET
+                    request_hash = EXCLUDED.request_hash, status = 'completed',
+                    response_code = 201, response_body = EXCLUDED.response_body,
+                    completed_at = now(), created_at = now(), expires_at = EXCLUDED.expires_at
+                """
+            ),
+            {
+                "tenant_id": tenant_id,
+                "key": key,
+                "request_hash": request_hash,
+                "response": json.dumps(response),
+                "expires_at": expires_at,
+            },
+        )
+
+    async def insert_lead(self, row: dict[str, object]) -> None:
+        await self.connection.execute(
+            text(
+                """
+                INSERT INTO core.lead
+                    (id, tenant_id, company_id, service_line, city, source, stage,
+                     qualification_reason, version, created_at, updated_at)
+                VALUES
+                    (:id, :tenant_id, :company_id, :service_line, :city, :source, :stage,
+                     CAST(:qualification_reason AS jsonb), :version, :created_at, :updated_at)
+                """
+            ),
+            {**row, "qualification_reason": json.dumps(row["qualification_reason"])},
+        )
+
+    async def get_lead(self, lead_id: UUID, tenant_id: UUID | None) -> dict[str, object] | None:
+        result = await self.connection.execute(
+            text(
+                """
+                SELECT id, tenant_id, company_id, service_line, stage, version
+                FROM core.lead
+                WHERE id = :id AND (CAST(:tenant_id AS uuid) IS NULL OR tenant_id = :tenant_id)
+                FOR UPDATE
+                """
+            ),
+            {"id": lead_id, "tenant_id": tenant_id},
+        )
+        row = result.mappings().first()
+        return dict(row) if row else None
+
+    async def update_stage(self, row: dict[str, object]) -> None:
+        await self.connection.execute(
+            text(
+                """
+                UPDATE core.lead SET stage = :stage, version = :version,
+                    updated_at = :updated_at, last_transition_at = :last_transition_at
+                WHERE id = :id
+                """
+            ),
+            row,
+        )
+
+    async def add_audit(self, *, action: str, lead_id: UUID, payload: dict[str, object]) -> None:
+        await self.connection.execute(
+            text(
+                """
+                INSERT INTO core.audit_log (actor, action, aggregate_type, aggregate_id, payload)
+                VALUES ('core', :action, 'lead', :id, CAST(:payload AS jsonb))
+                """
+            ),
+            {"action": action, "id": lead_id, "payload": json.dumps(payload, default=str)},
+        )
+
+    async def add_outbox_event(
+        self, *, event_id: UUID, aggregate_id: UUID, version: int, payload: dict[str, object]
+    ) -> None:
+        await self.connection.execute(
+            text(
+                """
+                INSERT INTO core.outbox_event
+                    (event_id, aggregate_type, aggregate_id, event_type, version, payload)
+                VALUES
+                    (:event_id, 'lead', :aggregate_id, 'lead.created', :version,
+                     CAST(:payload AS jsonb))
+                """
+            ),
+            {
+                "event_id": event_id,
+                "aggregate_id": aggregate_id,
+                "version": version,
+                "payload": json.dumps(payload, default=str),
+            },
+        )
+
+
+class SqlLeadUnitOfWork(SqlCompanyUnitOfWork):
+    """Same commit-or-rollback boundary, yielding lead operations."""
+
+    async def __aenter__(self) -> SqlLeadTransaction:  # type: ignore[override]
+        return SqlLeadTransaction(await self._context.__aenter__())
+
+
 class CoreRepository:
     def __init__(self, database_url: str | None) -> None:
         self.engine = create_engine(database_url, pool_size=4)
@@ -154,6 +294,11 @@ class CoreRepository:
         if self.engine is None:
             raise RuntimeError("DATABASE_URL is required for core writes")
         return SqlCompanyUnitOfWork(self.engine)
+
+    def lead_unit_of_work(self) -> SqlLeadUnitOfWork:
+        if self.engine is None:
+            raise RuntimeError("DATABASE_URL is required for core writes")
+        return SqlLeadUnitOfWork(self.engine)
 
     async def close(self) -> None:
         if self.engine:
@@ -286,27 +431,52 @@ class CoreRepository:
         return rows, next_cursor
 
     async def list_leads(
-        self, limit: int, cursor: str | None = None
+        self,
+        limit: int,
+        cursor: str | None = None,
+        *,
+        stage: str | None = None,
+        service_line: str | None = None,
+        city: str | None = None,
+        segment: str | None = None,
+        min_score: int | None = None,
+        tenant_id: UUID | None = None,
     ) -> tuple[list[dict[str, object]], str | None]:
+        """List leads newest first; ``segment`` is the company sector code."""
         if self.engine is None:
             raise RuntimeError("DATABASE_URL is required for core reads")
         page_cursor = decode_cursor(cursor) if cursor else None
-        cursor_filter = ""
+        clauses: list[str] = []
         parameters: dict[str, object] = {"limit": limit + 1}
+        filters: dict[str, tuple[object, str]] = {
+            "stage": (stage, "l.stage = :stage"),
+            "service_line": (service_line, "l.service_line = :service_line"),
+            "city": (city, "l.city = :city"),
+            "segment": (segment, "c.sector_code = :segment"),
+            "min_score": (min_score, "s.score >= :min_score"),
+            "tenant_id": (tenant_id, "l.tenant_id = :tenant_id"),
+        }
+        for name, (value, clause) in filters.items():
+            if value is not None:
+                clauses.append(clause)
+                parameters[name] = value
         if page_cursor:
-            cursor_filter = "WHERE (l.updated_at, l.id) < (:cursor_updated_at, :cursor_id)"
+            clauses.append("(l.updated_at, l.id) < (:cursor_updated_at, :cursor_id)")
             parameters.update(
                 {"cursor_updated_at": page_cursor.updated_at, "cursor_id": page_cursor.item_id}
             )
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
         async with self.engine.connect() as connection:
             result = await connection.execute(
                 text(
                     f"""
-                    SELECT l.id, l.company_id, c.legal_name, l.service_line, l.stage,
+                    SELECT l.id, l.company_id, c.legal_name, l.service_line, l.stage, l.city,
+                           c.sector_code AS segment, s.score, l.version,
                            l.created_at, l.updated_at
                     FROM core.lead l
                     JOIN core.company c ON c.id = l.company_id
-                    {cursor_filter}
+                    LEFT JOIN ml.lead_score s ON s.company_id = l.company_id
+                    {where}
                     ORDER BY l.updated_at DESC, l.id DESC
                     LIMIT :limit
                     """
@@ -324,3 +494,27 @@ class CoreRepository:
                 raise RuntimeError("database returned invalid lead cursor fields")
             next_cursor = encode_cursor(updated_at, item_id)
         return rows, next_cursor
+
+    async def get_lead(
+        self, lead_id: UUID, tenant_id: UUID | None = None
+    ) -> dict[str, object] | None:
+        if self.engine is None:
+            raise RuntimeError("DATABASE_URL is required for core reads")
+        async with self.engine.connect() as connection:
+            result = await connection.execute(
+                text(
+                    """
+                    SELECT l.id, l.company_id, c.legal_name, l.service_line, l.stage, l.city,
+                           l.source, l.qualification_reason, c.sector_code AS segment,
+                           s.score, l.version, l.last_transition_at, l.created_at, l.updated_at
+                    FROM core.lead l
+                    JOIN core.company c ON c.id = l.company_id
+                    LEFT JOIN ml.lead_score s ON s.company_id = l.company_id
+                    WHERE l.id = :id AND (CAST(:tenant_id AS uuid) IS NULL
+                                          OR l.tenant_id = :tenant_id)
+                    """
+                ),
+                {"id": lead_id, "tenant_id": tenant_id},
+            )
+            row = result.mappings().first()
+        return dict(row) if row else None

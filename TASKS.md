@@ -308,7 +308,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_company_upsert.py` -> 11 passed; make static OK; make test 263 passed. CompanyUpsert lives in services/core/app/companies.py (not libs/contracts, frozen snapshot); SCD2 history goes to core.audit_log (no history table in schema).
 
 ### T-021 Lead model, state machine, and list filters
-- status: todo
+- status: done
 - spec: REQ-COR-002
 - owner: lead-backend-engineer
 - depends: T-020
@@ -317,7 +317,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/unit/test_lead_state.py`
 - note: valid transitions per the E1.1 diagram, `expected_version` with 409 and the current state, `Idempotency-Key` on create, filters (state, service_line, city, segment, min_score) with keyset cursor, `GET /leads/{id}`, and the kanban read model. Pure transition logic lives in `libs/domain/pipeline.py` with at least 90 percent coverage.
-- evidence:
+- evidence: `pytest -q tests/unit/test_lead_state.py` -> 11 passed; pipeline.py coverage 100%; make static OK; make test 274 passed. Models in services/core/app/leads.py (contracts frozen); no status-change event type exists.
 
 ### T-022 Outcomes, activities, project conversion, and projects read
 - status: todo
