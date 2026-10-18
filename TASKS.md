@@ -442,7 +442,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: the four gateway/tenant/profile test files -> 71 passed; make static and make test pass
 
 ### T-033 Brief cache, single-flight, and rule-based fallback
-- status: todo
+- status: done
 - spec: REQ-BRF-001, REQ-BRF-002
 - owner: lead-backend-engineer
 - depends: T-014, T-018
@@ -451,10 +451,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/unit/test_brief_cache.py tests/unit/test_brief_singleflight.py`
 - note: implement the three states (hit, stale, degraded) with the `X-Brief-Cache` header, first-read blocking generation, stale-while-revalidate, the Redis lock (SET NX PX 30000, Lua release), the 5-second summarizer timeout with rule fallback, and 503 `db_unavailable` when core is unreachable. The summarizer is a replaceable interface; ship the rule-based one (decision D-09).
-- evidence:
+- evidence: `pytest -q tests/unit/test_brief_cache.py tests/unit/test_brief_singleflight.py` -> 12 passed; make static and make test pass
 
 ### T-034 Brief alert rules per tenant
-- status: todo
+- status: done
 - spec: REQ-BRF-003
 - owner: lead-backend-engineer
 - depends: T-033, T-023
@@ -463,7 +463,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_brief_rules.py`
 - note: alert codes and severities from E1.1, thresholds and weights from `brief_rules`, disabled codes, and lazy invalidation on `tenant.config_updated`.
-- evidence:
+- evidence: `pytest -q tests/unit/test_brief_rules.py` -> passed; make static and make test pass
 
 ### T-040 Raw snapshot ingestion and change detection
 - status: done
@@ -658,7 +658,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_streamlit_pages_a.py` -> 9 passed; make static and make test pass
 
 ### T-058 Streamlit pages 5 to 7
-- status: todo
+- status: done
 - spec: REQ-STR-001
 - owner: second-backend-engineer
 - depends: T-056, T-022
@@ -667,7 +667,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_streamlit_pages_b.py` (Streamlit AppTest)
 - note: Pipeline (kanban from the gateway), Proyectos, and Ops (freshness per source, outbox backlog, service health). Also bring `services/streamlit/pages/README.md` up to date with the seven pages.
-- evidence:
+- evidence: `pytest -q tests/unit/test_streamlit_pages_b.py` -> 8 passed; make static and make test pass
 
 ### T-035 Hot lead alert notifier
 - status: done
