@@ -20,9 +20,25 @@ from libs.common.db import create_engine
 from libs.common.redis_client import create_redis
 from libs.domain.entity_resolution import normalize_company_name
 from services.ingest.app.snapshot import changed_records
+from services.ingest.app.to_core import Registered, SnapshotFlow, SqlResolutionStore
+
+
+def candidate_key(normalized_name: str, city: str | None, nit: str | None) -> str:
+    """Return the deterministic sha256 key of a candidate (name, city, NIT)."""
+    fingerprint = json.dumps(
+        {"name": normalized_name, "city": city, "nit": nit},
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    return hashlib.sha256(fingerprint).hexdigest()
 
 
 class IngestRepository:
+    # Optional REQ-ING-009 flow; when None, processing only creates candidates.
+    flow: SnapshotFlow | None = None
+    resolution_store: SqlResolutionStore | None = None
+
     def __init__(
         self,
         database_url: str | None,
@@ -121,7 +137,10 @@ class IngestRepository:
             raise RuntimeError("DATABASE_URL is required for ingest processing")
         async with self.engine.connect() as connection:
             result = await connection.execute(
-                text("SELECT payload FROM ingest.raw_snapshot WHERE id = :id"),
+                text(
+                    "SELECT payload, dataset_id, snapshot_id "
+                    "FROM ingest.raw_snapshot WHERE id = :id"
+                ),
                 {"id": raw_snapshot_id},
             )
             row = result.mappings().first()
@@ -145,6 +164,10 @@ class IngestRepository:
 
         # Only new or changed records may create candidates, and so new signals.
         records = changed_records(previous_row["payload"] if previous_row else None, row["payload"])
+        if self.flow is not None and self.resolution_store is not None:
+            return await self._deliver_records(
+                raw_snapshot_id, row["dataset_id"], row["snapshot_id"], records
+            )
         created = 0
         async with self.engine.begin() as connection:
             for record in records:
@@ -158,17 +181,7 @@ class IngestRepository:
                 normalized_name = normalize_company_name(name)
                 candidate_city = city if isinstance(city, str) else None
                 candidate_nit = nit if isinstance(nit, str) else None
-                candidate_fingerprint = json.dumps(
-                    {
-                        "name": normalized_name,
-                        "city": candidate_city,
-                        "nit": candidate_nit,
-                    },
-                    ensure_ascii=False,
-                    separators=(",", ":"),
-                    sort_keys=True,
-                ).encode("utf-8")
-                candidate_key = hashlib.sha256(candidate_fingerprint).hexdigest()
+                candidate_key_value = candidate_key(normalized_name, candidate_city, candidate_nit)
                 result = await connection.execute(
                     text(
                         """
@@ -182,7 +195,7 @@ class IngestRepository:
                     ),
                     {
                         "raw_snapshot_id": raw_snapshot_id,
-                        "candidate_key": candidate_key,
+                        "candidate_key": candidate_key_value,
                         "name": name,
                         "city": candidate_city,
                         "candidate_nit": candidate_nit,
@@ -191,3 +204,70 @@ class IngestRepository:
                 )
                 created += result.rowcount or 0
         return created
+
+    async def _deliver_records(
+        self,
+        raw_snapshot_id: UUID,
+        dataset_id: str,
+        snapshot_id: str,
+        records: list[Any],
+    ) -> int:
+        """Run each record through ``SnapshotFlow``; a failing record never stops the batch."""
+        flow, store, engine = self.flow, self.resolution_store, self.engine
+        if flow is None or store is None or engine is None:
+            raise RuntimeError("the core flow is not configured")
+        source = flow.source_for_dataset(dataset_id)
+        if source is None:
+            await flow.failures.record(
+                source="unknown",
+                snapshot_id=snapshot_id,
+                record_ref=None,
+                reason=f"no mapping source for dataset {dataset_id}",
+                payload={"dataset_id": dataset_id},
+            )
+            return 0
+        registered_count = 0
+        for record in records:
+            async with engine.begin() as connection:
+
+                async def register(
+                    name: str,
+                    city: str | None,
+                    nit: str | None,
+                    connection: Any = connection,
+                ) -> Registered:
+                    normalized_name = normalize_company_name(name)
+                    result = await connection.execute(
+                        text(
+                            """
+                            INSERT INTO ingest.entity_candidate
+                                (raw_snapshot_id, candidate_key, name, city, candidate_nit,
+                                 normalized_name)
+                            VALUES (:raw_snapshot_id, :candidate_key, :name, :city,
+                                    :candidate_nit, :normalized_name)
+                            ON CONFLICT (raw_snapshot_id, candidate_key)
+                            DO UPDATE SET name = EXCLUDED.name
+                            RETURNING id, resolution_attempts, status
+                            """
+                        ),
+                        {
+                            "raw_snapshot_id": raw_snapshot_id,
+                            "candidate_key": candidate_key(normalized_name, city, nit),
+                            "name": name,
+                            "city": city,
+                            "candidate_nit": nit,
+                            "normalized_name": normalized_name,
+                        },
+                    )
+                    row = result.mappings().one()
+                    return Registered(
+                        str(row["id"]), int(row["resolution_attempts"]), row["status"]
+                    )
+
+                outcome = await flow.process_record(
+                    source=source, snapshot_id=snapshot_id, record=record, register=register
+                )
+                await store.flush(connection)
+            if outcome.status != "failed":
+                registered_count += 1
+        return registered_count

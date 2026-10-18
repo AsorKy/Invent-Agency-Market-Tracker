@@ -56,7 +56,13 @@ class CompanyTransaction(Protocol):
     async def close_version(self, old: dict[str, Any], closed_at: datetime) -> None: ...
     async def update_company(self, row: dict[str, Any]) -> None: ...
     async def add_outbox_event(
-        self, *, event_id: UUID, aggregate_id: UUID, version: int, payload: dict[str, Any]
+        self,
+        *,
+        event_id: UUID,
+        tenant_id: UUID | None,
+        aggregate_id: UUID,
+        version: int,
+        payload: dict[str, Any],
     ) -> None: ...
 
 
@@ -176,6 +182,7 @@ async def upsert_company(
             changed = [n for n in TRACKED_FIELDS if n != "source_ids" and row[n] is not None]
             await tx.add_outbox_event(
                 event_id=uuid4(),
+                tenant_id=row["tenant_id"],
                 aggregate_id=row["id"],
                 version=1,
                 payload=_event_payload(row, "created", changed, request_id),
@@ -204,6 +211,7 @@ async def upsert_company(
         await tx.update_company(row)
         await tx.add_outbox_event(
             event_id=uuid4(),
+            tenant_id=row.get("tenant_id"),
             aggregate_id=row["id"],
             version=row["version"],
             payload=_event_payload(row, "updated", changed, request_id),

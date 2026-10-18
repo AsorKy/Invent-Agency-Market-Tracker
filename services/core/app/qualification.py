@@ -10,13 +10,16 @@ relates to ``libs/domain/pipeline.py``, ``tenant_config.py``, ``worker.py`` and
 ``repository.py`` (REQ-COR-008). Cost is O(leads of the company) per event.
 """
 
-from collections.abc import Mapping
+import time
+from collections.abc import Callable, Mapping
+from dataclasses import replace
 from datetime import UTC, datetime
 from types import TracebackType
 from typing import Any, Protocol
 from uuid import UUID, uuid4
 
 from libs.domain.pipeline import PipelineStage, can_transition
+from services.core.app.hot_alert import HotAlert, HotCallback, fire
 from services.core.app.tenant_config import row_to_config
 
 AUTO_STAGES = (PipelineStage.DISCOVERED, PipelineStage.QUALIFIED, PipelineStage.HOT)
@@ -34,7 +37,13 @@ class QualificationTransaction(Protocol):
     async def update_stage(self, row: dict[str, Any]) -> None: ...
     async def add_audit(self, *, action: str, lead_id: UUID, payload: dict[str, Any]) -> None: ...
     async def add_outbox_event(
-        self, *, event_id: UUID, aggregate_id: UUID, version: int, payload: dict[str, Any]
+        self,
+        *,
+        event_id: UUID,
+        tenant_id: UUID | None,
+        aggregate_id: UUID,
+        version: int,
+        payload: dict[str, Any],
     ) -> None: ...
 
 
@@ -89,10 +98,13 @@ async def handle_score_event(
     fields: Mapping[str, str],
     *,
     now: datetime | None = None,
+    on_hot: HotCallback | None = None,
+    clock: Callable[[], float] = time.monotonic,
 ) -> str:
     """Apply one event; return ``duplicate``, ``unknown_company``, ``created`` or ``processed``."""
     event_id, company_id, score, service_line = parse_score_event(fields)
     moment = now or datetime.now(UTC)
+    alerts: list[HotAlert] = []
     async with unit_of_work as tx:
         if not await tx.mark_processed(event_id):
             return "duplicate"
@@ -123,6 +135,7 @@ async def handle_score_event(
             await tx.insert_lead(row)
             await tx.add_outbox_event(
                 event_id=uuid4(),
+                tenant_id=tenant_id,
                 aggregate_id=row["id"],
                 version=1,
                 payload={
@@ -137,8 +150,12 @@ async def handle_score_event(
             leads = [row]
             outcome = "created"
         for lead in leads:
-            await _advance(tx, lead, target, score, moment)
-        return outcome
+            version = await _advance(tx, lead, target, score, moment)
+            if version is not None:
+                alerts.append(HotAlert(tenant_id, lead["id"], company_id, version, score, 0.0))
+    stamped = clock()
+    await fire(on_hot, [replace(alert, committed_at=stamped) for alert in alerts])
+    return outcome
 
 
 async def _advance(
@@ -147,11 +164,12 @@ async def _advance(
     target: PipelineStage,
     score: int,
     moment: datetime,
-) -> None:
+) -> int | None:
+    """Advance one lead; return the new version when it reached Hot, else None."""
     current = PipelineStage(lead["stage"])
     steps = advance_path(current, target)
     if not steps or await tx.has_manual_transition(lead["id"]):
-        return
+        return None
     version = int(lead["version"])
     for step in steps:
         version += 1
@@ -170,3 +188,4 @@ async def _advance(
             payload={"from": current.value, "to": step.value, "score": score, "version": version},
         )
         current = step
+    return version if current is PipelineStage.HOT else None

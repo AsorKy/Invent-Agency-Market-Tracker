@@ -1,0 +1,35 @@
+# Instagram business profiles (Bright Data scraper) to canonical company fields.
+# unverified: field names come from the public Bright Data documentation, not
+# from a recorded sample (no tests/fixtures/brightdata/ samples exist, D-13).
+version: 1
+source: instagram
+unverified: true
+entity: company
+signal_type: instagram_profile
+external_id: [id, account, profile_url]
+fields:
+  name:
+    from: [full_name, profile_name, account]
+    transform: strip
+    required: true
+  handle:
+    from: [account]
+    transform: strip
+  category:
+    from: [business_category_name, category_name]
+    transform: lower
+  follower_count:
+    from: [followers]
+    transform: int
+  post_count:
+    from: [posts_count]
+    transform: int
+  biography:
+    from: [biography]
+    transform: strip
+  website:
+    from: [external_url]
+    transform: url
+  profile_url:
+    from: [profile_url, url]
+    transform: url

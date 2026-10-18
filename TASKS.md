@@ -526,7 +526,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_entity_resolution.py` -> 8 passed; make static/test pass
 
 ### T-045 Processor to core flow
-- status: todo
+- status: done
 - spec: REQ-ING-009
 - owner: second-backend-engineer
 - depends: T-044, T-042, T-020
@@ -535,10 +535,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/unit/test_ingest_to_core.py`
 - note: after resolution call core's upsert and signal endpoints through an injectable client with the service token; apply the mapping files; write failures to `ingest.failed_record`; never block the batch. Any SQL this task adds (the SQL resolution store and the core client adapter) must keep `tests/unit/test_sql_consistency.py` green when that file exists, and every `ON CONFLICT` target must be backed by a unique index (T-093).
-- evidence:
+- evidence: `pytest -q tests/unit/test_ingest_to_core.py` 11 passed; make static/test pass
 
 ### T-046 Enrichment agent contract
-- status: todo
+- status: done
 - spec: REQ-ING-006
 - owner: second-backend-engineer
 - depends: T-045
@@ -547,7 +547,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_enrichment.py`
 - note: replaceable `EnrichmentAgent` interface (mock in run 1), rate limit and daily budget, `pending_retry` with backoff on provider failure, and a Brief warning code rather than a 500.
-- evidence:
+- evidence: `pytest -q tests/unit/test_enrichment.py` 7 passed; make static/test pass
 
 ### T-047 n8n source workflows
 - status: done
@@ -670,7 +670,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-035 Hot lead alert notifier
-- status: todo
+- status: done
 - spec: REQ-ALR-001
 - owner: lead-backend-engineer
 - depends: T-024, T-090
@@ -679,10 +679,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_hot_alert.py`
 - note: when auto-qualification or a user moves a lead to Hot, post one alert to `HOT_LEAD_WEBHOOK_URL` (mock Telegram locally), once per lead and version, with backoff on failure and no effect on the commit. Test the 60-second bound with a fake clock. The alert reads `tenant_id` from the event stream field added by T-090, never from the payload.
-- evidence:
+- evidence: `pytest -q tests/unit/test_hot_alert.py` -> 7 passed; make static OK; make test 555 passed. Post-commit on_hot callback (no Hot event exists); dedupe in process memory; tenant read from DB row not payload.
 
 ### T-048 LinkedIn and Instagram sources
-- status: todo
+- status: done
 - spec: REQ-ING-004
 - owner: second-backend-engineer
 - depends: T-043
@@ -691,10 +691,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_connectors_more.py`
 - note: add mappings and connector configuration for linkedin_companies, linkedin_jobs, and instagram. Mark each mapping `unverified: true` unless real samples exist under `tests/fixtures/brightdata/`.
-- evidence:
+- evidence: `pytest -q tests/unit/test_connectors_more.py` 13 passed; make static/test pass (test_source_config.py adjusted: instagram now has a mapping)
 
 ### T-049 Remaining n8n workflows
-- status: todo
+- status: done
 - spec: REQ-ORC-001
 - owner: second-backend-engineer
 - depends: T-047, T-035, T-090
@@ -703,7 +703,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_workflows.py` and `python ops/check_workflows.py`
 - note: workflows for linkedin companies backfill, linkedin jobs, instagram, RUES delta, socioeconomic refresh, hot lead alert (webhook trigger to Telegram), and ops health. Orchestration only, no secrets, credentials by n8n credential name.
-- evidence:
+- evidence: `pytest -q tests/unit/test_workflows.py` -> 31 passed; `python ops/check_workflows.py` OK (9 workflows); make static OK; make test 578 passed.
 
 ### T-059 Socioeconomic indicators and opportunity index
 - status: done
@@ -718,7 +718,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_socio_indices.py` -> 26 passed; make static and make test pass
 
 ### T-090 Tenant on the event stream
-- status: todo
+- status: done
 - spec: REQ-EVT-001, REQ-EVT-002, REQ-EVT-005
 - owner: lead-backend-engineer
 - depends: T-025, T-052
@@ -727,10 +727,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_event_tenant.py tests/unit/test_dead_letter.py tests/unit/test_republish.py tests/unit/test_pulse_consumer.py`
 - note: decision D-16. Every stream entry carries `tenant_id` (UUID as text) as its own field, built once in `stream_fields` and used by both relay loops and by republish. The statement that claims due events selects `tenant_id` from `core.outbox_event`. A row with a null tenant is never published: it goes to the dead letter queue at once with error `missing_tenant_id` and an ALERT line. Add a source-scan test that every INSERT into `core.outbox_event` in `services/core/app/` sets `tenant_id`. Consumers read the stream field first and the payload second; check the pulse, ml, and brief consumers and report any that ignores the field instead of editing outside the write scope.
-- evidence:
+- evidence: `pytest -q tests/unit/test_event_tenant.py tests/unit/test_dead_letter.py tests/unit/test_republish.py tests/unit/test_pulse_consumer.py` -> 24 passed; `make static` OK; `make test` 546 passed. Note: services/ml consumer ignores the stream tenant_id field (it does not use a tenant at all); services/brief has no stream consumer. Pulse already reads the field first. Fixtures in test_dead_letter.py and test_republish.py gained tenant_id.
 
 ### T-091 One relay: the dead letter loop is the only relay
-- status: todo
+- status: done
 - spec: REQ-EVT-001, REQ-EVT-003, REQ-EVT-006
 - owner: lead-backend-engineer
 - depends: T-090
@@ -739,10 +739,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_outbox.py tests/unit/test_dead_letter.py tests/unit/test_relay_wiring.py` and `python ops/check_configuration.py`
 - note: decision D-17. `services.core.app.outbox_relay.main` becomes a thin call into the dead letter loop (retry after 10 s, 30 s, 90 s, 5 min, 15 min, dead letter after the sixth failure). Delete the legacy loop and its duplicated SQL. Keep the module path `services.core.app.outbox_relay` so compose and `procs.toml` need no change; if a change is still needed, the coordinator makes it. Update in place the tests in `test_outbox.py` that pin the legacy `main` and keep every other assertion. `test_relay_wiring.py` checks that each relay command in compose and `procs.toml` names a module that exists and exposes `main`.
-- evidence:
+- evidence: `pytest -q tests/unit/test_outbox.py tests/unit/test_dead_letter.py tests/unit/test_relay_wiring.py` -> 12 passed; `python ops/check_configuration.py` OK; make static OK; make test 543 passed.
 
 ### T-092 Relay to consumers, end to end and offline
-- status: todo
+- status: done
 - spec: REQ-EVT-001, REQ-EVT-002, REQ-QA-004
 - owner: qa-reviewer
 - depends: T-091
@@ -751,10 +751,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_relay_to_consumers.py`
 - note: with fakeredis and fake database layers, create events for a lead, a signal, and an outcome in two tenants through the real core code paths, run one relay pass, run the pulse consumer on the stream, and assert: facts land under the right tenant; a replayed event is applied once; an event without tenant is dead-lettered and projects nothing; tenant A data never appears in tenant B. Report production defects instead of changing production code.
-- evidence:
+- evidence: `pytest -q tests/unit/test_relay_to_consumers.py` -> 5 passed; make static OK; make test 555 passed. No production defects; note city/service_line absent from Pulse event payloads (rollups use unknown).
 
 ### T-093 Unique indexes migration
-- status: todo
+- status: done
 - spec: REQ-DAT-001, REQ-DAT-005, REQ-DAT-007
 - owner: database-engineer
 - depends: T-018, T-020, T-041
@@ -763,10 +763,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `python ops/check_migrations.py` and `pytest -q tests/unit/test_unique_indexes.py`
 - note: one expand migration with the next free number (date prefix 20261019). (1) Scan `services/` and `libs/` for `ON CONFLICT (...)` targets and make sure each is backed by a unique index or constraint; add the missing ones, notably the natural key of `ingest.failed_fetch` used by `budget.py`. (2) `CREATE UNIQUE INDEX IF NOT EXISTS` on `core.company (tenant_id, nit) WHERE nit IS NOT NULL`. (3) A plain index on `core.project (lead_id)` only if some query filters by `lead_id` without `tenant_id` as the first predicate; otherwise say in a comment that `(tenant_id, lead_id, updated_at, id)` already covers it. Expand only: no DROP, RENAME, or NOT NULL. Before each unique index a `DO` block raises a clear error that lists duplicate keys; no data is deleted. The test parses the file (no database) and checks every scanned `ON CONFLICT` target against the indexes in all migrations.
-- evidence:
+- evidence: `python ops/check_migrations.py` OK; `pytest -q tests/unit/test_unique_indexes.py` 4 passed; make static/test pass
 
 ### T-094 SQL consistency checks (offline)
-- status: todo
+- status: done
 - spec: REQ-QA-002, REQ-DAT-001, REQ-DAT-005
 - owner: qa-reviewer
 - depends: T-093
@@ -775,10 +775,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/unit/test_sql_consistency.py`
 - note: decision D-18, offline tier. Parse SQL with `pglast` (the PostgreSQL parser). `support_sql.py` provides `collect_statements()`, which walks `services/` and `libs/` with `ast` and returns every string passed to `text(...)` or `exec_driver_sql(...)` with file and line (implicit concatenation joined), and `load_schema()`, which builds tables, columns, and primary or unique keys from all files in `migrations/` in order (CREATE TABLE, ALTER TABLE ADD COLUMN, CREATE UNIQUE INDEX; `contract_` files last). Tests: every statement parses; every table and column named in SELECT, INSERT, UPDATE, and DELETE exists; every INSERT column list is a subset of the table; every `ON CONFLICT` target matches a primary key or unique index (a partial index matches only when the statement repeats its predicate). SQL built with f-strings goes to an explicit `DYNAMIC_SQL` list in the test file that must stay empty or be justified line by line. Nothing is skipped silently: unsupported constructs go to a named allow list with a reason.
-- evidence:
+- evidence: `pytest -q tests/unit/test_sql_consistency.py` 24 passed; make static/test pass
 
 ### T-095 SQL integration tests with psycopg
-- status: todo
+- status: done
 - spec: REQ-QA-005, REQ-DAT-001, REQ-DAT-005
 - owner: qa-reviewer
 - depends: T-094
@@ -787,10 +787,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/integration/test_sql_postgres.py --collect-only` and `make static`
 - note: decision D-18, database tier. Marked `integration` and skipped unless `TEST_DATABASE_URL` is set. With psycopg 3: create a scratch schema or database, apply `migrations/` in order (twice, to prove idempotence), then for every statement from `collect_statements()` replace `:name` binds with `$n` and run `PREPARE stmt_n AS ...` followed by `DEALLOCATE`; PREPARE makes PostgreSQL check tables, columns, types, and `ON CONFLICT` arbiters without running anything. Also assert that row level security is enabled on every table with a `tenant_id` column (`pg_class.relrowsecurity`). Statements that cannot be prepared (DDL, several statements) go to a named skip list with a reason. Try `pip install pgserver` (embedded PostgreSQL) or any local PostgreSQL in the sandbox: if one starts, run the suite and record the result; if not, record why and write evidence `unverified: needs PostgreSQL`. The owner runs it with Docker through `make test-sql`.
-- evidence:
+- evidence: real PostgreSQL 16 (system install, not Docker): 6 passed incl. migrations twice and PREPARE of all 105 statements; `pytest --collect-only` 6 collected; make static/test pass. RLS gap on 9 tenant_id tables recorded in RLS_EXEMPT pending owner decision
 
 ### T-096 Mapping verification harness
-- status: todo
+- status: done
 - spec: REQ-ING-004, REQ-RUN-006
 - owner: second-backend-engineer
 - depends: T-042, T-048
@@ -799,10 +799,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_verify_mappings.py` and `make static`
 - note: closes decision D-13 without hand-collected samples. (1) `ops/verify_mappings.py --samples DIR` runs each source mapping over the sample files of that source and reports unmapped fields present in the sample, required mapped fields missing from the sample, type failures, and a coverage ratio; it exits non-zero below `--min-coverage` (default 0.8). (2) `--capture` stores up to 3 records per source, redacted with `libs/common/log_redaction.py`, under `tests/fixtures/brightdata/captured/`; `make verify-live` (T-076) calls it after the first real snapshot. (3) A mapping flips to `unverified: false` only through a tool run over real or captured samples, never by hand. (4) Fixtures under `tests/fixtures/brightdata/synthetic/` use the documented Datasets API field names, carry `"_synthetic": true`, never count as verification, and exist only to test the harness.
-- evidence:
+- evidence: `pytest -q tests/unit/test_verify_mappings.py` 10 passed; make static/test pass (has_samples checks in test_connectors*.py now look at brightdata/captured/)
 
 ### T-097 dbt mart naming
-- status: todo
+- status: done
 - spec: REQ-PUL-003
 - owner: second-backend-engineer
 - depends: T-055
@@ -811,7 +811,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `dbt parse --project-dir transform --profiles-dir <copy of profiles.yml.example>` and `pytest -q tests/unit/test_dbt_naming.py`
 - note: decision D-19. Tables in `pulse` have four kinds, each with its own name component: projections written by the pulse consumer keep `fact_*` (created by migrations, tenant scoped, row level security); rollups keep `*_rollup`; dbt staging views are `stg_<source>__<entity>`; dbt marts get the component `mart`: `mart_dim_<name>` and `mart_fact_<name>`. Rename the seven dimensions and five facts in the model files, every `ref()`, `schema.yml`, `semantic.yml`, `export_parquet.py`, and the README (Parquet files take the new names); keep `metricflow_time_spine` because MetricFlow expects it. Fix the outdated comment in `macros/generate_schema_name.sql`. Search `services/` for readers of the old dbt names and report them instead of editing outside `transform/`. The test checks that every model in `transform/models/marts/` starts with `mart_` (except the time spine) and that no dbt model name equals a table created by `migrations/`.
-- evidence:
+- evidence: `dbt parse` OK; `pytest -q tests/unit/test_dbt_naming.py` 2 passed; make static/test pass
 
 ### T-060 Zero trust between services
 - status: todo

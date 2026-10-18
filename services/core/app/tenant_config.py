@@ -109,7 +109,13 @@ class ConfigTransaction(Protocol):
     async def close_version(self, old: dict[str, Any], closed_at: datetime) -> None: ...
     async def update_config(self, row: dict[str, Any]) -> None: ...
     async def add_outbox_event(
-        self, *, event_id: UUID, aggregate_id: UUID, version: int, payload: dict[str, Any]
+        self,
+        *,
+        event_id: UUID,
+        tenant_id: UUID | None,
+        aggregate_id: UUID,
+        version: int,
+        payload: dict[str, Any],
     ) -> None: ...
 
 
@@ -167,6 +173,7 @@ async def update_config(
             await tx.update_config(row)
         await tx.add_outbox_event(
             event_id=uuid4(),
+            tenant_id=tenant_id,
             aggregate_id=tenant_id,
             version=version,
             payload={

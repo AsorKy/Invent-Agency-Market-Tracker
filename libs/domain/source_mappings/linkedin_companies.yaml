@@ -1,0 +1,39 @@
+# LinkedIn company profiles (Bright Data dataset) to canonical company fields.
+# unverified: field names come from the public Bright Data documentation, not
+# from a recorded sample (no tests/fixtures/brightdata/ samples exist, D-13).
+# Nested values such as headquarters are not mapped; only scalar fields are.
+version: 1
+source: linkedin_companies
+unverified: true
+entity: company
+signal_type: linkedin_company
+external_id: [company_id, id, url]
+fields:
+  name:
+    from: [name]
+    transform: strip
+    required: true
+  city:
+    from: [headquarters, city]
+    transform: strip
+  country_code:
+    from: [country_code]
+    transform: strip
+  industry:
+    from: [industries]
+    transform: strip
+  company_size:
+    from: [company_size]
+    transform: strip
+  employee_count:
+    from: [employees_in_linkedin]
+    transform: int
+  follower_count:
+    from: [followers]
+    transform: int
+  website:
+    from: [website]
+    transform: url
+  linkedin_url:
+    from: [url]
+    transform: url
