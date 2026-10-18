@@ -886,7 +886,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-070 OpenAPI export
-- status: todo
+- status: done
 - spec: REQ-API-001
 - owner: lead-backend-engineer
 - depends: T-032, T-051, T-022, T-026
@@ -895,7 +895,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_openapi.py` and `make openapi` leaves `git diff --exit-code docs/api/openapi.json` clean
 - note: the gateway proxies by prefix, so build the document from an explicit route registry (path, method, request and response models, errors, headers) shared with the route table of T-032. The test fails for a route missing from the document or a stale committed file. The frozen `libs/contracts/api.py` disagrees with the Pulse response models on nullability: the coordinator reconciles them (the contract change is a coordinator edit) and records the choice in the run report.
-- evidence:
+- evidence: `pytest -q tests/unit/test_openapi.py` 10 passed; `make openapi` then `git diff --exit-code docs/api/openapi.json` clean after commit; make static/test pass
 
 ### T-071 Migration runner
 - status: todo

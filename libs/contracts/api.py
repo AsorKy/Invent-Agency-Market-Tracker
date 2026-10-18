@@ -74,16 +74,19 @@ class UnprocessedSignalsResponse(ContractModel):
 
     points: list[PulsePoint]
     as_of: EpochMilliseconds
-    stale: bool = False
+    stale: bool
+    method_version: str | None = None
 
 
 class PipelineBacklogResponse(ContractModel):
     """Return active lead volume and the current team capacity estimate."""
 
-    active: int = Field(ge=0)
-    hot: int = Field(ge=0)
-    capacity_estimate: int = Field(ge=0)
+    active: int | None = Field(default=None, ge=0)
+    hot: int | None = Field(default=None, ge=0)
+    capacity_estimate: int | None = Field(default=None, ge=0)
     as_of: EpochMilliseconds
+    stale: bool
+    method_version: str | None = None
 
 
 class SourceEfficiency(ContractModel):
@@ -94,7 +97,7 @@ class SourceEfficiency(ContractModel):
     leads: int = Field(ge=0)
     meetings: int = Field(ge=0)
     cost_per_meeting: str | None = None
-    roas: str | None = None
+    roas: float | None = Field(default=None, ge=0)
 
 
 class SourceEfficiencyResponse(ContractModel):
@@ -102,6 +105,8 @@ class SourceEfficiencyResponse(ContractModel):
 
     sources: list[SourceEfficiency]
     as_of: EpochMilliseconds
+    stale: bool
+    method_version: str | None = None
 
 
 class PipelineTimeGroup(ContractModel):
@@ -119,6 +124,8 @@ class TimeInPipelineResponse(ContractModel):
 
     groups: list[PipelineTimeGroup]
     as_of: EpochMilliseconds
+    stale: bool
+    method_version: str | None = None
 
 
 class TopSource(ContractModel):
@@ -134,6 +141,8 @@ class TopSourcesResponse(ContractModel):
 
     ranking: list[TopSource]
     as_of: EpochMilliseconds
+    stale: bool
+    method_version: str | None = None
 
 
 class BriefAlert(ContractModel):
