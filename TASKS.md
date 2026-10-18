@@ -153,7 +153,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_ingest_webhook.py` -> 12 passed, 6 skipped (endpoint tests need fastapi stack, unverified offline)
 
 ### T-007 Add the unit job to CI
-- status: blocked
+- status: done
 - spec: REQ-QA-001, REQ-CI-001
 - owner: devops-engineer
 - depends: T-003, T-004, T-005, T-006
