@@ -1,7 +1,7 @@
 # Reproducible development commands, static guardrails, and Compose
 # configuration. Relates to ops/check_*.py, pyproject.toml, and
 # docker-compose.yml.
-.PHONY: up down datagen static compose-config
+.PHONY: up down datagen static compose-config test test-integration coverage
 
 up:
 	docker compose up --build
@@ -26,3 +26,12 @@ static:
 compose-config:
 	docker compose config >/dev/null
 
+
+test:
+	python -m pytest -q -m "not integration"
+
+test-integration:
+	python -m pytest -q -m integration
+
+coverage:
+	python -m pytest -q -m "not integration" --cov=libs --cov=services --cov-report=term-missing
