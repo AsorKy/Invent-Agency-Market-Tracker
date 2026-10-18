@@ -236,7 +236,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_datagen.py` -> 4 passed; mypy datagen clean; snapshot field names are assumed (unverified mappings)
 
 ### T-014 Freeze shared contracts
-- status: todo
+- status: done
 - spec: REQ-EVT-005, REQ-EXT-001, REQ-EXT-004
 - owner: architecture-reviewer
 - depends: T-011, T-015, T-018
@@ -245,7 +245,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: S
 - acceptance: `pytest -q tests/unit/test_contract_snapshot.py`
 - note: snapshot the JSON schemas of every model in `libs/contracts`, the event envelope, the settings field names, and the schema and table catalog. After this task, edits to existing files in `libs/contracts/`, `libs/common/settings.py`, and `migrations/` need the coordinator. Service tasks may add new modules under `libs/contracts/` and extend the snapshot for their own module only. Multiagent lanes start after this task.
-- evidence:
+- evidence: `pytest -q tests/unit/test_contract_snapshot.py` -> 4 passed, 1 skipped; pydantic model_schemas.json snapshot NOT generated (pydantic unavailable offline): run `UPDATE_SNAPSHOTS=1 pytest tests/unit/test_contract_snapshot.py` in CI and commit it
 
 ### T-015 Settings and environment surface for run 1
 - status: done

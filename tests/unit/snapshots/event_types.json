@@ -1,0 +1,27 @@
+{
+  "EventType": {
+    "COMPANY_UPDATED": "company.updated",
+    "INGEST_QUARANTINE": "ingest.quarantine",
+    "LEAD_CREATED": "lead.created",
+    "LEAD_OUTCOME_RECORDED": "lead.outcome_recorded",
+    "LEAD_SCORE_UPDATED": "lead.score_updated",
+    "SIGNAL_ACTIVITY_LOGGED": "signal.activity_logged",
+    "SIGNAL_CONVERTED_TO_PROJECT": "signal.converted_to_project",
+    "SIGNAL_CREATED": "signal.created",
+    "TENANT_CONFIG_UPDATED": "tenant.config_updated"
+  },
+  "ReservedEventType": {
+    "COMPANY_MATCHED": "company.matched",
+    "COMPONENT_EVALUATED": "component.evaluated",
+    "FUNNEL_GATE_DECISION": "funnel.gate_decision",
+    "FUNNEL_KILL_TRIGGER_EVENT": "funnel.kill_trigger_event",
+    "FUNNEL_PIVOT_REQUESTED": "funnel.pivot_requested",
+    "FUNNEL_PROJECT_KILLED": "funnel.project_killed",
+    "PROJECT_FORECAST_UPDATED": "project.forecast_updated",
+    "PROJECT_PIPELINE_UPDATED": "project.pipeline_updated",
+    "REVIEW_CANDIDATE": "review.candidate",
+    "SIGNAL_EXPLAINED": "signal.explained",
+    "SIGNAL_SCORED": "signal.scored",
+    "SIGNAL_TAGGED": "signal.tagged"
+  }
+}
