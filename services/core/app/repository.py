@@ -882,6 +882,95 @@ class SqlImportUnitOfWork(SqlCompanyUnitOfWork):
         return SqlImportTransaction(await self._context.__aenter__())
 
 
+class SqlRetentionTransaction:
+    """Retention queries and cascading company deletion on one connection."""
+
+    def __init__(self, connection: AsyncConnection) -> None:
+        self.connection = connection
+
+    async def find_purge_candidates(self, cutoff: datetime, limit: int) -> list[UUID]:
+        result = await self.connection.execute(
+            text(
+                """
+                SELECT c.id FROM core.company c
+                WHERE COALESCE(
+                          (SELECT max(s.observed_at) FROM core.signal s WHERE s.company_id = c.id),
+                          c.created_at) < :cutoff
+                ORDER BY c.created_at, c.id
+                LIMIT :limit
+                FOR UPDATE OF c SKIP LOCKED
+                """
+            ),
+            {"cutoff": cutoff, "limit": limit},
+        )
+        return [row[0] for row in result.all()]
+
+    async def find_company(self, company_id: UUID | None, nit: str | None) -> UUID | None:
+        result = await self.connection.execute(
+            text(
+                """
+                SELECT id FROM core.company
+                WHERE (CAST(:company_id AS uuid) IS NOT NULL AND id = :company_id)
+                   OR (CAST(:nit AS text) IS NOT NULL AND nit = :nit)
+                LIMIT 1
+                FOR UPDATE
+                """
+            ),
+            {"company_id": company_id, "nit": nit},
+        )
+        found: UUID | None = result.scalar_one_or_none()
+        return found
+
+    async def delete_company_data(self, company_id: UUID) -> dict[str, int]:
+        """Delete dependants first (outcomes, activities, leads, signals, roles, locations)."""
+        params = {"id": company_id}
+        statements = (
+            (
+                "lead_outcome",
+                "DELETE FROM core.lead_outcome WHERE lead_id IN "
+                "(SELECT id FROM core.lead WHERE company_id = :id)",
+            ),
+            (
+                "lead_activity",
+                "DELETE FROM core.lead_activity WHERE lead_id IN "
+                "(SELECT id FROM core.lead WHERE company_id = :id)",
+            ),
+            ("lead", "DELETE FROM core.lead WHERE company_id = :id"),
+            ("signal", "DELETE FROM core.signal WHERE company_id = :id"),
+            ("person_role", "DELETE FROM core.person_role WHERE company_id = :id"),
+            ("location", "DELETE FROM core.location WHERE company_id = :id"),
+            (
+                "audit_log",
+                "DELETE FROM core.audit_log WHERE aggregate_type = 'company' "
+                "AND aggregate_id = :id",
+            ),
+            ("company", "DELETE FROM core.company WHERE id = :id"),
+        )
+        counts: dict[str, int] = {}
+        for table, statement in statements:
+            result = await self.connection.execute(text(statement), params)
+            counts[table] = int(result.rowcount)
+        return counts
+
+    async def add_audit(self, *, action: str, payload: dict[str, object]) -> None:
+        await self.connection.execute(
+            text(
+                """
+                INSERT INTO core.audit_log (actor, action, aggregate_type, payload)
+                VALUES ('core', :action, 'compliance', CAST(:payload AS jsonb))
+                """
+            ),
+            {"action": action, "payload": json.dumps(payload, default=str)},
+        )
+
+
+class SqlRetentionUnitOfWork(SqlCompanyUnitOfWork):
+    """Same commit-or-rollback boundary, yielding retention operations."""
+
+    async def __aenter__(self) -> SqlRetentionTransaction:  # type: ignore[override]
+        return SqlRetentionTransaction(await self._context.__aenter__())
+
+
 class SqlLeadUnitOfWork(SqlCompanyUnitOfWork):
     """Same commit-or-rollback boundary, yielding lead operations."""
 
@@ -955,6 +1044,11 @@ class CoreRepository:
         if self.engine is None:
             raise RuntimeError("DATABASE_URL is required for core writes")
         return SqlImportUnitOfWork(self.engine)
+
+    def retention_unit_of_work(self) -> SqlRetentionUnitOfWork:
+        if self.engine is None:
+            raise RuntimeError("DATABASE_URL is required for core writes")
+        return SqlRetentionUnitOfWork(self.engine)
 
     async def close(self) -> None:
         if self.engine:

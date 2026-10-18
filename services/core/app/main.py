@@ -53,6 +53,13 @@ from services.core.app.leads import (
     create_lead,
 )
 from services.core.app.repository import CoreRepository
+from services.core.app.retention import (
+    OptOutRequest,
+    PersonalDataError,
+    opt_out,
+    purge_inactive_companies,
+    reject_personal_identifiers,
+)
 from services.core.app.tenant_config import (
     StaleConfigError,
     TenantConfig,
@@ -97,6 +104,10 @@ async def ready() -> JSONResponse:
 @app.post("/internal/core/signals", status_code=201, dependencies=[Depends(require_internal_token)])
 async def create_signal(payload: SignalCreate, request: Request) -> dict[str, str | None]:
     try:
+        reject_personal_identifiers(payload.model_dump(mode="json"))
+    except PersonalDataError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    try:
         repository: CoreRepository = request.app.state.repository
         signal_id, event_id = await repository.create_signal(
             payload, request_id=request.headers.get("X-Request-ID")
@@ -114,6 +125,10 @@ async def create_signal(payload: SignalCreate, request: Request) -> dict[str, st
 async def upsert_company_route(
     payload: CompanyUpsert, request: Request, response: Response
 ) -> dict[str, str | int]:
+    try:
+        reject_personal_identifiers(payload.model_dump(mode="json"))
+    except PersonalDataError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     try:
         repository: CoreRepository = request.app.state.repository
         result = await upsert_company(
@@ -463,5 +478,30 @@ async def get_job_route(
         return await read_job(repository.import_unit_of_work(), job_id, x_tenant_id)
     except JobNotFoundError as exc:
         raise HTTPException(status_code=404, detail="job_not_found") from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@app.post("/internal/core/compliance/opt-out", dependencies=[Depends(require_internal_token)])
+async def opt_out_route(payload: OptOutRequest, request: Request) -> dict[str, object]:
+    try:
+        repository: CoreRepository = request.app.state.repository
+        return await opt_out(repository.retention_unit_of_work(), payload)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@app.post("/internal/core/compliance/purge", dependencies=[Depends(require_internal_token)])
+async def purge_route(
+    request: Request,
+    dry_run: bool = True,
+    limit: Annotated[int, Query(ge=1, le=5000)] = 500,
+) -> dict[str, object]:
+    """Scheduler entrypoint; defaults to a dry run so deletion must be requested explicitly."""
+    try:
+        repository: CoreRepository = request.app.state.repository
+        return await purge_inactive_companies(
+            repository.retention_unit_of_work(), dry_run=dry_run, limit=limit
+        )
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc

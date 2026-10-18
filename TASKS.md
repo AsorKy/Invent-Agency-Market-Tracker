@@ -380,7 +380,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_imports.py` -> 15 passed; make static OK; make test 339 passed. stdlib csv parser behind ChunkParser (polars declared in pyproject but not installed); raw CSV body, gateway must unwrap multipart.
 
 ### T-027 Retention purge and opt-out
-- status: todo
+- status: done
 - spec: REQ-CMP-001
 - owner: lead-backend-engineer
 - depends: T-020
@@ -389,7 +389,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_retention.py`
 - note: purge companies 12 months after their last signal (job callable from a scheduler, dry-run option), idempotent opt-out delete endpoint, a guard that rejects storing personal identifiers (document numbers, private phones), and a short processing-activities record in English.
-- evidence:
+- evidence: `pytest -q tests/unit/test_retention.py` -> 16 passed; make static OK; make test 355 passed.
 
 ### T-030 Identity service: Django project, RBAC, JWKS
 - status: todo
