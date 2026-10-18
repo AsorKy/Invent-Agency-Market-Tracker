@@ -9,6 +9,8 @@ SQLAlchemy pool settings in one place and remain compatible with transaction
 poolers by disabling both asyncpg prepared-statement caches.
 """
 
+from typing import Any
+
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
@@ -19,39 +21,62 @@ from sqlalchemy.ext.asyncio import (
 
 from libs.common.settings import get_settings
 
+ASYNCPG_DRIVER = "postgresql+asyncpg"
+PSYCOPG_DRIVER = "postgresql+psycopg"
+PSYCOPG_POOL_SIZE = 2
+
+
+def engine_settings(
+    database_url: str,
+    *,
+    pool_size: int,
+    max_overflow: int,
+    pool_timeout: float,
+    connect_timeout: float,
+) -> tuple[str, dict[str, Any]]:
+    """Return the final URL and ``create_async_engine`` kwargs without connecting.
+
+    asyncpg: ``statement_cache_size=0`` in connect_args and
+    ``prepared_statement_cache_size=0`` in the URL query (SQLAlchemy consumes it).
+    psycopg 3: ``prepare_threshold=None`` and a pool of ``PSYCOPG_POOL_SIZE``.
+    """
+
+    url = make_url(database_url)
+    options: dict[str, Any] = {
+        "pool_pre_ping": True,
+        "pool_timeout": pool_timeout,
+        "max_overflow": max_overflow,
+    }
+    if url.drivername == ASYNCPG_DRIVER:
+        options["pool_size"] = pool_size
+        options["connect_args"] = {"timeout": connect_timeout, "statement_cache_size": 0}
+        url = url.update_query_dict({"prepared_statement_cache_size": "0"})
+        return url.render_as_string(hide_password=False), options
+    if url.drivername == PSYCOPG_DRIVER:
+        options["pool_size"] = PSYCOPG_POOL_SIZE
+        options["connect_args"] = {
+            "connect_timeout": max(1, int(connect_timeout)),
+            "prepare_threshold": None,
+        }
+        return database_url, options
+    # Other async dialects keep the shared timeout and pool limits explicit.
+    options["pool_size"] = pool_size
+    options["connect_args"] = {"timeout": connect_timeout}
+    return database_url, options
+
 
 def create_engine(database_url: str | None, *, pool_size: int | None = None) -> AsyncEngine | None:
     if not database_url:
         return None
     settings = get_settings()
-    pool_options = {
-        "pool_pre_ping": True,
-        "pool_timeout": settings.database_pool_timeout_seconds,
-        "pool_size": pool_size or settings.database_pool_size,
-        "max_overflow": settings.database_max_overflow,
-    }
-    connect_args: dict[str, object] = {"timeout": settings.database_connect_timeout_seconds}
-
-    # ``statement_cache_size`` is an asyncpg connection option. The
-    # ``prepared_statement_cache_size`` option is translated by SQLAlchemy's
-    # asyncpg dialect from the URL query string into the adapted DBAPI connect
-    # call. Keep it in the URL so SQLAlchemy does not forward it to asyncpg.
-    if make_url(database_url).drivername == "postgresql+asyncpg":
-        connect_args["statement_cache_size"] = 0
-        database_url_object = make_url(database_url).update_query_dict(
-            {"prepared_statement_cache_size": "0"}
-        )
-        database_url = database_url_object.render_as_string(hide_password=False)
-        return create_async_engine(
-            database_url,
-            **pool_options,
-            connect_args=connect_args,
-        )
-
-    # Keep the existing behavior for any other async dialect URL. The URL
-    # still determines the driver, while the shared timeout and pool limits
-    # remain explicit.
-    return create_async_engine(database_url, **pool_options, connect_args=connect_args)
+    url, options = engine_settings(
+        database_url,
+        pool_size=pool_size or settings.database_pool_size,
+        max_overflow=settings.database_max_overflow,
+        pool_timeout=settings.database_pool_timeout_seconds,
+        connect_timeout=settings.database_connect_timeout_seconds,
+    )
+    return create_async_engine(url, **options)
 
 
 def session_factory(engine: AsyncEngine | None) -> async_sessionmaker[AsyncSession] | None:

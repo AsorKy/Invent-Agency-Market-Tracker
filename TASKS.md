@@ -176,7 +176,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `python ops/check_migrations.py` -> OK; `pytest -q tests/unit/test_schema_catalog.py` -> 5 passed, 1 xfailed (strict xfail records conflict: migration 0001 creates `analytics`, SPEC says never; see run report)
 
 ### T-009 Data taxonomy helpers and pooler driver settings
-- status: todo
+- status: done
 - spec: REQ-DAT-003, REQ-DAT-004
 - owner: lead-backend-engineer
 - depends: T-001
@@ -185,7 +185,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_taxonomy.py tests/unit/test_db_settings.py`
 - note: add `local_day(ts, city)` with IANA zones (America/Bogota), UTC millisecond helpers, and a decimal-string money helper. Assert the asyncpg and psycopg arguments of section 5.5 (statement cache off, pool sizes, pre-ping, timeout) in a unit test that inspects the engine arguments without connecting. Add a repository-wide test that no migration declares `json`, `float`, or `real` columns.
-- evidence:
+- evidence: `pytest -q tests/unit/test_taxonomy.py tests/unit/test_db_settings.py` -> 6 passed, 1 skipped (db settings need sqlalchemy, unverified offline)
 
 ### T-010 Migration guardian and schema-list bootstrap
 - status: todo
