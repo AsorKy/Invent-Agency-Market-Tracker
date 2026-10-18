@@ -632,7 +632,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_streamlit_helpers.py` -> 15 passed; make static and make test pass (313 passed)
 
 ### T-057 Streamlit pages 1 to 4
-- status: todo
+- status: done
 - spec: REQ-STR-001
 - owner: second-backend-engineer
 - depends: T-056
@@ -641,7 +641,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_streamlit_pages_a.py` (Streamlit AppTest)
 - note: Market, Leads, Segmentos, and Territorios pages. Territorios shows only what L1 provides and an explicit placeholder for the IOZ (L3).
-- evidence:
+- evidence: `pytest -q tests/unit/test_streamlit_pages_a.py` -> 9 passed; make static and make test pass
 
 ### T-058 Streamlit pages 5 to 7
 - status: todo
