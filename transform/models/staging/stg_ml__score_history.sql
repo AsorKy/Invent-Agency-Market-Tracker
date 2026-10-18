@@ -1,4 +1,4 @@
--- Score history written by the ML service; feeds fact_lead_score.
+-- Score history written by the ML service; feeds mart_fact_lead_score.
 
 select
     id as score_history_id,

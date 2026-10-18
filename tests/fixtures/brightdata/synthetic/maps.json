@@ -1,0 +1,32 @@
+[
+  {
+    "place_id": "syn-place-1",
+    "name": "Cafe Sintetico",
+    "address": "Calle 1 # 2-3, Medellin",
+    "city": "Medellin",
+    "category": "Cafe",
+    "phone_number": "+57 300 000 0001",
+    "open_website": "https://cafe.example.com",
+    "rating": 4.5,
+    "reviews_count": 120,
+    "lat": 6.2442,
+    "lon": -75.5812,
+    "photos_and_videos": 3,
+    "_synthetic": true
+  },
+  {
+    "place_id": "syn-place-2",
+    "name": "Tienda Sintetica",
+    "address": "Carrera 4 # 5-6, Bogota",
+    "city": "Bogota",
+    "category": "Store",
+    "phone_number": "+57 300 000 0002",
+    "open_website": "https://tienda.example.com",
+    "rating": 4.1,
+    "reviews_count": 45,
+    "lat": 4.711,
+    "lon": -74.0721,
+    "photos_and_videos": 1,
+    "_synthetic": true
+  }
+]

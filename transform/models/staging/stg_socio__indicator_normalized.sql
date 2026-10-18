@@ -1,5 +1,5 @@
--- Normalized socioeconomic indicators; feeds dim_territory and
--- fact_territory_indicator.
+-- Normalized socioeconomic indicators; feeds mart_dim_territory and
+-- mart_fact_territory_indicator.
 
 select
     territory_code,

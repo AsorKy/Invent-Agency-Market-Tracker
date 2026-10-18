@@ -1,0 +1,28 @@
+[
+  {
+    "id": "syn-ig-1",
+    "account": "cafe_sintetico",
+    "full_name": "Cafe Sintetico",
+    "business_category_name": "Coffee Shop",
+    "followers": 2300,
+    "posts_count": 150,
+    "biography": "Synthetic bio.",
+    "external_url": "https://cafe.example.com",
+    "profile_url": "https://www.instagram.com/cafe_sintetico",
+    "is_verified": false,
+    "_synthetic": true
+  },
+  {
+    "id": "syn-ig-2",
+    "account": "tienda_sintetica",
+    "full_name": "Tienda Sintetica",
+    "business_category_name": "Shopping",
+    "followers": 800,
+    "posts_count": 60,
+    "biography": "Synthetic bio.",
+    "external_url": "https://tienda.example.com",
+    "profile_url": "https://www.instagram.com/tienda_sintetica",
+    "is_verified": false,
+    "_synthetic": true
+  }
+]

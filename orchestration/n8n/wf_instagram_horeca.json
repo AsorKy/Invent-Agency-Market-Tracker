@@ -1,0 +1,186 @@
+{
+  "id": "wf-instagram-horeca",
+  "name": "wf_instagram_horeca",
+  "description": "Weekly Instagram business (HoReCa) run: check the ingest budget, trigger Bright Data with the ingest webhook as notify URL, and notify the team.",
+  "active": false,
+  "versionId": "1.0.0",
+  "meta": {
+    "payloadVersion": "1"
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Bogota"
+  },
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 5 * * 2"
+            }
+          ]
+        }
+      },
+      "id": "instagram_horeca-schedule",
+      "name": "Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        260,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{$env.INGEST_URL}}/internal/ingest/budget/instagram",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "instagram_horeca-budget",
+      "name": "Check ingest budget",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        520,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ingest-internal",
+          "name": "ingest-internal-header"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.BRIGHT_DATA_API_URL}}/datasets/v3/trigger",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"dataset_id\":\"instagram-business-horeca\",\"inputs\":{\"city\": \"Medellin\", \"country\": \"CO\"},\"notify\":\"{{$env.INGEST_WEBHOOK_URL}}\"}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "instagram_horeca-trigger",
+      "name": "Trigger Bright Data",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        780,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "brightdata-api",
+          "name": "brightdata-api-header"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.TELEGRAM_WEBHOOK_URL}}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"text\":\"Ingest run started: instagram-business-horeca\"}",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "id": "instagram_horeca-notify-ok",
+      "name": "Notify run started",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1040,
+        300
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "instagram_horeca-error",
+      "name": "Error trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        260,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.TELEGRAM_WEBHOOK_URL}}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"text\":\"Ingest run failed or blocked by budget: instagram-business-horeca\"}",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "id": "instagram_horeca-notify-fail",
+      "name": "Notify run failed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        520,
+        520
+      ]
+    }
+  ],
+  "connections": {
+    "Schedule": {
+      "main": [
+        [
+          {
+            "node": "Check ingest budget",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check ingest budget": {
+      "main": [
+        [
+          {
+            "node": "Trigger Bright Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger Bright Data": {
+      "main": [
+        [
+          {
+            "node": "Notify run started",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error trigger": {
+      "main": [
+        [
+          {
+            "node": "Notify run failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

@@ -1,0 +1,150 @@
+{
+  "id": "wf-socioeco-refresh",
+  "name": "wf_socioeco_refresh",
+  "description": "Monthly socioeconomic refresh: ask the analytics service to reload DANE data and notify the team.",
+  "active": false,
+  "versionId": "1.0.0",
+  "meta": {
+    "payloadVersion": "1"
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Bogota"
+  },
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 2 1 * *"
+            }
+          ]
+        }
+      },
+      "id": "socioeco_refresh-schedule",
+      "name": "Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        260,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.ANALYTICS_URL}}/internal/analytics/socioeconomic/refresh",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"source\":\"dane\"}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "socioeco_refresh-refresh",
+      "name": "Refresh socioeconomic data",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        520,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ingest-internal",
+          "name": "ingest-internal-header"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.TELEGRAM_WEBHOOK_URL}}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"text\":\"Socioeconomic refresh requested\"}",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "id": "socioeco_refresh-notify-ok",
+      "name": "Notify refresh done",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        780,
+        300
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "socioeco_refresh-error",
+      "name": "Error trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        260,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.TELEGRAM_WEBHOOK_URL}}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"text\":\"Socioeconomic refresh failed\"}",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "id": "socioeco_refresh-notify-fail",
+      "name": "Notify refresh failed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        520,
+        520
+      ]
+    }
+  ],
+  "connections": {
+    "Schedule": {
+      "main": [
+        [
+          {
+            "node": "Refresh socioeconomic data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Refresh socioeconomic data": {
+      "main": [
+        [
+          {
+            "node": "Notify refresh done",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error trigger": {
+      "main": [
+        [
+          {
+            "node": "Notify refresh failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

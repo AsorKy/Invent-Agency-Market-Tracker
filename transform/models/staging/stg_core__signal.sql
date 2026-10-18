@@ -1,5 +1,5 @@
 -- Normalize core.signal for the analytics model.
--- It reads from the initial migration and relates to fact_signal.sql,
+-- It reads from the initial migration and relates to mart_fact_signal.sql,
 -- schema.yml, and the analytics consumer. Its purpose is to isolate the
 -- transactional contract from the shape consumed by marts.
 

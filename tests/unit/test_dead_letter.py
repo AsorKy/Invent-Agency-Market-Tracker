@@ -23,6 +23,7 @@ from services.core.app.dead_letter import (
 )
 
 T0 = datetime(2026, 1, 1, tzinfo=UTC)
+TENANT = uuid4()
 
 
 class Outbox:
@@ -90,6 +91,7 @@ def _row(row_id: int, aggregate_id: Any = None) -> dict[str, Any]:
     return {
         "id": row_id,
         "event_id": uuid4(),
+        "tenant_id": TENANT,
         "aggregate_type": "lead",
         "aggregate_id": aggregate_id or uuid4(),
         "event_type": "lead.created",

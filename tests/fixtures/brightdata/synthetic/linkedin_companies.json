@@ -1,0 +1,30 @@
+[
+  {
+    "company_id": "syn-lic-1",
+    "name": "Compania Uno",
+    "headquarters": "Bogota",
+    "country_code": "CO",
+    "industries": "Software",
+    "company_size": "51-200 employees",
+    "employees_in_linkedin": 87,
+    "followers": 1500,
+    "website": "https://uno.example.com",
+    "url": "https://www.linkedin.com/company/syn-uno",
+    "slogan": "Synthetic",
+    "_synthetic": true
+  },
+  {
+    "company_id": "syn-lic-2",
+    "name": "Compania Dos",
+    "headquarters": "Medellin",
+    "country_code": "CO",
+    "industries": "Retail",
+    "company_size": "11-50 employees",
+    "employees_in_linkedin": 20,
+    "followers": 300,
+    "website": "https://dos.example.com",
+    "url": "https://www.linkedin.com/company/syn-dos",
+    "slogan": "Synthetic",
+    "_synthetic": true
+  }
+]

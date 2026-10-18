@@ -18,7 +18,7 @@ from datetime import UTC, datetime
 from typing import Any, Protocol
 from uuid import UUID
 
-from services.core.app.dead_letter import stream_fields
+from services.core.app.dead_letter import MissingTenantError, stream_fields
 
 TARGETS = ("pulse", "brief", "ml")
 LOCK_TTL_SECONDS = 6 * 3600
@@ -85,7 +85,15 @@ async def replay(
             if not page:
                 break
             for row in page:
-                await publish(stream_fields(row, replay=True, target=target))
+                try:
+                    fields = stream_fields(row, replay=True, target=target)
+                except MissingTenantError:
+                    _log.error(
+                        "ALERT republish skipped event without tenant event_id=%s",
+                        row["event_id"],
+                    )
+                    continue
+                await publish(fields)
                 published += 1
             after_id = int(page[-1]["id"])
     finally:
