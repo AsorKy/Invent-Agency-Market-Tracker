@@ -153,7 +153,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_ingest_webhook.py` -> 12 passed, 6 skipped (endpoint tests need fastapi stack, unverified offline)
 
 ### T-007 Add the unit job to CI
-- status: todo
+- status: blocked
 - spec: REQ-QA-001, REQ-CI-001
 - owner: devops-engineer
 - depends: T-003, T-004, T-005, T-006
@@ -161,7 +161,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - context: .github/workflows/ci.yml, Makefile
 - size: S
 - acceptance: the workflow file parses as YAML and contains a `unit` job with `needs: static` that runs `make test`
-- evidence:
+- evidence: BLOCKED: change is ready (docs/runs/T-007-ci-unit-job.patch, `git apply` it) but the push token lacks the `workflow` scope, so GitHub rejects any commit touching .github/workflows/; owner must apply it
 
 ### T-008 Reconcile schema and role names
 - status: done
@@ -284,7 +284,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-018 Schema additions for run 1 (expand migration)
-- status: todo
+- status: done
 - spec: REQ-COR-001, REQ-DAT-005, REQ-EXT-004
 - owner: database-engineer
 - depends: T-008, T-010
@@ -293,7 +293,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `python ops/check_migrations.py` and `pytest -q tests/unit/test_schema_catalog.py`
 - note: bring the migrations in line with SPEC section 3.2 in one new expand migration: every listed table exists in its owning schema; `analytics` objects live in `pulse`; brief tables live in `brief`; each consumer schema has `processed_event`; add `ingest.pending_snapshot`, `ingest.failed_record`, `core.job`, `core.upload_blob`, `core.tenant_config` (with ETag version) plus a history table, `core.outbox_dead_letter`, `core.audit_log`, `core.lead_activity` (channel, source), and the lead columns `source`, `city`, `service_line`, and nullable `holdout`; enable RLS and tenant policies on company, lead, and project. The test parses the SQL against the catalog.
-- evidence:
+- evidence: `python ops/check_migrations.py` -> OK; `pytest -q tests/unit/test_schema_catalog.py tests/unit/test_migration_guard.py tests/unit/test_taxonomy.py` -> 43 passed, 1 xfailed (SQL never run against real Postgres)
 
 ### T-020 Company upsert API with history
 - status: todo
