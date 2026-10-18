@@ -874,7 +874,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-065 Coverage gate
-- status: todo
+- status: done
 - spec: REQ-QA-003
 - owner: qa-reviewer
 - depends: T-077
@@ -883,7 +883,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: S
 - acceptance: `make coverage` reports at least 80 percent for `libs` and `services` and at least 90 percent for `libs/domain`
 - note: add missing unit tests for any module below the threshold in `libs/domain`; list modules below 80 percent elsewhere in the run report with the reason.
-- evidence:
+- evidence: `make coverage` total 86.6%, libs/domain 99%; gates enforced
 
 ### T-070 OpenAPI export
 - status: todo
