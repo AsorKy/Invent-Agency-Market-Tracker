@@ -1,0 +1,178 @@
+{
+  "id": "wf-rues-delta",
+  "name": "wf_rues_delta",
+  "description": "Weekly RUES delta: check the ingest budget, ask the RUES delta endpoint to deliver to the ingest webhook, and notify the team.",
+  "active": false,
+  "versionId": "1.0.0",
+  "meta": {
+    "payloadVersion": "1"
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Bogota"
+  },
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 4 * * 3"
+            }
+          ]
+        }
+      },
+      "id": "rues_delta-schedule",
+      "name": "Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        260,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{$env.INGEST_URL}}/internal/ingest/budget/rues",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "rues_delta-budget",
+      "name": "Check ingest budget",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        520,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "ingest-internal",
+          "name": "ingest-internal-header"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.RUES_DELTA_URL}}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"since\":\"last_run\",\"notify\":\"{{$env.INGEST_WEBHOOK_URL}}\"}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "rues_delta-trigger",
+      "name": "Request RUES delta",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        780,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.TELEGRAM_WEBHOOK_URL}}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"text\":\"Ingest run started: rues-delta\"}",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "id": "rues_delta-notify-ok",
+      "name": "Notify run started",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1040,
+        300
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "rues_delta-error",
+      "name": "Error trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        260,
+        520
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.TELEGRAM_WEBHOOK_URL}}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"text\":\"Ingest run failed or blocked by budget: rues-delta\"}",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "id": "rues_delta-notify-fail",
+      "name": "Notify run failed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        520,
+        520
+      ]
+    }
+  ],
+  "connections": {
+    "Schedule": {
+      "main": [
+        [
+          {
+            "node": "Check ingest budget",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check ingest budget": {
+      "main": [
+        [
+          {
+            "node": "Request RUES delta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Request RUES delta": {
+      "main": [
+        [
+          {
+            "node": "Notify run started",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error trigger": {
+      "main": [
+        [
+          {
+            "node": "Notify run failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

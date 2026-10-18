@@ -694,7 +694,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-049 Remaining n8n workflows
-- status: todo
+- status: done
 - spec: REQ-ORC-001
 - owner: second-backend-engineer
 - depends: T-047, T-035, T-090
@@ -703,7 +703,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_workflows.py` and `python ops/check_workflows.py`
 - note: workflows for linkedin companies backfill, linkedin jobs, instagram, RUES delta, socioeconomic refresh, hot lead alert (webhook trigger to Telegram), and ops health. Orchestration only, no secrets, credentials by n8n credential name.
-- evidence:
+- evidence: `pytest -q tests/unit/test_workflows.py` -> 31 passed; `python ops/check_workflows.py` OK (9 workflows); make static OK; make test 578 passed.
 
 ### T-059 Socioeconomic indicators and opportunity index
 - status: done
