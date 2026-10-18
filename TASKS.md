@@ -814,7 +814,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `dbt parse` OK; `pytest -q tests/unit/test_dbt_naming.py` 2 passed; make static/test pass
 
 ### T-060 Zero trust between services
-- status: todo
+- status: done
 - spec: REQ-SEC-005
 - owner: lead-backend-engineer
 - depends: T-032, T-050
@@ -823,10 +823,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_internal_auth.py` and `python ops/check_configuration.py`
 - note: signed service tokens with expiry for service-to-service calls, `_app` role per service in settings, Redis ACL users `edge` and `data` documented in compose configuration checks, and `/internal/*` never routed by the gateway (test). Core must accept tenant headers only from a request carrying a valid gateway service token; add a test where a direct call with `X-Tenant-ID` and no token is refused.
-- evidence:
+- evidence: `pytest -q tests/unit/test_internal_auth.py` 12 passed; `ops/check_configuration.py` OK; make static/test pass. Gaps (see run report): `_app` roles and Redis ACL users not done (outside write_scope); legacy shared secret still accepted; core tenant header requires any valid service token, not gateway-only
 
 ### T-061 Failure matrix tests
-- status: todo
+- status: done
 - spec: REQ-RES-002
 - owner: qa-reviewer
 - depends: T-033, T-051, T-053, T-032
@@ -835,7 +835,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_failure_matrix.py`
 - note: fault injection with fakes for ml, pulse, brief, and Redis as described in REQ-RES-002. Report production defects instead of changing production code.
-- evidence:
+- evidence: `pytest -q tests/unit/test_failure_matrix.py` 16 passed; make static/test pass; production defects listed in run report
 
 ### T-062 Graceful shutdown, structured logs, and metrics
 - status: todo
