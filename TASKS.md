@@ -129,13 +129,13 @@ Adjust budgets after the smoke run shows real cost per task. Blocked tasks do no
 - evidence:
 
 ### T-008 Reconcile schema and role names
-- status: blocked
+- status: todo
 - spec: REQ-DAT-001
 - owner: database-engineer
-- depends: decision D-01
+- depends: T-001
 - write_scope: migrations/, ops/bootstrap_roles.sql.example
 - context: migrations/README.md, migrations/20261017_0001_expand_initial_schemas.sql, migrations/20261017_0002_arch_v22_foundations.sql, ops/check_migrations.py
 - size: M
 - acceptance: `python ops/check_migrations.py`
-- note: blocked until D-01 is decided in `SPEC.md`. Follow expand/contract: add new names in an expand migration, never rename or drop in place.
+- note: D-01 is closed in `SPEC.md` (7 schemas, 14 roles, `socio` canonical, see SPEC section 3.2). Follow expand/contract: add new names in an expand migration; remove `socioeconomic` and never create `analytics` through a `contract_` migration in a separate commit.
 - evidence:

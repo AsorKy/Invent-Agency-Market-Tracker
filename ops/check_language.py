@@ -4,7 +4,8 @@ The checker scans UTF-8 text files outside generated caches, rejects non-ASCII
 characters, and rejects a curated list of Spanish words and legacy identifiers.
 It relates to ``Makefile`` and ``.github/workflows/ci.yml`` and complements
 ``ops/check_script_docs.py``. Its purpose is to keep docstrings, comments,
-configuration descriptions, messages, and code conventions in English.
+configuration descriptions, messages, and code conventions in English. The Spanish
+ADR exports under ``docs/adr`` are the only excluded files.
 """
 
 import re
@@ -12,6 +13,8 @@ import sys
 from pathlib import Path
 
 EXCLUDED_PARTS = {".git", "__pycache__", ".mypy_cache", ".ruff_cache"}
+# The architecture decision records are exported verbatim from the project vault in Spanish.
+EXCLUDED_DIRECTORIES = (Path("docs") / "adr",)
 LEGACY_IDENTIFIER_HEX = (
     "636f6e73756c746f7269615f7377",
     "616e616c69746963615f6264",
@@ -37,6 +40,8 @@ def main() -> int:
         except (OSError, UnicodeDecodeError):
             continue
         relative = path.relative_to(repository)
+        if any(relative.is_relative_to(excluded) for excluded in EXCLUDED_DIRECTORIES):
+            continue
         for line_number, line in enumerate(content.splitlines(), 1):
             if any(ord(character) > 127 for character in line):
                 failures.append(f"{relative}:{line_number}: non-ASCII text")
