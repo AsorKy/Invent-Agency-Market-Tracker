@@ -910,7 +910,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-072 Demo seed
-- status: todo
+- status: done
 - spec: REQ-RUN-003
 - owner: second-backend-engineer
 - depends: T-045, T-053, T-052, T-013
@@ -919,7 +919,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_seed.py`
 - note: `python -m ops.seed load|clear` feeds the datagen snapshots through the ingest code path (mock mode) so every downstream table fills; idempotent; rows tagged `source=demo`; `clear` removes only those rows through service APIs.
-- evidence:
+- evidence: `pytest -q tests/unit/test_seed.py` 5 passed; make static clean
 
 ### T-073 Compose, images, and health probes
 - status: todo
