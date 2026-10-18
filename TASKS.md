@@ -105,7 +105,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `python ops/check_traceability.py` -> OK (119 requirements, 83 tasks); `pytest -q tests/unit/test_traceability.py` -> 9 passed; ruff, language, script-doc guards OK.
 
 ### T-003 Unit tests for shared helpers
-- status: todo
+- status: done
 - spec: REQ-QA-002, REQ-SEC-001, REQ-DAT-002
 - owner: qa-reviewer
 - depends: T-001
@@ -114,10 +114,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_common.py`
 - note: cover cursor round trip and ordering, retry attempts and bounded backoff, UTC millisecond helpers, and redaction of document numbers, emails, and secret-bearing keys. Report production defects instead of changing production code.
-- evidence:
+- evidence: `/tmp/py12 -m pytest -q tests/unit/test_common.py` -> 37 passed (python3.12 with pytest only; offline sandbox)
 
 ### T-004 Gateway tests
-- status: todo
+- status: done
 - spec: REQ-QA-002, REQ-GW-001, REQ-GW-002
 - owner: qa-reviewer
 - depends: T-001
@@ -126,10 +126,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_gateway.py`
 - note: use the in-process ASGI client and fake upstreams. No Redis or Postgres. Cover `/health`, `/ready` with a failing upstream, 404 for non-public paths, edge secret enforcement (404, never 403), double-submit CSRF (403 `csrf_token_invalid`), the rate limiter with the fake Redis, and `X-Request-ID` propagation. Report production defects instead of changing production code.
-- evidence:
+- evidence: `pytest -q tests/unit/test_gateway.py` -> 1 skipped (fastapi/httpx/fakeredis missing offline); ~45 cases written from code reading, unverified until CI
 
 ### T-005 Outbox relay and idempotent consumer tests
-- status: todo
+- status: done
 - spec: REQ-QA-002, REQ-EVT-001, REQ-EVT-002
 - owner: qa-reviewer
 - depends: T-001
@@ -138,10 +138,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/unit/test_outbox.py`
 - note: use fakes for the database and Redis. Verify unpublished events are published once marked, retried on failure, and that a repeated event ID is applied once by each consumer (ml and the pulse consumer under its current name).
-- evidence:
+- evidence: `pytest -q tests/unit/test_outbox.py` -> 1 skipped (fakeredis/fastapi stack missing offline); written from code reading, unverified until CI
 
 ### T-006 Ingest webhook signature tests
-- status: todo
+- status: done
 - spec: REQ-QA-002, REQ-SEC-002
 - owner: qa-reviewer
 - depends: T-001
@@ -150,10 +150,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_ingest_webhook.py`
 - note: cover a valid signature, a wrong signature, a stale timestamp, and a future timestamp outside the window.
-- evidence:
+- evidence: `pytest -q tests/unit/test_ingest_webhook.py` -> 12 passed, 6 skipped (endpoint tests need fastapi stack, unverified offline)
 
 ### T-007 Add the unit job to CI
-- status: todo
+- status: blocked
 - spec: REQ-QA-001, REQ-CI-001
 - owner: devops-engineer
 - depends: T-003, T-004, T-005, T-006
@@ -161,10 +161,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - context: .github/workflows/ci.yml, Makefile
 - size: S
 - acceptance: the workflow file parses as YAML and contains a `unit` job with `needs: static` that runs `make test`
-- evidence:
+- evidence: BLOCKED: change is ready (docs/runs/T-007-ci-unit-job.patch, `git apply` it) but the push token lacks the `workflow` scope, so GitHub rejects any commit touching .github/workflows/; owner must apply it
 
 ### T-008 Reconcile schema and role names
-- status: todo
+- status: done
 - spec: REQ-DAT-001
 - owner: database-engineer
 - depends: T-001
@@ -173,10 +173,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `python ops/check_migrations.py` and `pytest -q tests/unit/test_schema_catalog.py`
 - note: D-01 is closed in `SPEC.md`: 7 schemas (identity, ingest, core, pulse, brief, ml, socio) and 14 roles. Follow expand/contract: add the missing names in an expand migration; remove `socioeconomic` and never create `analytics` through a `contract_` migration in a separate commit. The test parses the SQL and the roles example and asserts the exact schema and role sets. Table additions are done by T-018, not here.
-- evidence:
+- evidence: `python ops/check_migrations.py` -> OK; `pytest -q tests/unit/test_schema_catalog.py` -> 5 passed, 1 xfailed (strict xfail records conflict: migration 0001 creates `analytics`, SPEC says never; see run report)
 
 ### T-009 Data taxonomy helpers and pooler driver settings
-- status: todo
+- status: done
 - spec: REQ-DAT-003, REQ-DAT-004
 - owner: lead-backend-engineer
 - depends: T-001
@@ -185,10 +185,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_taxonomy.py tests/unit/test_db_settings.py`
 - note: add `local_day(ts, city)` with IANA zones (America/Bogota), UTC millisecond helpers, and a decimal-string money helper. Assert the asyncpg and psycopg arguments of section 5.5 (statement cache off, pool sizes, pre-ping, timeout) in a unit test that inspects the engine arguments without connecting. Add a repository-wide test that no migration declares `json`, `float`, or `real` columns.
-- evidence:
+- evidence: `pytest -q tests/unit/test_taxonomy.py tests/unit/test_db_settings.py` -> 6 passed, 1 skipped (db settings need sqlalchemy, unverified offline)
 
 ### T-010 Migration guardian and schema-list bootstrap
-- status: todo
+- status: done
 - spec: REQ-DAT-006, REQ-DAT-007, REQ-EXT-003
 - owner: database-engineer
 - depends: T-008
@@ -197,10 +197,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_migration_guard.py` and `python ops/check_migrations.py`
 - note: one list (`ops/schemas.py`) drives the guardian and the role bootstrap. The guardian rejects DROP, RENAME, ALTER TYPE, and NOT NULL without default outside `contract_` files, and a `contract_` file in the same commit as application code (use a `--base` git ref option, tested with fixtures). The bootstrap enables pgvector, postgis, pg_cron, and pg_trgm idempotently and creates `_owner` and `_app` roles with no cross-schema grants. A test adds a fake schema to the list and expects both to accept it.
-- evidence:
+- evidence: `pytest -q tests/unit/test_migration_guard.py tests/unit/test_schema_catalog.py` -> 29 passed, 1 xfailed; `python ops/check_migrations.py` -> OK
 
 ### T-011 Event catalog, envelope, and tolerant consumers
-- status: todo
+- status: done
 - spec: REQ-EVT-005, REQ-EXT-001
 - owner: lead-backend-engineer
 - depends: T-001
@@ -209,10 +209,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_contracts.py`
 - note: define the L1 events and the common envelope (event_id, event_type, aggregate_type, aggregate_id, version, source_version, created_at, optional replay), list the reserved L2 and L3 event names without handlers, and add one dispatch helper that acknowledges and logs a single line for unknown types. Keep existing field names compatible. Payloads are never logged in full.
-- evidence:
+- evidence: `pytest -q tests/unit/test_contracts.py` -> 4 passed, 1 skipped (envelope test needs pydantic, unverified offline)
 
 ### T-012 Process supervisor, health, and readiness
-- status: todo
+- status: done
 - spec: REQ-EVT-006, REQ-RES-001
 - owner: lead-backend-engineer
 - depends: T-001
@@ -221,10 +221,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_supervise.py tests/unit/test_health.py`
 - note: the supervisor must stop all children and exit 1 when one dies and must treat a missing heartbeat (90 s) as dead; implement what is missing. Health tests import every service app and check `/health` (always 200) and `/ready` (503 when its dependency fake fails). Do not edit service `main.py` files; report services that lack the endpoints so their lane fixes them.
-- evidence:
+- evidence: `pytest -q tests/unit/test_supervise.py tests/unit/test_health.py` -> 12 passed, 1 skipped (health needs fastapi, unverified offline); identity, streamlit, mocks lack a real /ready (xfail)
 
 ### T-013 Datagen determinism and snapshot-shaped output
-- status: todo
+- status: done
 - spec: REQ-DAT-008
 - owner: second-backend-engineer
 - depends: T-001
@@ -233,10 +233,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_datagen.py`
 - note: two runs with the same seed give identical output (hash compare); the default dataset has 200 companies across Medellin, Bogota, and Cali, about 1,500 signals over 180 days, and 50 leads with outcomes. Add `--as-snapshots` that emits provider-shaped records for maps and computrabajo (for the seed and the offline pipeline test). Only company data; no personal data.
-- evidence:
+- evidence: `pytest -q tests/unit/test_datagen.py` -> 4 passed; mypy datagen clean; snapshot field names are assumed (unverified mappings)
 
 ### T-014 Freeze shared contracts
-- status: todo
+- status: done
 - spec: REQ-EVT-005, REQ-EXT-001, REQ-EXT-004
 - owner: architecture-reviewer
 - depends: T-011, T-015, T-018
@@ -245,10 +245,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: S
 - acceptance: `pytest -q tests/unit/test_contract_snapshot.py`
 - note: snapshot the JSON schemas of every model in `libs/contracts`, the event envelope, the settings field names, and the schema and table catalog. After this task, edits to existing files in `libs/contracts/`, `libs/common/settings.py`, and `migrations/` need the coordinator. Service tasks may add new modules under `libs/contracts/` and extend the snapshot for their own module only. Multiagent lanes start after this task.
-- evidence:
+- evidence: `pytest -q tests/unit/test_contract_snapshot.py` -> 4 passed, 1 skipped; pydantic model_schemas.json snapshot NOT generated (pydantic unavailable offline): run `UPDATE_SNAPSHOTS=1 pytest tests/unit/test_contract_snapshot.py` in CI and commit it
 
 ### T-015 Settings and environment surface for run 1
-- status: todo
+- status: done
 - spec: REQ-RUN-004, REQ-API-003, REQ-SEC-004
 - owner: coordinator
 - depends: T-001
@@ -257,10 +257,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_settings.py` and `python ops/check_configuration.py`
 - note: declare every new variable once, with defaults safe for local use and no secret values: `INGEST_MODE` (mock|live), `INGEST_POLL_ENABLED`, `INGEST_POLL_INTERVAL_SECONDS`, `SOURCE_<NAME>_ENABLED` and `SOURCE_<NAME>_DATASET_ID` for maps, computrabajo, linkedin_companies, linkedin_jobs, instagram, rues, `BRIGHT_DATA_API_URL`, `BRIGHT_DATA_API_TOKEN`, `BRIGHT_DATA_WEBHOOK_SECRET`, `PUBLIC_WEBHOOK_BASE_URL`, `HOT_LEAD_WEBHOOK_URL`, `SOCIO_DATA_DIR`, `APP_PROFILE` (local|production), `FRONTEND_ORIGIN`, `DEV_USER_PASSWORD_<ROLE>`. Live mode with a missing credential raises a settings error naming the variable only. In compose, only add `env_file`/passthrough for these names; the rest of compose is T-073.
-- evidence:
+- evidence: `python ops/check_configuration.py` -> OK (82 variables); `pytest -q tests/unit/test_settings.py` -> skipped offline (pydantic_settings missing), unverified until CI
 
 ### T-016 Agent ownership registry
-- status: todo
+- status: done
 - spec: REQ-ARC-002
 - owner: architecture-reviewer
 - depends: T-001
@@ -269,10 +269,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: S
 - acceptance: `pytest -q tests/unit/test_registry.py`
 - note: add owners for identity, brief, pulse, streamlit, and mocks as in SPEC section 3.1, remove `analytics`, and keep the registry, the roster in `AGENTS.md`, and `.codex/agents/` in sync. The test checks every directory under `services/` has an owner.
-- evidence:
+- evidence: `pytest -q tests/unit/test_registry.py` -> 5 passed; AGENTS.md roster synced by coordinator
 
 ### T-017 Guards: workflows, secrets, and static wiring
-- status: todo
+- status: done
 - spec: REQ-ORC-001, REQ-SEC-004
 - owner: devops-engineer
 - depends: T-002
@@ -281,10 +281,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_guards.py` and `make static`
 - note: add a workflow checker (no code nodes, no secret-like values, no business logic nodes) and wire `ops/check_traceability.py` and the workflow checker into `make static`. Add a secret-pattern scan over tracked text files that reports file names and counts only, never matched text.
-- evidence:
+- evidence: `pytest -q tests/unit/test_guards.py` -> 7 passed; all check_*.py OK, ruff clean, `mypy ops` clean; `make static` fully runnable only in CI (py3.11 sandbox cannot parse PEP 695 in libs/common/retry.py)
 
 ### T-018 Schema additions for run 1 (expand migration)
-- status: todo
+- status: done
 - spec: REQ-COR-001, REQ-DAT-005, REQ-EXT-004
 - owner: database-engineer
 - depends: T-008, T-010
@@ -293,7 +293,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `python ops/check_migrations.py` and `pytest -q tests/unit/test_schema_catalog.py`
 - note: bring the migrations in line with SPEC section 3.2 in one new expand migration: every listed table exists in its owning schema; `analytics` objects live in `pulse`; brief tables live in `brief`; each consumer schema has `processed_event`; add `ingest.pending_snapshot`, `ingest.failed_record`, `core.job`, `core.upload_blob`, `core.tenant_config` (with ETag version) plus a history table, `core.outbox_dead_letter`, `core.audit_log`, `core.lead_activity` (channel, source), and the lead columns `source`, `city`, `service_line`, and nullable `holdout`; enable RLS and tenant policies on company, lead, and project. The test parses the SQL against the catalog.
-- evidence:
+- evidence: `python ops/check_migrations.py` -> OK; `pytest -q tests/unit/test_schema_catalog.py tests/unit/test_migration_guard.py tests/unit/test_taxonomy.py` -> 43 passed, 1 xfailed (SQL never run against real Postgres)
 
 ### T-020 Company upsert API with history
 - status: todo

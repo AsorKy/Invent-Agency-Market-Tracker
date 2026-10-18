@@ -8,7 +8,7 @@ at-least-once delivery with idempotent consumers while introducing the v2.2
 tenant and replay metadata additively.
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 from uuid import UUID, uuid4
@@ -28,6 +28,23 @@ class EventType(StrEnum):
     INGEST_QUARANTINE = "ingest.quarantine"
 
 
+class ReservedEventType(StrEnum):
+    """Reserved L2 and L3 event names; they have no handlers in L1 (REQ-EXT-001)."""
+
+    SIGNAL_TAGGED = "signal.tagged"
+    SIGNAL_SCORED = "signal.scored"
+    COMPANY_MATCHED = "company.matched"
+    SIGNAL_EXPLAINED = "signal.explained"
+    FUNNEL_GATE_DECISION = "funnel.gate_decision"
+    FUNNEL_PIVOT_REQUESTED = "funnel.pivot_requested"
+    FUNNEL_PROJECT_KILLED = "funnel.project_killed"
+    FUNNEL_KILL_TRIGGER_EVENT = "funnel.kill_trigger_event"
+    PROJECT_PIPELINE_UPDATED = "project.pipeline_updated"
+    PROJECT_FORECAST_UPDATED = "project.forecast_updated"
+    REVIEW_CANDIDATE = "review.candidate"
+    COMPONENT_EVALUATED = "component.evaluated"
+
+
 class DomainEvent(BaseModel):
     """Describe a replayable event with compatibility defaults for F0 producers."""
 
@@ -38,6 +55,8 @@ class DomainEvent(BaseModel):
     aggregate_type: str
     aggregate_id: UUID
     version: int = 1
+    source_version: str | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     occurred_at: datetime
     payload: dict[str, Any]
     request_id: str | None = None

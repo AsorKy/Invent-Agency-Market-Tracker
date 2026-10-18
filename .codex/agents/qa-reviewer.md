@@ -24,6 +24,7 @@ Find regressions, invalid assumptions, integration failures, and missing validat
 ## Primary write scope
 
 - `tests/`
+- `services/mocks/`
 - `ops/check_*.py`
 
 Default mode is review-only for application source. Do not alter production code to hide a failing check; report the defect to the owning role.

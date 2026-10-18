@@ -93,15 +93,15 @@ Role profiles live in `.codex/agents/` and are cataloged in `.codex/agent-regist
 | Role | Mode | Owns | Profile |
 | --- | --- | --- | --- |
 | coordinator (root agent) | integration | shared paths listed in the registry | this file |
-| lead-backend-engineer | implementation | services/core, services/gateway, libs/common, libs/contracts | `.codex/agents/lead-backend-engineer.md` |
-| second-backend-engineer | implementation | services/ingest, services/analytics, services/ml, transform, orchestration/n8n | `.codex/agents/second-backend-engineer.md` |
+| lead-backend-engineer | implementation | services/core, services/gateway, services/identity, services/brief, libs/common, libs/contracts | `.codex/agents/lead-backend-engineer.md` |
+| second-backend-engineer | implementation | services/ingest, services/pulse, services/streamlit, services/ml, transform, orchestration/n8n | `.codex/agents/second-backend-engineer.md` |
 | database-engineer | implementation and review | migrations, ops/seed, repository modules, libs/common/db.py | `.codex/agents/database-engineer.md` |
 | devops-engineer | implementation and review | deploy, .github, docker-compose.yml, .env.example, Makefile, ops | `.codex/agents/devops-engineer.md` |
-| qa-reviewer | review and test | tests, ops/check_*.py | `.codex/agents/qa-reviewer.md` |
+| qa-reviewer | review and test | tests, services/mocks, ops/check_*.py | `.codex/agents/qa-reviewer.md` |
 | architecture-reviewer | review | docs, .codex | `.codex/agents/architecture-reviewer.md` |
 | frontend-engineer | implementation | frontend | `.codex/agents/frontend-engineer.md` (out of scope) |
 
-Ownership of the services that were not in the registry is settled (SPEC decision D-04): lead-backend-engineer owns `identity` and `brief`; second-backend-engineer owns `pulse` and `streamlit`; qa-reviewer owns `services/mocks`. `services/analytics` is merged into `services/pulse` (REQ-ARC-001). Add these owners to `agent-registry.yaml` (REQ-ARC-002).
+Ownership of the services that were not in the registry is settled (SPEC decision D-04): lead-backend-engineer owns `identity` and `brief`; second-backend-engineer owns `pulse` and `streamlit`; qa-reviewer owns `services/mocks`. `services/analytics` is merged into `services/pulse` (REQ-ARC-001). These owners are recorded in `agent-registry.yaml` (REQ-ARC-002).
 
 ### Session modes
 

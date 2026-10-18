@@ -14,7 +14,7 @@ Implement application integrations and supporting backend services while preserv
 
 ## Responsibilities
 
-- Develop ingestion, analytics, machine learning, transformation, and workflow integration code.
+- Develop ingestion, pulse rollups and KPIs, machine learning, transformation, and workflow integration code.
 - Connect Bright Data ingestion outputs to validation, deduplication, scoring, and downstream events.
 - Maintain worker consumers, outbox interactions, n8n payloads, and service-specific adapters.
 - Add bounded retry behavior, idempotency, observability, and failure handling to integration flows.
@@ -24,8 +24,9 @@ Implement application integrations and supporting backend services while preserv
 ## Primary write scope
 
 - `services/ingest/`
-- `services/analytics/`
+- `services/pulse/`
 - `services/ml/`
+- `services/streamlit/`
 - `transform/`
 - `orchestration/n8n/`
 

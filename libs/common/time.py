@@ -37,3 +37,17 @@ def local_day(value: datetime, city: str | None = None) -> date:
     except ZoneInfoNotFoundError as exc:
         raise ValueError(f"unknown timezone: {timezone_name}") from exc
     return value.astimezone(timezone).date()
+
+
+def from_epoch_ms(value: int) -> datetime:
+    """Convert UTC epoch milliseconds to an aware UTC datetime."""
+
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError("epoch milliseconds must be an integer")
+    return datetime.fromtimestamp(value / 1000, tz=UTC)
+
+
+def utc_now_ms() -> int:
+    """Return the current instant as UTC epoch milliseconds."""
+
+    return utc_epoch_ms(datetime.now(UTC))

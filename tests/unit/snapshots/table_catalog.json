@@ -1,0 +1,682 @@
+{
+  "schemas": [
+    "analytics",
+    "brief",
+    "core",
+    "identity",
+    "ingest",
+    "ml",
+    "pulse",
+    "socio"
+  ],
+  "tables": {
+    "analytics.daily_rollup": [
+      "as_of",
+      "city",
+      "hot_lead_count",
+      "lead_count",
+      "rollup_date",
+      "service_line",
+      "signal_count"
+    ],
+    "analytics.fact_company_snapshot": [
+      "city",
+      "company_id",
+      "employee_count",
+      "has_website",
+      "snapshot_date"
+    ],
+    "analytics.fact_lead_outcome": [
+      "lead_id",
+      "occurred_at",
+      "outcome",
+      "outcome_id"
+    ],
+    "analytics.fact_signal": [
+      "company_id",
+      "loaded_at",
+      "observed_at",
+      "signal_id",
+      "signal_type",
+      "source",
+      "strength"
+    ],
+    "analytics.processed_event": [
+      "event_id",
+      "event_type",
+      "processed_at",
+      "replay",
+      "tenant_id"
+    ],
+    "analytics.semantic_metric_definition": [
+      "definition",
+      "grain",
+      "metric_name",
+      "updated_at",
+      "yaml_version"
+    ],
+    "analytics.territory_index": [
+      "as_of",
+      "imd",
+      "iop",
+      "ipet",
+      "source_version",
+      "territory_code"
+    ],
+    "brief.processed_event": [
+      "event_id",
+      "event_type",
+      "processed_at",
+      "replay",
+      "tenant_id"
+    ],
+    "brief.record_digest": [
+      "company_id",
+      "content",
+      "degraded",
+      "generated_at",
+      "source_version",
+      "summarizer_version",
+      "tenant_id"
+    ],
+    "brief.single_flight_lock": [
+      "company_id",
+      "expires_at",
+      "locked_at",
+      "locked_by",
+      "tenant_id"
+    ],
+    "core.audit_log": [
+      "action",
+      "actor",
+      "aggregate_id",
+      "aggregate_type",
+      "created_at",
+      "id",
+      "payload",
+      "tenant_id"
+    ],
+    "core.brief": [
+      "content",
+      "created_at",
+      "id",
+      "project_id",
+      "version"
+    ],
+    "core.company": [
+      "city",
+      "created_at",
+      "employee_count",
+      "id",
+      "legal_name",
+      "nit",
+      "sector_code",
+      "slug",
+      "source_flags",
+      "tenant_id",
+      "trade_name",
+      "updated_at",
+      "valid_from",
+      "valid_to",
+      "version",
+      "website"
+    ],
+    "core.idempotency_key": [
+      "completed_at",
+      "created_at",
+      "expires_at",
+      "idempotency_key",
+      "request_hash",
+      "response_body",
+      "response_code",
+      "status",
+      "tenant_id"
+    ],
+    "core.import_job": [
+      "created_at",
+      "duplicate_rows",
+      "entity",
+      "error_message",
+      "error_rows",
+      "finished_at",
+      "idempotency_key",
+      "job_id",
+      "preserve_blob",
+      "processed_rows",
+      "started_at",
+      "status",
+      "tenant_id",
+      "total_rows",
+      "upload_id",
+      "upserted_rows"
+    ],
+    "core.import_row": [
+      "created_at",
+      "entity",
+      "error_message",
+      "id",
+      "job_id",
+      "payload",
+      "row_number",
+      "row_sha256",
+      "status",
+      "tenant_id"
+    ],
+    "core.job": [
+      "created_at",
+      "error_message",
+      "finished_at",
+      "id",
+      "idempotency_key",
+      "job_type",
+      "payload",
+      "result",
+      "started_at",
+      "status",
+      "tenant_id"
+    ],
+    "core.lead": [
+      "city",
+      "company_id",
+      "created_at",
+      "holdout",
+      "id",
+      "last_transition_at",
+      "qualification_reason",
+      "service_line",
+      "source",
+      "stage",
+      "tenant_id",
+      "updated_at",
+      "updated_by",
+      "version"
+    ],
+    "core.lead_activity": [
+      "activity_type",
+      "channel",
+      "created_at",
+      "created_by",
+      "id",
+      "idempotency_key",
+      "lead_id",
+      "occurred_at",
+      "payload",
+      "source",
+      "tenant_id"
+    ],
+    "core.lead_outcome": [
+      "created_at",
+      "id",
+      "lead_id",
+      "notes",
+      "occurred_at",
+      "outcome",
+      "tenant_id"
+    ],
+    "core.lead_score_rule": [
+      "active",
+      "created_at",
+      "definition",
+      "id",
+      "rule_name",
+      "tenant_id",
+      "weight"
+    ],
+    "core.location": [
+      "address",
+      "city",
+      "company_id",
+      "created_at",
+      "department",
+      "h3_index",
+      "id",
+      "latitude",
+      "longitude",
+      "tenant_id"
+    ],
+    "core.outbox_dead_letter": [
+      "attempts",
+      "created_at",
+      "error",
+      "event_id",
+      "event_type",
+      "id",
+      "payload",
+      "replay",
+      "source_outbox_id",
+      "tenant_id"
+    ],
+    "core.outbox_event": [
+      "aggregate_id",
+      "aggregate_type",
+      "attempts",
+      "claim_token",
+      "claimed_at",
+      "created_at",
+      "dead_lettered_at",
+      "event_id",
+      "event_type",
+      "id",
+      "last_error",
+      "next_attempt_at",
+      "occurred_at",
+      "payload",
+      "published_at",
+      "replay",
+      "request_id",
+      "schema_version",
+      "tenant_id",
+      "version"
+    ],
+    "core.person_role": [
+      "company_id",
+      "created_at",
+      "id",
+      "person_name",
+      "role_title",
+      "tenant_id",
+      "updated_at"
+    ],
+    "core.pipeline_stage": [
+      "ordinal",
+      "stage",
+      "terminal"
+    ],
+    "core.processed_event": [
+      "event_id",
+      "event_type",
+      "processed_at",
+      "replay",
+      "tenant_id"
+    ],
+    "core.project": [
+      "actual_roi",
+      "created_at",
+      "estimated_roi",
+      "hypothesis",
+      "id",
+      "lead_id",
+      "metadata",
+      "name",
+      "service_line",
+      "status",
+      "tenant_id",
+      "updated_at"
+    ],
+    "core.signal": [
+      "company_id",
+      "created_at",
+      "id",
+      "observed_at",
+      "payload",
+      "signal_type",
+      "source",
+      "source_external_id",
+      "strength",
+      "tenant_id",
+      "version"
+    ],
+    "core.tenant_config": [
+      "brief_rules",
+      "bright_data_budget_usd",
+      "created_at",
+      "metadata",
+      "scoring_rules",
+      "tenant_id",
+      "updated_at",
+      "updated_by",
+      "version"
+    ],
+    "core.tenant_config_history": [
+      "brief_rules",
+      "bright_data_budget_usd",
+      "changed_by",
+      "id",
+      "metadata",
+      "scoring_rules",
+      "tenant_id",
+      "valid_from",
+      "valid_to",
+      "version"
+    ],
+    "core.upload_blob": [
+      "content",
+      "content_type",
+      "created_at",
+      "original_filename",
+      "sha256",
+      "size_bytes",
+      "tenant_id",
+      "upload_id"
+    ],
+    "identity.membership_scope": [
+      "city",
+      "created_at",
+      "service_line",
+      "tenant_id",
+      "user_id"
+    ],
+    "identity.tenant": [
+      "created_at",
+      "display_name",
+      "id",
+      "slug",
+      "status",
+      "updated_at"
+    ],
+    "identity.tenant_membership": [
+      "active",
+      "created_at",
+      "role",
+      "scopes",
+      "tenant_id",
+      "updated_at",
+      "user_id"
+    ],
+    "identity.user_account": [
+      "created_at",
+      "display_name",
+      "email",
+      "id",
+      "status",
+      "updated_at"
+    ],
+    "ingest.budget": [
+      "consumed",
+      "max_records",
+      "period",
+      "source"
+    ],
+    "ingest.entity_candidate": [
+      "candidate_key",
+      "candidate_nit",
+      "city",
+      "created_at",
+      "id",
+      "name",
+      "normalized_name",
+      "raw_snapshot_id",
+      "resolution_attempts",
+      "status"
+    ],
+    "ingest.entity_match_log": [
+      "candidate_id",
+      "created_at",
+      "decision",
+      "id",
+      "reviewed_at",
+      "reviewed_by",
+      "rues_nit",
+      "score"
+    ],
+    "ingest.failed_fetch": [
+      "attempts",
+      "created_at",
+      "dead_lettered_at",
+      "error",
+      "external_id",
+      "id",
+      "next_attempt_at",
+      "source"
+    ],
+    "ingest.failed_record": [
+      "created_at",
+      "id",
+      "payload",
+      "reason",
+      "record_ref",
+      "resolved_at",
+      "snapshot_id",
+      "source"
+    ],
+    "ingest.pending_snapshot": [
+      "attempts",
+      "created_at",
+      "id",
+      "payload",
+      "payload_sha256",
+      "snapshot_id",
+      "source",
+      "status"
+    ],
+    "ingest.processed_event": [
+      "event_id",
+      "processed_at"
+    ],
+    "ingest.quarantine": [
+      "candidate_id",
+      "created_at",
+      "id",
+      "reason",
+      "resolved_at"
+    ],
+    "ingest.raw_snapshot": [
+      "created_at",
+      "dataset_id",
+      "fetched_at",
+      "id",
+      "payload",
+      "payload_sha256",
+      "snapshot_id",
+      "source"
+    ],
+    "ingest.rues_lookup_queue": [
+      "attempts",
+      "candidate_id",
+      "created_at",
+      "id",
+      "last_error",
+      "next_attempt_at",
+      "status"
+    ],
+    "ingest.source_registry": [
+      "cadence",
+      "config",
+      "enabled",
+      "source",
+      "updated_at"
+    ],
+    "ml.company_segment": [
+      "assigned_at",
+      "cluster_id",
+      "company_id",
+      "model_version",
+      "segment_name"
+    ],
+    "ml.feature_store": [
+      "company_id",
+      "computed_at",
+      "features",
+      "source_version"
+    ],
+    "ml.lead_score": [
+      "as_of",
+      "company_id",
+      "is_hot",
+      "model_version",
+      "score",
+      "score_version",
+      "source_version",
+      "stale"
+    ],
+    "ml.model_version": [
+      "active",
+      "created_at",
+      "metrics",
+      "model_type",
+      "version"
+    ],
+    "ml.processed_event": [
+      "event_id",
+      "event_type",
+      "processed_at",
+      "replay",
+      "tenant_id"
+    ],
+    "ml.score_history": [
+      "as_of",
+      "company_id",
+      "id",
+      "model_version",
+      "score",
+      "source_version"
+    ],
+    "ml.single_flight_lock": [
+      "company_id",
+      "expires_at",
+      "owner_id"
+    ],
+    "pulse.daily_rollup": [
+      "as_of",
+      "city",
+      "hot_lead_count",
+      "lead_count",
+      "low_sample",
+      "rollup_date",
+      "service_line",
+      "signal_count",
+      "stale",
+      "tenant_id"
+    ],
+    "pulse.fact_company_snapshot": [
+      "city",
+      "company_id",
+      "employee_count",
+      "has_website",
+      "snapshot_date",
+      "tenant_id"
+    ],
+    "pulse.fact_lead_outcome": [
+      "lead_id",
+      "occurred_at",
+      "outcome",
+      "outcome_id",
+      "tenant_id"
+    ],
+    "pulse.fact_signal": [
+      "company_id",
+      "loaded_at",
+      "observed_at",
+      "signal_id",
+      "signal_type",
+      "source",
+      "strength",
+      "tenant_id"
+    ],
+    "pulse.pipeline_time_rollup": [
+      "as_of",
+      "city",
+      "low_sample",
+      "p50_days",
+      "p90_days",
+      "rollup_date",
+      "sample_count",
+      "service_line",
+      "stale",
+      "tenant_id"
+    ],
+    "pulse.processed_event": [
+      "event_id",
+      "event_type",
+      "processed_at",
+      "replay",
+      "tenant_id"
+    ],
+    "pulse.semantic_metric_definition": [
+      "definition",
+      "grain",
+      "metric_name",
+      "updated_at",
+      "yaml_version"
+    ],
+    "pulse.source_efficiency_rollup": [
+      "as_of",
+      "converted_projects",
+      "cost_usd",
+      "meetings",
+      "qualified_leads",
+      "rollup_date",
+      "service_line",
+      "source",
+      "stale",
+      "tenant_id"
+    ],
+    "pulse.top_source_rollup": [
+      "as_of",
+      "conversion_rate",
+      "converted_projects",
+      "qualified_leads",
+      "rollup_date",
+      "service_line",
+      "source",
+      "stale",
+      "tenant_id"
+    ],
+    "socio.composite_index": [
+      "as_of",
+      "index_name",
+      "method",
+      "source_version",
+      "territory_code",
+      "value"
+    ],
+    "socio.indicator_normalized": [
+      "indicator",
+      "method",
+      "normalized_value",
+      "period",
+      "source_version",
+      "territory_code",
+      "z_score"
+    ],
+    "socio.indicator_raw": [
+      "dataset_name",
+      "id",
+      "indicator",
+      "payload",
+      "period",
+      "source_version",
+      "territory_code",
+      "value"
+    ],
+    "socio.source_dataset": [
+      "dataset_name",
+      "geography_level",
+      "metadata",
+      "provider",
+      "refreshed_at",
+      "source_version"
+    ],
+    "socioeconomic.composite_index": [
+      "as_of",
+      "index_name",
+      "method",
+      "territory_code",
+      "value"
+    ],
+    "socioeconomic.indicator_normalized": [
+      "indicator",
+      "method",
+      "normalized_value",
+      "period",
+      "territory_code",
+      "z_score"
+    ],
+    "socioeconomic.indicator_raw": [
+      "dataset_name",
+      "id",
+      "indicator",
+      "payload",
+      "period",
+      "territory_code",
+      "value"
+    ],
+    "socioeconomic.source_dataset": [
+      "dataset_name",
+      "geography_level",
+      "metadata",
+      "provider",
+      "refreshed_at"
+    ]
+  }
+}

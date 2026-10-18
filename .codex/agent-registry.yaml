@@ -53,6 +53,8 @@ agents:
     primary_paths:
       - services/core/
       - services/gateway/
+      - services/identity/
+      - services/brief/
       - libs/common/
       - libs/contracts/
   - id: second-backend-engineer
@@ -60,8 +62,9 @@ agents:
     mode: implementation
     primary_paths:
       - services/ingest/
-      - services/analytics/
+      - services/pulse/
       - services/ml/
+      - services/streamlit/
       - transform/
       - orchestration/n8n/
   - id: architecture-reviewer
@@ -93,9 +96,16 @@ agents:
     mode: review-and-test
     primary_paths:
       - tests/
+      - services/mocks/
       - ops/check_*.py
   - id: frontend-engineer
     profile: .codex/agents/frontend-engineer.md
     mode: implementation
     primary_paths:
       - frontend/
+legacy_paths:
+  # Directories that still exist on disk but are no longer owned. Remove the entry
+  # when the directory is deleted (REQ-ARC-001).
+  - path: services/analytics/
+    merged_into: services/pulse/
+    owner: second-backend-engineer
