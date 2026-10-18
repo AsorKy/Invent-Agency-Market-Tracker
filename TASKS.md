@@ -38,11 +38,12 @@ Size is a rough token cost guide: S under 1 USD, M 1 to 3 USD, L 3 to 8 USD. Tes
 | --- | --- | --- | --- |
 | smoke | T-000 only | 1 tasks | about 1 USD |
 | r1-a | Foundation: T-001 to T-018 (single agent, one role per task) | 18 tasks | about 38 USD |
-| r1-b | Services: T-020 to T-058 (coordinator plus up to three lanes) | 30 tasks | about 96 USD |
+| r1-b | Services: T-020 to T-059 (coordinator plus up to three lanes) | 34 tasks | about 107 USD |
 | r1-c | Cross-cutting: T-060 to T-063 | 4 tasks | about 8 USD |
 | r1-d | Launch and review: T-064, T-065, T-070 to T-080 | 13 tasks | about 29 USD |
+| r2 | Continuation with ADR-0002: T-100 to T-112, only if budget remains after T-080 | 13 tasks | about 38 USD |
 
-Total estimate: about 172 USD, to be corrected after the smoke run shows real cost per task. Blocked tasks do not consume budget. Set the session budget of each run to about 1.5 times its estimate.
+Total estimate for run 1 (smoke to r1-d): about 183 USD, plus about 38 USD for the optional ADR-0002 continuation, to be corrected after the smoke run shows real cost per task. Blocked tasks do not consume budget. Set the session budget of each run to about 1.5 times its estimate.
 
 ### Lanes in run r1-b
 
@@ -50,11 +51,20 @@ Multiagent work starts only after T-014 (contracts frozen). Use one coordinator 
 
 | Lane | Tasks | Writes |
 | --- | --- | --- |
-| A (lead-backend-engineer) | T-020 to T-027, T-030 to T-034 | services/core, services/identity, services/gateway, services/brief |
-| B (second-backend-engineer) | T-040 to T-047 | services/ingest, services/mocks, orchestration/n8n, libs/domain/source_mappings |
-| C (second-backend-engineer) | T-050 to T-058 | services/pulse, services/analytics (delete), services/ml, services/streamlit, transform |
+| A (lead-backend-engineer) | T-020 to T-027, T-030 to T-035 | services/core, services/identity, services/gateway, services/brief |
+| B (second-backend-engineer) | T-040 to T-049 | services/ingest, services/mocks, orchestration/n8n, libs/domain/source_mappings |
+| C (second-backend-engineer) | T-050 to T-059 | services/pulse, services/analytics (delete), services/ml, services/streamlit, transform |
 
 Cross-lane dependencies (for example T-045 needs T-020) are resolved by the coordinator: take the first task whose `depends` are all `done`.
+
+## If the budget is not exhausted: continue with ADR-0002
+
+The session does not stop when T-080 (the run 1 review pack) is `done`. If budget remains, it continues with the layer L2 tasks T-100 to T-112, which implement ADR-IMT-0002-LENS (`REQ-LNS-*`). They all depend on T-080, so the normal task loop reaches them in order. Rules:
+
+- Start T-100 only when T-080 is `done`; never start an L2 task earlier, even if its own dependencies are met.
+- Stop at the end of T-112 or when the budget runs out. Never start layer L3 (ADR-IMT-0003) in this session.
+- The funnel engine (T-109) ships with example checklists only; the owner replaces them (decision D-06).
+- The last section of the run report states whether the L2 tasks ran, which are `done`, and which were left `todo` for a later session.
 
 ## Tasks
 
@@ -91,7 +101,7 @@ Cross-lane dependencies (for example T-045 needs T-020) are resolved by the coor
 - context: SPEC.md (section How to use this file), TASKS.md, ops/check_language.py
 - size: M
 - acceptance: `python ops/check_traceability.py` exits 0 on this repository and exits non-zero when a task cites an unknown requirement ID or when an accepted `layer: L1` `scope: run1` requirement has no task; `pytest -q tests/unit/test_traceability.py`
-- note: the script needs a module docstring in the repository style. Parse `### REQ-` headings, their `- status:`, `- layer:`, and `- scope:` lines, and the `spec:` lines of tasks. Wiring into `make static` is done by T-017.
+- note: the script needs a module docstring in the repository style. Parse `### REQ-` headings, their `- status:`, `- layer:`, and `- scope:` lines, and the `spec:` lines of tasks. Wiring into `make static` is done by T-017. Also print (without failing) any accepted `later-run` requirement that no task cites.
 - evidence:
 
 ### T-003 Unit tests for shared helpers
@@ -246,7 +256,7 @@ Cross-lane dependencies (for example T-045 needs T-020) are resolved by the coor
 - context: libs/common/settings.py, .env.example, ops/check_configuration.py, SPEC.md (REQ-RUN-004, REQ-API-003)
 - size: M
 - acceptance: `pytest -q tests/unit/test_settings.py` and `python ops/check_configuration.py`
-- note: declare every new variable once, with defaults safe for local use and no secret values: `INGEST_MODE` (mock|live), `INGEST_POLL_ENABLED`, `INGEST_POLL_INTERVAL_SECONDS`, `SOURCE_<NAME>_ENABLED` and `SOURCE_<NAME>_DATASET_ID` for maps, computrabajo, linkedin_companies, linkedin_jobs, instagram, rues, `BRIGHT_DATA_API_URL`, `BRIGHT_DATA_API_TOKEN`, `BRIGHT_DATA_WEBHOOK_SECRET`, `PUBLIC_WEBHOOK_BASE_URL`, `APP_PROFILE` (local|production), `FRONTEND_ORIGIN`, `DEV_USER_PASSWORD_<ROLE>`. Live mode with a missing credential raises a settings error naming the variable only. In compose, only add `env_file`/passthrough for these names; the rest of compose is T-073.
+- note: declare every new variable once, with defaults safe for local use and no secret values: `INGEST_MODE` (mock|live), `INGEST_POLL_ENABLED`, `INGEST_POLL_INTERVAL_SECONDS`, `SOURCE_<NAME>_ENABLED` and `SOURCE_<NAME>_DATASET_ID` for maps, computrabajo, linkedin_companies, linkedin_jobs, instagram, rues, `BRIGHT_DATA_API_URL`, `BRIGHT_DATA_API_TOKEN`, `BRIGHT_DATA_WEBHOOK_SECRET`, `PUBLIC_WEBHOOK_BASE_URL`, `HOT_LEAD_WEBHOOK_URL`, `SOCIO_DATA_DIR`, `APP_PROFILE` (local|production), `FRONTEND_ORIGIN`, `DEV_USER_PASSWORD_<ROLE>`. Live mode with a missing credential raises a settings error naming the variable only. In compose, only add `env_file`/passthrough for these names; the rest of compose is T-073.
 - evidence:
 
 ### T-016 Agent ownership registry
@@ -414,7 +424,7 @@ Cross-lane dependencies (for example T-045 needs T-020) are resolved by the coor
 - context: services/gateway/app/main.py, libs/common/security.py, docs/adr/ADR-IMT-0001-ARCH.md sections 6.4, E1.8, E1.10, 12.4
 - size: L
 - acceptance: `pytest -q tests/unit/test_gateway_auth.py tests/unit/test_gateway_routes.py tests/unit/test_tenant_isolation.py tests/unit/test_profiles.py`
-- note: verify JWTs against the identity JWKS (cached 10 minutes), propagate tenant and role headers, enforce tenant isolation (404 across tenants), implement the route table of REQ-API-002 (pulse instead of analytics; 404 `not_in_layer` for L2 and L3 resources), add the CORS allowlist from `FRONTEND_ORIGIN` for the local profile, and return 503 only for routes whose upstream `/ready` is red (poll every 10 s).
+- note: verify JWTs against the identity JWKS (cached 10 minutes), propagate tenant and role headers, enforce tenant isolation (404 across tenants), implement the route table of REQ-API-002 (pulse instead of analytics; 404 `not_in_layer` for L2 and L3 resources), add the CORS allowlist from `FRONTEND_ORIGIN` for the local profile, apply per-route upstream timeouts, and return 503 only for routes whose upstream `/ready` is red (poll every 10 s).
 - evidence:
 
 ### T-033 Brief cache, single-flight, and rule-based fallback
@@ -645,6 +655,54 @@ Cross-lane dependencies (for example T-045 needs T-020) are resolved by the coor
 - note: Pipeline (kanban from the gateway), Proyectos, and Ops (freshness per source, outbox backlog, service health).
 - evidence:
 
+### T-035 Hot lead alert notifier
+- status: todo
+- spec: REQ-ALR-001
+- owner: lead-backend-engineer
+- depends: T-024
+- write_scope: services/core/, tests/unit/test_hot_alert.py
+- context: services/core/app/worker.py, orchestration/n8n/wf_hot_lead_alert.json, docs/adr/ADR-IMT-0001-ARCH.md sections 1.3, 4.1
+- size: M
+- acceptance: `pytest -q tests/unit/test_hot_alert.py`
+- note: when auto-qualification or a user moves a lead to Hot, post one alert to `HOT_LEAD_WEBHOOK_URL` (mock Telegram locally), once per lead and version, with backoff on failure and no effect on the commit. Test the 60-second bound with a fake clock.
+- evidence:
+
+### T-048 LinkedIn and Instagram sources
+- status: todo
+- spec: REQ-ING-004
+- owner: second-backend-engineer
+- depends: T-043
+- write_scope: libs/domain/source_mappings/, services/ingest/, tests/fixtures/, tests/unit/test_connectors_more.py
+- context: libs/domain/source_mappings/, services/ingest/app/, docs/adr/ADR-IMT-0001-ARCH.md section 4.4
+- size: M
+- acceptance: `pytest -q tests/unit/test_connectors_more.py`
+- note: add mappings and connector configuration for linkedin_companies, linkedin_jobs, and instagram. Mark each mapping `unverified: true` unless real samples exist under `tests/fixtures/brightdata/`.
+- evidence:
+
+### T-049 Remaining n8n workflows
+- status: todo
+- spec: REQ-ORC-001
+- owner: second-backend-engineer
+- depends: T-047, T-035
+- write_scope: orchestration/n8n/, tests/unit/test_workflows.py
+- context: orchestration/n8n/, ops/check_workflows.py, docs/adr/ADR-IMT-0001-ARCH.md section 4.1
+- size: M
+- acceptance: `pytest -q tests/unit/test_workflows.py` and `python ops/check_workflows.py`
+- note: workflows for linkedin companies backfill, linkedin jobs, instagram, RUES delta, socioeconomic refresh, hot lead alert (webhook trigger to Telegram), and ops health. Orchestration only, no secrets, credentials by n8n credential name.
+- evidence:
+
+### T-059 Socioeconomic indicators and opportunity index
+- status: todo
+- spec: REQ-SOC-001
+- owner: second-backend-engineer
+- depends: T-050, T-018
+- write_scope: services/pulse/, libs/domain/socio.py, tests/fixtures/socio/, tests/unit/test_socio_indices.py
+- context: services/pulse/app/, docs/adr/ADR-IMT-0001-ARCH.md section 11
+- size: L
+- acceptance: `pytest -q tests/unit/test_socio_indices.py`
+- note: loader for indicator files from `SOCIO_DATA_DIR`, z-scores within city, IPET, IMD, and IOP with PCA or entropy weights and `method_version`, the `/territory/opportunity` read endpoint, and a fixture dataset. Pure index math lives in `libs/domain/socio.py`. Spatial autocorrelation (Moran's I) is L3 and out of scope here.
+- evidence:
+
 ### T-060 Zero trust between services
 - status: todo
 - spec: REQ-SEC-005
@@ -761,7 +819,7 @@ Cross-lane dependencies (for example T-045 needs T-020) are resolved by the coor
 - write_scope: docker-compose.yml, deploy/, tests/unit/test_compose.py
 - context: docker-compose.yml, deploy/Dockerfile.python, deploy/Caddyfile.example, SPEC.md section 3.1
 - size: L
-- acceptance: `make compose-config` and `pytest -q tests/unit/test_compose.py`
+- acceptance: `pytest -q tests/unit/test_compose.py`, plus `make compose-config` when the Docker CLI exists
 - note: services exactly as SPEC section 3.1 (no analytics); one-shot `migrate` service with `service_completed_successfully`; workers for core relay and consumers, ingest processor and poller, pulse consumer, ml consumer, brief worker; a real Streamlit container with health `/_stcore/health`; healthchecks for every API; `env_file: .env`; services read only their own database role. The test parses the compose file and asserts topology, dependencies, and the absence of credentials in the gateway.
 - evidence:
 
@@ -845,6 +903,162 @@ Cross-lane dependencies (for example T-045 needs T-020) are resolved by the coor
 - write_scope: docs/runs/
 - context: SPEC.md (sections 3 and 6), docs/adr/ADR-IMT-0001-ARCH.md section E2.5, TASKS.md
 - size: M
-- acceptance: `make static`, `make test`, `make coverage`, `make compose-config`, `make openapi`, and `python ops/check_traceability.py` all pass
+- acceptance: `make static`, `make test`, `make coverage`, `make openapi`, and `python ops/check_traceability.py` all pass, and `make compose-config` passes where the Docker CLI exists
 - note: walk the E2.5 checklist and the L1 definition of done, list unverified field mappings, blocked tasks, assumptions, and risks, and write the final section of `docs/runs/RUN-<run-id>.md`. Do not modify code; open follow-up items instead.
+- evidence:
+
+### T-100 Metric pack library
+- status: todo
+- spec: REQ-LNS-008
+- owner: second-backend-engineer
+- depends: T-080
+- write_scope: libs/domain/metrics/, tests/unit/test_metrics_pack.py
+- context: docs/adr/ADR-IMT-0002-LENS.md section 2.3
+- size: M
+- acceptance: `pytest -q tests/unit/test_metrics_pack.py`
+- note: pure functions for AUC, PR-AUC, Brier, reliability table, lift@K, precision@K by subpopulation, NDCG@K, MAP, MRR, sMAPE, MASE, pinball loss, interval coverage, and Qini. Validate against hand-computed examples.
+- evidence:
+
+### T-101 Lens contract and five-question checker
+- status: todo
+- spec: REQ-LNS-001, REQ-LNS-002
+- owner: lead-backend-engineer
+- depends: T-080
+- write_scope: libs/contracts/lens.py, ops/check_five_questions.py, docs/features/_TEMPLATE.md, tests/unit/test_lens_contract.py
+- context: docs/adr/ADR-IMT-0002-LENS.md sections 2, 2.9
+- size: M
+- acceptance: `pytest -q tests/unit/test_lens_contract.py` and `python ops/check_five_questions.py`
+- note: a quality-metrics envelope per lens, and a checker that reads feature specs under `docs/features/` and fails when any of the five answers is empty. Wire the checker into `make static` through the coordinator.
+- evidence:
+
+### T-102 Descriptive aggregation (D1)
+- status: todo
+- spec: REQ-LNS-003
+- owner: second-backend-engineer
+- depends: T-100
+- write_scope: services/pulse/, tests/unit/test_descriptive_metrics.py
+- context: services/pulse/app/, docs/adr/ADR-IMT-0002-LENS.md section 2.1
+- size: M
+- acceptance: `pytest -q tests/unit/test_descriptive_metrics.py`
+- note: percentiles, MAD, IQR, HHI, and Gini as response fields of the Pulse endpoints, plus the project descriptive metrics.
+- evidence:
+
+### T-103 Profiling and topics (D2, D3)
+- status: todo
+- spec: REQ-LNS-004
+- owner: second-backend-engineer
+- depends: T-100, T-054
+- write_scope: services/ml/, libs/domain/topics.py, tests/unit/test_profiling.py, tests/unit/test_topics.py
+- context: services/ml/app/, docs/adr/ADR-IMT-0002-LENS.md section 2.1
+- size: L
+- acceptance: `pytest -q tests/unit/test_profiling.py tests/unit/test_topics.py`
+- note: K-Prototypes profiling, Leiden communities, centrality, regex and dictionary tagging, YAKE, TF-IDF, and monthly LDA, publishing results to `pulse` through its API. Heavy libraries load lazily.
+- evidence:
+
+### T-104 Attribution (Dx1)
+- status: todo
+- spec: REQ-LNS-005
+- owner: second-backend-engineer
+- depends: T-100
+- write_scope: services/ml/, libs/domain/attribution.py, tests/unit/test_attribution.py
+- context: docs/adr/ADR-IMT-0002-LENS.md section 2.2
+- size: M
+- acceptance: `pytest -q tests/unit/test_attribution.py`
+- note: last-touch, first-touch, time-decay, and Markov removal-effect attribution; Shapley only behind a flag that requires 100 labeled closes.
+- evidence:
+
+### T-105 Causal inference (Dx2)
+- status: todo
+- spec: REQ-LNS-006
+- owner: second-backend-engineer
+- depends: T-100
+- write_scope: services/ml/, libs/domain/causal.py, tests/unit/test_causal.py
+- context: docs/adr/ADR-IMT-0002-LENS.md section 2.2
+- size: L
+- acceptance: `pytest -q tests/unit/test_causal.py`
+- note: DID, synthetic control, and propensity matching returning ATE with a 95 percent interval, ATT and ATU, p-value, effect size, robustness checks, and E-value; mark results inconclusive when the sign flips. Test on simulated data with a known effect.
+- evidence:
+
+### T-106 Drift and explainability (Dx3, Dx4)
+- status: todo
+- spec: REQ-LNS-007
+- owner: second-backend-engineer
+- depends: T-100, T-053
+- write_scope: services/ml/, libs/domain/drift.py, tests/unit/test_drift.py, tests/unit/test_explain.py
+- context: services/ml/app/, docs/adr/ADR-IMT-0002-LENS.md section 2.2
+- size: L
+- acceptance: `pytest -q tests/unit/test_drift.py tests/unit/test_explain.py`
+- note: CUSUM, EWMA, change points, and PSI with the 0.1 and 0.25 thresholds, a nightly worker that alerts through an n8n webhook, and SHAP drivers plus counterfactuals attached to the Brief on regeneration.
+- evidence:
+
+### T-107 Validation schema (expand migration)
+- status: todo
+- spec: REQ-LNS-010
+- owner: database-engineer
+- depends: T-080
+- write_scope: migrations/, ops/schemas.py, tests/unit/test_schema_catalog.py
+- context: SPEC.md section 3.2, ops/schemas.py
+- size: S
+- acceptance: `python ops/check_migrations.py` and `pytest -q tests/unit/test_schema_catalog.py`
+- note: create the `validation` schema and its six tables in an expand migration, operated by the `core` roles, each table with `source_version`, `project_id`, and `measured_at`; add the schema to the single schema list.
+- evidence:
+
+### T-108 Validation metrics V1 to V6 and thresholds
+- status: todo
+- spec: REQ-LNS-010, REQ-LNS-011
+- owner: lead-backend-engineer
+- depends: T-107, T-100
+- write_scope: services/core/, libs/domain/validation.py, libs/domain/validation_thresholds.yaml, tests/unit/test_validation_metrics.py, tests/unit/test_validation_thresholds.py
+- context: services/core/app/, docs/adr/ADR-IMT-0002-LENS.md section 2.5
+- size: L
+- acceptance: `pytest -q tests/unit/test_validation_metrics.py tests/unit/test_validation_thresholds.py`
+- note: workers and pure functions for NPV, IRR, payback, DPV, EMV, CAC, LTV, LTV:CAC, CAC payback, gross margin, conversion, win rate, cycle time, velocity, coverage, MRR, NRR, GRR, Rule of 40, burn multiple, magic number, horizon mix, HHI, Sharpe-like ratio, and the V6 metrics. Thresholds live in YAML, not in code.
+- evidence:
+
+### T-109 Deterministic funnel engine
+- status: todo
+- spec: REQ-LNS-009
+- owner: lead-backend-engineer
+- depends: T-108, T-023
+- write_scope: services/core/, libs/domain/funnel.py, config/funnel/, tests/unit/test_funnel.py
+- context: services/core/app/, docs/adr/ADR-IMT-0002-LENS.md section 2.4
+- size: L
+- acceptance: `pytest -q tests/unit/test_funnel.py`
+- note: gates G1 to G7 from versioned YAML checklists, verdicts ADVANCE, PIVOT, KILL, and WAIT, audit rows for each decision, and the `funnel.*` events through the outbox. Ship example checklists marked `example: true`; production must refuse them unless `FUNNEL_ALLOW_EXAMPLE_CHECKLISTS=true` (decision D-06).
+- evidence:
+
+### T-110 Event chain with source_version
+- status: todo
+- spec: REQ-LNS-012
+- owner: lead-backend-engineer
+- depends: T-109, T-102, T-106
+- write_scope: services/core/, services/pulse/, services/ml/, tests/unit/test_event_chain.py
+- context: libs/contracts/events.py, docs/adr/ADR-IMT-0002-LENS.md section 2.6
+- size: M
+- acceptance: `pytest -q tests/unit/test_event_chain.py`
+- note: wire signal.tagged, signal.scored, company.matched, signal.explained, funnel.gate_decision, project.pipeline_updated, and project.forecast_updated so every event carries `source_version` and the chain can be traced. Contracts are additive: new modules only.
+- evidence:
+
+### T-111 Streamlit validation page
+- status: todo
+- spec: REQ-LNS-013
+- owner: second-backend-engineer
+- depends: T-108, T-056
+- write_scope: services/streamlit/pages/, tests/unit/test_streamlit_validation.py
+- context: services/streamlit/, docs/adr/ADR-IMT-0002-LENS.md section 2.7
+- size: M
+- acceptance: `pytest -q tests/unit/test_streamlit_validation.py` (Streamlit AppTest)
+- note: page `9_Validation.py` with V1 to V6 per project, `measured_at`, `source_version`, and per-card degradation; add V6 to the Ops page.
+- evidence:
+
+### T-112 Layer L2 review pack
+- status: todo
+- spec: REQ-LNS-001
+- owner: architecture-reviewer
+- depends: T-110, T-111, T-103, T-104, T-105
+- write_scope: docs/runs/
+- context: SPEC.md (sections 4.2 and 6), TASKS.md
+- size: S
+- acceptance: `make static`, `make test`, and `python ops/check_traceability.py` pass
+- note: check every L2 requirement against its evidence, list what depends on the owner (D-06 checklists), and append the L2 section to `docs/runs/RUN-<run-id>.md`. Do not start any layer L3 work.
 - evidence:

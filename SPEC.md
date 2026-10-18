@@ -1,6 +1,6 @@
 # Invent Market Tracker - Specification
 
-Status: ACCEPTED v3 (2026-10-18). Derived from ADR-IMT-0001-ARCH v2.3, ADR-IMT-0002-LENS v1.1, and ADR-IMT-0003-PRED v1.2 in `docs/adr/`, all three `accepted` on 2026-10-18. Requirements are `accepted`; run 1 implements the `layer: L1`, `scope: run1` ones listed in `TASKS.md`.
+Status: ACCEPTED v3.1 (2026-10-18). Derived from ADR-IMT-0001-ARCH v2.3, ADR-IMT-0002-LENS v1.1, and ADR-IMT-0003-PRED v1.2 in `docs/adr/`, all three `accepted` on 2026-10-18. Requirements are `accepted`; run 1 implements the `layer: L1`, `scope: run1` ones listed in `TASKS.md`.
 
 This file turns the ADRs into requirements that agents can implement and verify. It is the middle layer of the source-of-truth chain defined in `AGENTS.md`: ADRs, then this file, then `TASKS.md`, then code.
 
@@ -13,7 +13,7 @@ This file turns the ADRs into requirements that agents can implement and verify.
 - `scope`: `run1` (implement in the current run, verifiable offline with mocks and datagen), `deferred` (specified for L1 but needs an external service or the frontend, so it is not part of run 1), `later-run` (L2 or L3, implemented only when that run opens).
 - Every task in `TASKS.md` cites at least one requirement ID. Every requirement with `layer: L1`, `scope: run1`, and `status: accepted` must be cited by at least one task. `ops/check_traceability.py` (task T-002) enforces both rules.
 - `status` values: `proposed` (not yet confirmed by the owner), `accepted`, `deprecated`. The ADRs behind these requirements are `accepted`.
-- An agent in run 1 implements only `layer: L1` and `scope: run1` requirements. It must not implement `later-run` requirements, but it must satisfy the extension points `REQ-EXT-*` so that runs 2 and 3 need only additive changes.
+- An agent in run 1 implements `layer: L1` and `scope: run1` requirements first and must satisfy the extension points `REQ-EXT-*`, so that later layers need only additive changes. `later-run` requirements of layer L2 are implemented only by the continuation tasks (T-100 and later in `TASKS.md`), which start after T-080 is `done` and only while budget remains. Layer L3 is never started in the same session.
 
 ## 1. Scope and layers
 
@@ -51,6 +51,8 @@ Delivered by run 1 and activated later by the owner:
 
 - The live Bright Data connector, with polling fallback, written against the documented Datasets API and tested with recorded fixtures (REQ-ING-004, REQ-ING-008). Credentials and dataset IDs are supplied through `.env` (REQ-RUN-004).
 - The public API and OpenAPI contract that the frontend consumes (REQ-API-001 to REQ-API-003).
+
+Continuation: if the budget is not exhausted when T-080 (the run 1 review pack) is `done`, the session continues with the layer L2 tasks T-100 to T-112 in `TASKS.md`, in dependency order. They implement ADR-IMT-0002-LENS (requirements `REQ-LNS-*`). The session stops at the end of the L2 tasks or when the budget runs out, whichever comes first. Layer L3 (ADR-IMT-0003-PRED) is never started in this session.
 
 Out of scope now:
 
@@ -728,6 +730,26 @@ Template entry:
 - verify: `pytest -q tests/unit/test_embeddings.py` with a stub encoder; the real model needs a download that is not available in the sandbox.
 - tasks: none yet
 
+### REQ-SOC-001 Socioeconomic indicators and opportunity index
+- status: accepted
+- layer: L1
+- phase: F4
+- scope: run1
+- source: ADR-IMT-0001 sections 11, 4.4, E2.1
+- statement: The `pulse` socio worker loads indicator files (municipality or comuna level, DANE-style CSV fixtures under `tests/fixtures/socio/`) into `socio.indicator_raw` and `socio.indicator_normalized`, computes z-scores within each city, and builds the composite indices IPET (economic power), IMD (digital maturity), and IOP = IPET high x IMD low x prospect density, with weights from PCA or entropy and a `method_version`. `GET /api/v1/territory/opportunity` returns the ranked territories with `as_of`, `method_version`, and `low_sample`. Live DANE, DNP, and OSM connectors are deferred; the loader reads files from a configured directory.
+- verify: `pytest -q tests/unit/test_socio_indices.py`
+- tasks: none yet
+
+### REQ-ALR-001 Hot lead alert
+- status: accepted
+- layer: L1
+- phase: F5
+- scope: run1
+- source: ADR-IMT-0001 sections 1.3, 4.1, 21 (F5 exit criterion)
+- statement: When a lead becomes Hot, `core` posts one alert to the n8n webhook in `HOT_LEAD_WEBHOOK_URL` (forwarded to Telegram, mock locally) within 60 seconds of the commit that made it Hot, once per lead and version. A failed post is retried with backoff and never blocks the commit.
+- verify: `pytest -q tests/unit/test_hot_alert.py` with a fake clock and a fake webhook.
+- tasks: none yet
+
 ### Streamlit reporting
 
 ### REQ-STR-001 Multipage app and card contract
@@ -874,6 +896,16 @@ Template entry:
 - verify: `pytest -q tests/unit/test_logging.py`
 - tasks: none yet
 
+### REQ-OBS-002 Tracing and circuit breaker
+- status: accepted
+- layer: L1
+- phase: F6
+- scope: deferred
+- source: ADR-IMT-0001 sections 19, 21 (F6)
+- statement: Services emit OpenTelemetry traces propagated from the gateway, and calls between services use a circuit breaker with the retry policy of the shared helper.
+- verify: `pytest -q tests/unit/test_circuit_breaker.py`
+- tasks: none yet
+
 ### REQ-DEP-001 Local stack
 - status: accepted
 - layer: L1
@@ -881,7 +913,7 @@ Template entry:
 - scope: run1
 - source: ADR-IMT-0001 sections 16, 21 (F0)
 - statement: `docker compose config` is valid, every service has a Dockerfile target and a health probe, and each image builds from the same base conventions. Starting the stack requires Docker, which is not available in the sandbox, so only the configuration is verified.
-- verify: `make compose-config`
+- verify: `pytest -q tests/unit/test_compose.py` (parses the file and checks topology); `make compose-config` where the Docker CLI exists.
 - tasks: none yet
 
 ### Run, operate, and go live
@@ -974,7 +1006,7 @@ Template entry:
 - phase: F2
 - scope: run1
 - source: ADR-IMT-0001 sections 12.4, E1.1, E1.5, E2.2
-- statement: The gateway exposes the endpoints the frontend screens need: `POST /auth/session`, `GET /me`, `POST /logout`; `GET /leads` (filters state, service_line, city, segment, min_score, cursor), `POST /leads`, `GET /leads/{id}`, `PATCH /leads/{id}/status`, `POST /leads/{id}/activities`, `GET /leads/{id}/brief`; `GET /pipeline/kanban`; `GET /companies`, `GET /signals`; `GET /projects`, `POST /projects`; `GET /pulse/*`; `GET /ops/health`; imports and jobs; `GET` and `PUT /admin/tenant-config`. Routes of L2 and L3 resources return 404 `not_in_layer` until their run. No route points to `analytics`.
+- statement: The gateway exposes the endpoints the frontend screens need: `POST /auth/session`, `GET /me`, `POST /logout`; `GET /leads` (filters state, service_line, city, segment, min_score, cursor), `POST /leads`, `GET /leads/{id}`, `PATCH /leads/{id}/status`, `POST /leads/{id}/activities`, `GET /leads/{id}/brief`; `GET /pipeline/kanban`; `GET /companies`, `GET /signals`; `GET /projects`, `POST /projects`; `GET /pulse/*`; `GET /ops/health`; `GET /territory/opportunity`; imports and jobs; `GET` and `PUT /admin/tenant-config`. Routes of L2 and L3 resources return 404 `not_in_layer` until their run. No route points to `analytics`.
 - verify: `pytest -q tests/unit/test_gateway_routes.py` and `pytest -q tests/unit/test_openapi.py`
 - tasks: none yet
 
@@ -1352,7 +1384,7 @@ An agent must not resolve open decisions. A task that depends on one stays `bloc
 | D-03 | Service count | 7 services plus Streamlit (gateway, identity, ingest, core, pulse, brief, ml); there is no `funnel` service. Source: ADR-IMT-0001 section E2.2 and ADR-IMT-0002 section 2.7. | closed 2026-10-18 |
 | D-04 | Ownership of identity, brief, pulse, streamlit, mocks | identity and brief: lead-backend-engineer. pulse and streamlit: second-backend-engineer. mocks: qa-reviewer. Source: proposal in `AGENTS.md`, section 3.1 of this file. | closed 2026-10-18 |
 | D-05 | Supabase tier and VPS provider for the MVP | Recommendation in ADR-IMT-0001 section 22: Supabase Free until F3 and Hetzner CPX21. Not decided. | open, does not block run 1 |
-| D-06 | Checklist content for gates G1 to G7 | The mechanism is specified (REQ-LNS-009); the checklists are agency knowledge to be authored by the owner. Blocks L2. | open |
+| D-06 | Checklist content for gates G1 to G7 | The mechanism is specified (REQ-LNS-009); the checklists are agency knowledge to be authored by the owner. The engine ships with clearly marked example checklists (`example: true`) that production refuses to load unless `FUNNEL_ALLOW_EXAMPLE_CHECKLISTS=true`. The owner must replace them before real use. | open, does not block the L2 code |
 | D-07 | Retention window of `core.outbox_event` | Default 90 days; run 1 uses the default. | open, default applies |
 | D-08 | Version `tenant_config` history (SCD2) | Recommended yes. Run 1 stores a `version` and keeps the previous row in an audit table; full SCD2 waits for the decision. | open, default applies |
 | D-09 | Semantic summarizer for Brief in F3 | Recommended multilingual-e5 plus rules. Run 1 ships the rule-based summarizer behind a replaceable interface. | open, default applies |
@@ -1368,7 +1400,7 @@ An agent must not resolve open decisions. A task that depends on one stays `bloc
 ### L1 (run 1)
 
 - Every `layer: L1` and `scope: run1` requirement is `done` in `TASKS.md` with evidence, or `blocked` with a recorded reason.
-- `make static`, `make test`, and `make compose-config` pass, and `make test` covers at least 80 percent of `libs` and `services` (90 percent of `libs/domain`).
+- `make static` and `make test` pass, `make compose-config` passes where the Docker CLI exists, and `make test` covers at least 80 percent of `libs` and `services` (90 percent of `libs/domain`).
 - `make test` includes the offline pipeline test (REQ-QA-004), so a reviewer can see one signal travel from a mock snapshot to the public API.
 - The repository conforms to ADR-IMT-0001 section E2.5: 7 schemas, 14 roles, 7 services plus Streamlit, no `analytics`, no `socioeconomic`.
 - All `REQ-EXT-*` requirements pass, so L2 and L3 need only additive changes.
@@ -1379,7 +1411,7 @@ An agent must not resolve open decisions. A task that depends on one stays `bloc
 
 ### L2 (run 2)
 
-- Decision D-06 is closed and the gate checklists exist as versioned YAML.
+- The gate checklists exist as versioned YAML and the owner has replaced the example ones (decision D-06).
 - All `layer: L2` requirements pass; the `validation` schema exists through an expand migration.
 - Every L2 feature has its five LENS answers on file.
 
@@ -1396,3 +1428,4 @@ An agent must not resolve open decisions. A task that depends on one stays `bloc
 | 2026-10-18 | Initial template generated from the repository state and ADR-IMT-0001 v2.2.1. |
 | 2026-10-18 | Rewritten against ADR-IMT-0001 v2.3, ADR-IMT-0002 v1.1, and ADR-IMT-0003 v1.2. Added layers L1 to L3, the end-state definition, the service and schema catalogs, requirements for all three layers, extension points for runs 2 and 3, and decisions D-01 to D-04 closed. Existing requirement IDs are unchanged. |
 | 2026-10-18 | v3: ADRs accepted, all requirements `accepted`. Added run and go-live requirements (REQ-RUN-001 to 006, REQ-DOC-001), the public API for the frontend (REQ-API-001 to 003), the ingestion flow and live connector (REQ-ING-004 rewritten, REQ-ING-008, REQ-ING-009), company upsert and auto-qualification (REQ-COR-007, 008), and the offline and integration test tiers (REQ-QA-004, 005). Traceability now covers every accepted `L1` `run1` requirement. Decisions D-13 to D-15 added, D-14 closed. |
+| 2026-10-18 | v3.1: review against ADR-0001 found five gaps. Added REQ-SOC-001 (socioeconomic indices), REQ-ALR-001 (hot lead alert), REQ-OBS-002 (deferred); added the territory route to REQ-API-002; REQ-DEP-001 no longer needs a Docker CLI; D-06 no longer blocks the L2 code; defined the continuation from run 1 to the L2 tasks. |

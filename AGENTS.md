@@ -6,6 +6,10 @@ Invent Market Tracker is a data-driven platform for evaluating Colombian market 
 
 The frontend is currently out of scope unless a task explicitly requests it.
 
+## Restricted assets
+
+Before any other action, read `.claude/conventions/restricted-assets.md`. It lists an owner-only file that no agent may open, search, run, stage, or mention. The rule has zero tolerance and no exceptions. Repository-wide scans must list files with `git ls-files --cached --others --exclude-standard`, never with `rglob`, `os.walk`, or `find`.
+
 ## Language and documentation
 
 - Write source code, comments, docstrings, commit messages, and repository documentation in English.
@@ -68,6 +72,7 @@ If two sources disagree, stop work on that point and record the conflict in the 
 ### Stop conditions
 
 - Every task is `done` or `blocked`.
+- Layer L2 tasks (T-100 and later) run only after T-080 is `done` and only while budget remains; when T-112 is done or the budget ends, stop. Never start layer L3 (ADR-IMT-0003) in the same session.
 - The session budget is reached.
 - A conflict between sources of truth needs a human decision.
 

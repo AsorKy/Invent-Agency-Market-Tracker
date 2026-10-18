@@ -9,6 +9,7 @@ ADR exports under ``docs/adr`` are the only excluded files.
 """
 
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -29,10 +30,32 @@ MARKER_PATTERN = re.compile(
 )
 
 
+def candidate_files(repository: Path) -> list[Path] | None:
+    """List files git tracks or would show as untracked, never ignored ones.
+
+    Returns ``None`` when git cannot enumerate, so the guard fails closed instead of
+    walking the directory tree and opening files that the repository ignores.
+    """
+    result = subprocess.run(
+        ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
+        cwd=repository,
+        capture_output=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        return None
+    names = [name for name in result.stdout.decode("utf-8").split("\0") if name]
+    return sorted(repository / name for name in names)
+
+
 def main() -> int:
     repository = Path(__file__).resolve().parents[1]
     failures: list[str] = []
-    for path in sorted(repository.rglob("*")):
+    candidates = candidate_files(repository)
+    if candidates is None:
+        print("English language guard: cannot list files through git", file=sys.stderr)
+        return 1
+    for path in candidates:
         if not path.is_file() or EXCLUDED_PARTS.intersection(path.parts):
             continue
         try:
