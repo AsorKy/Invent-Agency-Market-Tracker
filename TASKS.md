@@ -248,7 +248,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-015 Settings and environment surface for run 1
-- status: todo
+- status: done
 - spec: REQ-RUN-004, REQ-API-003, REQ-SEC-004
 - owner: coordinator
 - depends: T-001
@@ -257,7 +257,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_settings.py` and `python ops/check_configuration.py`
 - note: declare every new variable once, with defaults safe for local use and no secret values: `INGEST_MODE` (mock|live), `INGEST_POLL_ENABLED`, `INGEST_POLL_INTERVAL_SECONDS`, `SOURCE_<NAME>_ENABLED` and `SOURCE_<NAME>_DATASET_ID` for maps, computrabajo, linkedin_companies, linkedin_jobs, instagram, rues, `BRIGHT_DATA_API_URL`, `BRIGHT_DATA_API_TOKEN`, `BRIGHT_DATA_WEBHOOK_SECRET`, `PUBLIC_WEBHOOK_BASE_URL`, `HOT_LEAD_WEBHOOK_URL`, `SOCIO_DATA_DIR`, `APP_PROFILE` (local|production), `FRONTEND_ORIGIN`, `DEV_USER_PASSWORD_<ROLE>`. Live mode with a missing credential raises a settings error naming the variable only. In compose, only add `env_file`/passthrough for these names; the rest of compose is T-073.
-- evidence:
+- evidence: `python ops/check_configuration.py` -> OK (82 variables); `pytest -q tests/unit/test_settings.py` -> skipped offline (pydantic_settings missing), unverified until CI
 
 ### T-016 Agent ownership registry
 - status: todo

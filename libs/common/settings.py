@@ -8,10 +8,26 @@ logging, and versions outside business code.
 """
 
 from functools import lru_cache
-from typing import Self
+from typing import Any, Literal, Self
 
-from pydantic import Field, model_validator
+from pydantic import Field, ValidationInfo, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+SOURCE_NAMES = ("maps", "computrabajo", "linkedin_companies", "linkedin_jobs", "instagram", "rues")
+BLANK_IS_UNSET = frozenset(
+    {
+        "database_url",
+        "edge_secret",
+        "bright_data_webhook_secret",
+        "bright_data_api_token",
+        "public_webhook_base_url",
+        "hot_lead_webhook_url",
+    }
+)
+
+
+class SettingsError(RuntimeError):
+    """Raise when configuration is unusable; the message names variables, never values."""
 
 
 class Settings(BaseSettings):
@@ -62,13 +78,73 @@ class Settings(BaseSettings):
     worker_retry_base_delay_seconds: float = Field(default=1, ge=0)
     worker_retry_max_delay_seconds: float = Field(default=30, ge=0)
     worker_retry_jitter_ratio: float = Field(default=0.25, ge=0, le=1)
+    ingest_mode: Literal["mock", "live"] = "mock"
+    ingest_poll_enabled: bool = True
+    ingest_poll_interval_seconds: int = Field(default=300, ge=1)
+    source_maps_enabled: bool = True
+    source_maps_dataset_id: str | None = None
+    source_computrabajo_enabled: bool = True
+    source_computrabajo_dataset_id: str | None = None
+    source_linkedin_companies_enabled: bool = False
+    source_linkedin_companies_dataset_id: str | None = None
+    source_linkedin_jobs_enabled: bool = False
+    source_linkedin_jobs_dataset_id: str | None = None
+    source_instagram_enabled: bool = False
+    source_instagram_dataset_id: str | None = None
+    source_rues_enabled: bool = False
+    source_rues_dataset_id: str | None = None
+    bright_data_api_url: str = "https://api.brightdata.com"
+    bright_data_api_token: str | None = None
+    public_webhook_base_url: str | None = None
+    hot_lead_webhook_url: str | None = None
+    socio_data_dir: str = "data/socio"
+    app_profile: Literal["local", "production"] = "local"
+    frontend_origin: str = "http://localhost:3000"
+    dev_user_password_admin: str | None = None
+    dev_user_password_strategist: str | None = None
+    dev_user_password_intake: str | None = None
+    dev_user_password_bd_rep: str | None = None
+    dev_user_password_analyst: str | None = None
 
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore",
         case_sensitive=False,
+        hide_input_in_errors=True,
     )
+
+    @field_validator("*", mode="before")
+    @classmethod
+    def blank_string_means_unset(cls, value: Any, info: ValidationInfo) -> Any:
+        """Treat an empty optional variable such as ``TOKEN=`` as unset."""
+        name = info.field_name or ""
+        optional = (
+            name in BLANK_IS_UNSET
+            or name.endswith("_dataset_id")
+            or name.startswith("dev_user_password_")
+        )
+        if optional and isinstance(value, str) and value.strip() == "":
+            return None
+        return value
+
+    def enabled_sources(self) -> list[str]:
+        """Return the names of the sources whose ``SOURCE_<NAME>_ENABLED`` flag is on."""
+        return [name for name in SOURCE_NAMES if getattr(self, f"source_{name}_enabled")]
+
+    def missing_live_variables(self) -> list[str]:
+        """Name every variable that live ingestion needs but lacks; never return a value."""
+        if self.ingest_mode != "live":
+            return []
+        missing = [
+            name
+            for name in ("BRIGHT_DATA_API_TOKEN", "BRIGHT_DATA_WEBHOOK_SECRET")
+            if not getattr(self, name.lower())
+        ]
+        for source in self.enabled_sources():
+            if not getattr(self, f"source_{source}_dataset_id"):
+                missing.append(f"SOURCE_{source.upper()}_DATASET_ID")
+        return missing
 
     @model_validator(mode="after")
     def validate_runtime_intervals(self) -> Self:
@@ -94,4 +170,8 @@ class Settings(BaseSettings):
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
-    return Settings()
+    settings = Settings()
+    missing = settings.missing_live_variables()
+    if missing:
+        raise SettingsError("INGEST_MODE=live requires: " + ", ".join(missing))
+    return settings
