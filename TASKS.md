@@ -368,7 +368,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_dead_letter.py tests/unit/test_republish.py` -> 28 passed (incl. test_outbox); make static OK; make test 324 passed. NOTE: dead_letter relay not wired into compose/outbox_relay.main (test_outbox.py pins old relay); needs devops+qa follow-up.
 
 ### T-026 CSV imports as background jobs
-- status: todo
+- status: done
 - spec: REQ-ING-005
 - owner: lead-backend-engineer
 - depends: T-020
@@ -377,7 +377,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/unit/test_imports.py`
 - note: implement the 202 plus job flow, limits (10 MB, 100,000 rows, 3 active jobs per tenant with 429), Polars chunked parsing with Pydantic validation, upsert by `row_sha256`, events per changed aggregate, and blob cleanup. Add `polars` to the `analytics` extra only if it is not already a base dependency; ask the coordinator for `pyproject.toml` changes.
-- evidence:
+- evidence: `pytest -q tests/unit/test_imports.py` -> 15 passed; make static OK; make test 339 passed. stdlib csv parser behind ChunkParser (polars declared in pyproject but not installed); raw CSV body, gateway must unwrap multipart.
 
 ### T-027 Retention purge and opt-out
 - status: todo

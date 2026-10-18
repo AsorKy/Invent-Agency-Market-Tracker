@@ -34,6 +34,14 @@ from services.core.app.actions import (
     record_outcome,
 )
 from services.core.app.companies import CompanyUpsert, upsert_company
+from services.core.app.imports import (
+    MAX_BYTES,
+    ImportEntity,
+    ImportRejectedError,
+    JobNotFoundError,
+    create_import,
+    read_job,
+)
 from services.core.app.leads import (
     IdempotencyKeyReuseError,
     LeadConflictError,
@@ -404,3 +412,56 @@ async def put_tenant_config(
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     response.headers["ETag"] = etag(int(body["version"]))
     return body
+
+
+@app.post("/internal/core/imports/{entity}", dependencies=[Depends(require_internal_token)])
+async def create_import_route(
+    entity: ImportEntity,
+    request: Request,
+    x_tenant_id: Annotated[UUID, Header()],
+    idempotency_key: Annotated[str, Header(min_length=1, max_length=200)],
+    x_filename: Annotated[str, Header(max_length=255)] = "upload.csv",
+    preserve_blob: bool = False,
+) -> JSONResponse:
+    """Accept the CSV as the raw request body; the gateway unwraps multipart uploads."""
+    declared = request.headers.get("content-length")
+    if declared and declared.isdigit() and int(declared) > MAX_BYTES:
+        raise HTTPException(status_code=413, detail="file_too_large")
+    content = await request.body()
+    try:
+        repository: CoreRepository = request.app.state.repository
+        job, created = await create_import(
+            repository.import_unit_of_work(),
+            entity,
+            content,
+            tenant_id=x_tenant_id,
+            idempotency_key=idempotency_key,
+            filename=x_filename,
+            content_type=request.headers.get("content-type", "text/csv"),
+            preserve_blob=preserve_blob,
+        )
+    except ImportRejectedError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.code) from exc
+    except IdempotencyKeyReuseError as exc:
+        raise HTTPException(status_code=422, detail="idempotency_key_reused") from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    body = {
+        "job_id": job["job_id"],
+        "status": job["status"],
+        "status_url": f"/api/v1/jobs/{job['job_id']}",
+    }
+    return JSONResponse(status_code=202 if created else 200, content=body)
+
+
+@app.get("/internal/core/jobs/{job_id}", dependencies=[Depends(require_internal_token)])
+async def get_job_route(
+    job_id: UUID, request: Request, x_tenant_id: Annotated[UUID | None, Header()] = None
+) -> dict[str, object]:
+    try:
+        repository: CoreRepository = request.app.state.repository
+        return await read_job(repository.import_unit_of_work(), job_id, x_tenant_id)
+    except JobNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="job_not_found") from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc

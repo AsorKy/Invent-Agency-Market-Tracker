@@ -9,6 +9,9 @@ ingest retries and turns accepted changes into events.
 
 import hashlib
 import json
+from collections.abc import AsyncIterator
+from contextlib import AbstractAsyncContextManager as AsyncContextManager
+from contextlib import asynccontextmanager
 from datetime import datetime
 from types import TracebackType
 from uuid import UUID, uuid4
@@ -655,6 +658,230 @@ class SqlOutboxUnitOfWork(SqlCompanyUnitOfWork):
         return SqlOutboxTransaction(await self._context.__aenter__())
 
 
+class SqlImportTransaction:
+    """Import jobs, blobs, and rows on one connection; writers share the same connection."""
+
+    def __init__(self, connection: AsyncConnection) -> None:
+        self.connection = connection
+        self.company_tx = SqlCompanyTransaction(connection)
+        self.lead_tx = SqlLeadTransaction(connection)
+        self.action_tx = SqlActionTransaction(connection)
+
+    def row_scope(self) -> AsyncContextManager[None]:
+        """Savepoint so one failing row does not abort the chunk transaction."""
+        return self._savepoint()
+
+    @asynccontextmanager
+    async def _savepoint(self) -> AsyncIterator[None]:
+        async with self.connection.begin_nested():
+            yield
+
+    async def lock_key(self, key: str) -> None:
+        await self.connection.execute(
+            text("SELECT pg_advisory_xact_lock(hashtext(:key))"), {"key": key}
+        )
+
+    async def find_job_by_key(self, tenant_id: UUID, key: str) -> dict[str, object] | None:
+        result = await self.connection.execute(
+            text(
+                """
+                SELECT j.job_id, j.entity, j.status, j.total_rows, j.processed_rows,
+                       j.upserted_rows, j.duplicate_rows, j.error_rows, j.error_message,
+                       j.started_at, j.finished_at, b.sha256
+                FROM core.import_job j JOIN core.upload_blob b ON b.upload_id = j.upload_id
+                WHERE j.tenant_id = :tenant_id AND j.idempotency_key = :key
+                """
+            ),
+            {"tenant_id": tenant_id, "key": key},
+        )
+        row = result.mappings().first()
+        return dict(row) if row else None
+
+    async def count_active_jobs(self, tenant_id: UUID) -> int:
+        result = await self.connection.execute(
+            text(
+                """
+                SELECT count(*) FROM core.import_job
+                WHERE tenant_id = :tenant_id AND status IN ('queued', 'running')
+                """
+            ),
+            {"tenant_id": tenant_id},
+        )
+        return int(result.scalar_one())
+
+    async def insert_upload_and_job(self, row: dict[str, object]) -> None:
+        await self.connection.execute(
+            text(
+                """
+                INSERT INTO core.upload_blob
+                    (upload_id, tenant_id, original_filename, content_type, content, sha256)
+                VALUES (:upload_id, :tenant_id, :filename, :content_type, :content, :sha256)
+                """
+            ),
+            row,
+        )
+        await self.connection.execute(
+            text(
+                """
+                INSERT INTO core.import_job
+                    (job_id, tenant_id, upload_id, entity, idempotency_key, total_rows,
+                     preserve_blob)
+                VALUES
+                    (:job_id, :tenant_id, :upload_id, :entity, :idempotency_key, :total_rows,
+                     :preserve_blob)
+                """
+            ),
+            row,
+        )
+
+    async def get_job(self, tenant_id: UUID | None, job_id: UUID) -> dict[str, object] | None:
+        result = await self.connection.execute(
+            text(
+                """
+                SELECT job_id, entity, status, total_rows, processed_rows, upserted_rows,
+                       duplicate_rows, error_rows, error_message, started_at, finished_at
+                FROM core.import_job
+                WHERE job_id = :job_id
+                  AND (CAST(:tenant_id AS uuid) IS NULL OR tenant_id = :tenant_id)
+                """
+            ),
+            {"job_id": job_id, "tenant_id": tenant_id},
+        )
+        row = result.mappings().first()
+        return dict(row) if row else None
+
+    async def claim_next_job(self, now: datetime) -> dict[str, object] | None:
+        result = await self.connection.execute(
+            text(
+                """
+                UPDATE core.import_job SET status = 'running', started_at = :now
+                WHERE job_id = (
+                    SELECT job_id FROM core.import_job WHERE status = 'queued'
+                    ORDER BY created_at LIMIT 1 FOR UPDATE SKIP LOCKED
+                )
+                RETURNING job_id, tenant_id, upload_id, entity, preserve_blob
+                """
+            ),
+            {"now": now},
+        )
+        job = result.mappings().first()
+        if job is None:
+            return None
+        blob = await self.connection.execute(
+            text("SELECT content FROM core.upload_blob WHERE upload_id = :id"),
+            {"id": job["upload_id"]},
+        )
+        return {**dict(job), "content": bytes(blob.scalar_one())}
+
+    async def insert_row(
+        self, job: dict[str, object], row_number: int, sha: str, payload: dict[str, object]
+    ) -> bool:
+        result = await self.connection.execute(
+            text(
+                """
+                INSERT INTO core.import_row
+                    (tenant_id, job_id, entity, row_number, row_sha256, payload)
+                VALUES
+                    (:tenant_id, :job_id, :entity, :row_number, :sha, CAST(:payload AS jsonb))
+                ON CONFLICT (tenant_id, entity, row_sha256) DO NOTHING
+                RETURNING id
+                """
+            ),
+            {
+                "tenant_id": job["tenant_id"],
+                "job_id": job["job_id"],
+                "entity": job["entity"],
+                "row_number": row_number,
+                "sha": sha,
+                "payload": json.dumps(payload),
+            },
+        )
+        return result.scalar_one_or_none() is not None
+
+    async def set_row_status(self, job_id: UUID, row_number: int, status: str) -> None:
+        await self.connection.execute(
+            text(
+                "UPDATE core.import_row SET status = :status "
+                "WHERE job_id = :job_id AND row_number = :row_number"
+            ),
+            {"status": status, "job_id": job_id, "row_number": row_number},
+        )
+
+    async def record_error_row(
+        self,
+        job: dict[str, object],
+        row_number: int,
+        sha: str,
+        payload: dict[str, object],
+        error: str,
+    ) -> None:
+        await self.connection.execute(
+            text(
+                """
+                INSERT INTO core.import_row
+                    (tenant_id, job_id, entity, row_number, row_sha256, payload, status,
+                     error_message)
+                VALUES
+                    (:tenant_id, :job_id, :entity, :row_number, :sha, CAST(:payload AS jsonb),
+                     'error', :error)
+                ON CONFLICT DO NOTHING
+                """
+            ),
+            {
+                "tenant_id": job["tenant_id"],
+                "job_id": job["job_id"],
+                "entity": job["entity"],
+                "row_number": row_number,
+                "sha": sha,
+                "payload": json.dumps(payload),
+                "error": error,
+            },
+        )
+
+    async def add_progress(self, job_id: UUID, counters: dict[str, int]) -> None:
+        await self.connection.execute(
+            text(
+                """
+                UPDATE core.import_job SET
+                    processed_rows = processed_rows + :processed,
+                    upserted_rows = upserted_rows + :upserted,
+                    duplicate_rows = duplicate_rows + :duplicates,
+                    error_rows = error_rows + :errors
+                WHERE job_id = :job_id
+                """
+            ),
+            {"job_id": job_id, **counters},
+        )
+
+    async def finish_job(
+        self, job: dict[str, object], *, status: str, error: str | None, now: datetime
+    ) -> None:
+        await self.connection.execute(
+            text(
+                """
+                UPDATE core.import_job
+                SET status = :status, error_message = :error, finished_at = :now
+                WHERE job_id = :job_id
+                """
+            ),
+            {"status": status, "error": error, "now": now, "job_id": job["job_id"]},
+        )
+        if not job["preserve_blob"]:
+            # import_job.upload_id is NOT NULL with a foreign key, so the row stays and the
+            # content is emptied.
+            await self.connection.execute(
+                text("UPDATE core.upload_blob SET content = ''::bytea WHERE upload_id = :id"),
+                {"id": job["upload_id"]},
+            )
+
+
+class SqlImportUnitOfWork(SqlCompanyUnitOfWork):
+    """Same commit-or-rollback boundary, yielding import operations."""
+
+    async def __aenter__(self) -> SqlImportTransaction:  # type: ignore[override]
+        return SqlImportTransaction(await self._context.__aenter__())
+
+
 class SqlLeadUnitOfWork(SqlCompanyUnitOfWork):
     """Same commit-or-rollback boundary, yielding lead operations."""
 
@@ -723,6 +950,11 @@ class CoreRepository:
                 },
             )
             return [dict(row) for row in result.mappings().all()]
+
+    def import_unit_of_work(self) -> SqlImportUnitOfWork:
+        if self.engine is None:
+            raise RuntimeError("DATABASE_URL is required for core writes")
+        return SqlImportUnitOfWork(self.engine)
 
     async def close(self) -> None:
         if self.engine:

@@ -1,9 +1,10 @@
-"""Run the Core worker: consume ``lead.score_updated`` and qualify leads automatically.
+"""Run the Core worker: qualify leads from score events and run CSV import jobs.
 
-The loop reads ``invent.events`` through the ``core`` consumer group and dispatches events with
-``dispatch_event`` (unknown types are acknowledged and logged). ``handle_score_event`` commits
-the inbox row and the lead changes before the entry is acknowledged, so redelivery is safe. It
-relates to ``services/core/app/qualification.py``, ``repository.py`` and
+The stream loop reads ``invent.events`` through the ``core`` consumer group and dispatches events
+with ``dispatch_event`` (unknown types are acknowledged and logged). ``handle_score_event``
+commits the inbox row and the lead changes before the entry is acknowledged, so redelivery is
+safe. ``import_loop`` runs queued import jobs beside it. It relates to
+``services/core/app/qualification.py``, ``imports.py``, ``repository.py`` and
 ``libs/common/redis_streams.py``. A failed entry stays pending and is retried after a pause.
 """
 
@@ -15,6 +16,7 @@ from libs.common.events_dispatch import Handler, dispatch_event
 from libs.common.redis_client import create_redis
 from libs.common.redis_streams import ensure_consumer_group, read_consumer_batch
 from libs.common.settings import get_settings
+from services.core.app.imports import process_next_job
 from services.core.app.qualification import QualificationUnitOfWork, handle_score_event
 from services.core.app.repository import CoreRepository
 
@@ -34,6 +36,18 @@ def build_handlers(
     return {"lead.score_updated": on_score_updated}
 
 
+async def import_loop(repository: CoreRepository, idle_seconds: float) -> None:
+    """Run queued CSV import jobs one at a time; sleep when none is waiting."""
+    while True:
+        try:
+            status = await process_next_job(repository.import_unit_of_work)
+        except Exception:
+            _log.exception("import job crashed")
+            status = None
+        if status is None:
+            await asyncio.sleep(idle_seconds)
+
+
 async def main() -> None:
     settings = get_settings()
     repository = CoreRepository(settings.database_url)
@@ -41,6 +55,7 @@ async def main() -> None:
         raise RuntimeError("DATABASE_URL is required for the core worker")
     redis = create_redis(settings.redis_url)
     handlers = build_handlers(repository.qualification_unit_of_work)
+    imports = asyncio.create_task(import_loop(repository, settings.worker_failure_sleep_seconds))
     try:
         await ensure_consumer_group(redis, STREAM_NAME, GROUP_NAME)
         while True:
@@ -67,6 +82,7 @@ async def main() -> None:
                         _log.exception("core event failed message_id=%s", message_id)
                         await asyncio.sleep(settings.worker_failure_sleep_seconds)
     finally:
+        imports.cancel()
         await redis.aclose()
         await repository.close()
 
