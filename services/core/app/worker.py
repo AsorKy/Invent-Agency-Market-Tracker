@@ -8,10 +8,13 @@ It fixes the extension point in F0 without inventing production logic.
 
 import asyncio
 
+from libs.common.settings import get_settings
+
 
 async def main() -> None:
+    settings = get_settings()
     while True:
-        await asyncio.sleep(30)
+        await asyncio.sleep(settings.worker_failure_sleep_seconds)
 
 
 if __name__ == "__main__":

@@ -14,7 +14,7 @@
       "position": [260, 300]
     },
     {
-      "parameters": {"method": "POST", "url": "={{$env.TELEGRAM_WEBHOOK_URL}}", "sendBody": true, "specifyBody": "json", "jsonBody": "={\"text\":\"Hot lead detected: {{$json.company_id}} - score {{$json.score}}\"}"},
+      "parameters": {"method": "POST", "url": "={{$env.TELEGRAM_WEBHOOK_URL}}", "sendBody": true, "specifyBody": "json", "jsonBody": "={\"text\":\"Hot lead detected: {{$json.company_id}} - score {{$json.score}}\"}", "options": {"timeout": 5000}},
       "id": "notify-telegram",
       "name": "Notify commercial team",
       "type": "n8n-nodes-base.httpRequest",

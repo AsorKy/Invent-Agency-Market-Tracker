@@ -14,6 +14,7 @@ datagen:
 
 static:
 	python ops/check_migrations.py
+	python ops/check_configuration.py
 	python ops/check_language.py
 	python ops/check_script_docs.py
 	python -m compileall -q libs services datagen ops

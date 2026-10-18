@@ -15,6 +15,7 @@ from sqlalchemy import text
 
 from libs.common.db import create_engine
 from libs.common.redis_client import create_redis
+from libs.common.retry import retry_with_backoff
 from libs.common.settings import get_settings
 
 STREAM_NAME = "invent.events"
@@ -73,9 +74,22 @@ async def relay_once() -> int:
 
 
 async def main() -> None:
+    settings = get_settings()
     while True:
-        await relay_once()
-        await asyncio.sleep(1)
+        try:
+            await retry_with_backoff(
+                relay_once,
+                attempts=settings.worker_retry_attempts,
+                base_delay_seconds=settings.worker_retry_base_delay_seconds,
+                max_delay_seconds=settings.worker_retry_max_delay_seconds,
+                jitter_ratio=settings.worker_retry_jitter_ratio,
+                retry_on=(Exception,),
+            )
+        except Exception:
+            # The next pass re-reads unpublished rows; consumers deduplicate
+            # duplicate stream entries by event_id.
+            pass
+        await asyncio.sleep(settings.outbox_poll_interval_seconds)
 
 
 if __name__ == "__main__":

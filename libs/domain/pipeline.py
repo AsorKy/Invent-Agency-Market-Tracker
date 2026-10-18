@@ -11,6 +11,9 @@ from enum import StrEnum
 
 
 class PipelineStage(StrEnum):
+    DISCOVERED = "discovered"
+    QUALIFIED = "qualified"
+    HOT = "hot"
     NEW = "new"
     CONTACTED = "contacted"
     MEETING = "meeting"
@@ -20,6 +23,9 @@ class PipelineStage(StrEnum):
 
 
 ALLOWED_TRANSITIONS: dict[PipelineStage, frozenset[PipelineStage]] = {
+    PipelineStage.DISCOVERED: frozenset({PipelineStage.QUALIFIED, PipelineStage.LOST}),
+    PipelineStage.QUALIFIED: frozenset({PipelineStage.HOT, PipelineStage.LOST}),
+    PipelineStage.HOT: frozenset({PipelineStage.CONTACTED, PipelineStage.LOST}),
     PipelineStage.NEW: frozenset({PipelineStage.CONTACTED, PipelineStage.LOST}),
     PipelineStage.CONTACTED: frozenset({PipelineStage.MEETING, PipelineStage.LOST}),
     PipelineStage.MEETING: frozenset({PipelineStage.PROPOSAL, PipelineStage.LOST}),

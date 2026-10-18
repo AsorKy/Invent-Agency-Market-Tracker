@@ -9,11 +9,13 @@ ingest retries and turns accepted changes into events.
 
 import hashlib
 import json
+from datetime import datetime
 from uuid import UUID, uuid4
 
 from sqlalchemy import text
 
 from libs.common.db import create_engine
+from libs.common.pagination import decode_cursor, encode_cursor
 from libs.contracts.api import SignalCreate
 
 
@@ -112,39 +114,81 @@ class CoreRepository:
         ).encode()
         return hashlib.sha256(fingerprint).hexdigest()
 
-    async def list_companies(self, limit: int) -> list[dict[str, object]]:
+    async def list_companies(
+        self, limit: int, cursor: str | None = None
+    ) -> tuple[list[dict[str, object]], str | None]:
         if self.engine is None:
             raise RuntimeError("DATABASE_URL is required for core reads")
+        page_cursor = decode_cursor(cursor) if cursor else None
+        cursor_filter = ""
+        parameters: dict[str, object] = {"limit": limit + 1}
+        if page_cursor:
+            cursor_filter = "WHERE (updated_at, id) < (:cursor_updated_at, :cursor_id)"
+            parameters.update(
+                {"cursor_updated_at": page_cursor.updated_at, "cursor_id": page_cursor.item_id}
+            )
         async with self.engine.connect() as connection:
             result = await connection.execute(
                 text(
-                    """
+                    f"""
                     SELECT id, slug, legal_name, trade_name, sector_code, employee_count,
                            website, city, version, updated_at
                     FROM core.company
-                    ORDER BY updated_at DESC
+                    {cursor_filter}
+                    ORDER BY updated_at DESC, id DESC
                     LIMIT :limit
                     """
                 ),
-                {"limit": limit},
+                parameters,
             )
-            return [dict(row) for row in result.mappings().all()]
+            rows = [dict(row) for row in result.mappings().all()]
+        has_more = len(rows) > limit
+        rows = rows[:limit]
+        next_cursor = None
+        if has_more and rows:
+            last = rows[-1]
+            updated_at, item_id = last["updated_at"], last["id"]
+            if not isinstance(updated_at, datetime) or not isinstance(item_id, UUID):
+                raise RuntimeError("database returned invalid company cursor fields")
+            next_cursor = encode_cursor(updated_at, item_id)
+        return rows, next_cursor
 
-    async def list_leads(self, limit: int) -> list[dict[str, object]]:
+    async def list_leads(
+        self, limit: int, cursor: str | None = None
+    ) -> tuple[list[dict[str, object]], str | None]:
         if self.engine is None:
             raise RuntimeError("DATABASE_URL is required for core reads")
+        page_cursor = decode_cursor(cursor) if cursor else None
+        cursor_filter = ""
+        parameters: dict[str, object] = {"limit": limit + 1}
+        if page_cursor:
+            cursor_filter = "WHERE (l.updated_at, l.id) < (:cursor_updated_at, :cursor_id)"
+            parameters.update(
+                {"cursor_updated_at": page_cursor.updated_at, "cursor_id": page_cursor.item_id}
+            )
         async with self.engine.connect() as connection:
             result = await connection.execute(
                 text(
-                    """
+                    f"""
                     SELECT l.id, l.company_id, c.legal_name, l.service_line, l.stage,
                            l.created_at, l.updated_at
                     FROM core.lead l
                     JOIN core.company c ON c.id = l.company_id
-                    ORDER BY l.updated_at DESC
+                    {cursor_filter}
+                    ORDER BY l.updated_at DESC, l.id DESC
                     LIMIT :limit
                     """
                 ),
-                {"limit": limit},
+                parameters,
             )
-            return [dict(row) for row in result.mappings().all()]
+            rows = [dict(row) for row in result.mappings().all()]
+        has_more = len(rows) > limit
+        rows = rows[:limit]
+        next_cursor = None
+        if has_more and rows:
+            last = rows[-1]
+            updated_at, item_id = last["updated_at"], last["id"]
+            if not isinstance(updated_at, datetime) or not isinstance(item_id, UUID):
+                raise RuntimeError("database returned invalid lead cursor fields")
+            next_cursor = encode_cursor(updated_at, item_id)
+        return rows, next_cursor

@@ -1,0 +1,1 @@
+"""Pulse FastAPI application package."""

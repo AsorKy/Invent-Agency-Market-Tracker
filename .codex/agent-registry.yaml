@@ -1,0 +1,101 @@
+version: 1
+project: invent-market-tracker
+language: en
+deployment:
+  coordinator: root-agent
+  default_max_concurrent_agents: 3
+  require_bounded_tasks: true
+  prohibit_overlapping_writes: true
+  shared_paths_requiring_coordination:
+    - AGENTS.md
+    - pyproject.toml
+    - .env.example
+    - docker-compose.yml
+    - Makefile
+    - migrations/
+    - libs/contracts/
+    - .github/
+colors:
+  palette_type: hex
+  roles:
+    lead-backend-engineer:
+      display_name: Lead Backend Engineer
+      color_name: Royal Blue
+      hex: "#2563EB"
+    second-backend-engineer:
+      display_name: Second Backend Engineer
+      color_name: Sky Blue
+      hex: "#0EA5E9"
+    architecture-reviewer:
+      display_name: Architecture Reviewer
+      color_name: Violet
+      hex: "#7C3AED"
+    database-engineer:
+      display_name: Database Engineer
+      color_name: Amber
+      hex: "#D97706"
+    devops-engineer:
+      display_name: DevOps Engineer
+      color_name: Slate
+      hex: "#475569"
+    qa-reviewer:
+      display_name: QA Reviewer
+      color_name: Emerald
+      hex: "#059669"
+    frontend-engineer:
+      display_name: Frontend Engineer
+      color_name: Rose
+      hex: "#E11D48"
+agents:
+  - id: lead-backend-engineer
+    profile: .codex/agents/lead-backend-engineer.md
+    mode: implementation
+    primary_paths:
+      - services/core/
+      - services/gateway/
+      - libs/common/
+      - libs/contracts/
+  - id: second-backend-engineer
+    profile: .codex/agents/second-backend-engineer.md
+    mode: implementation
+    primary_paths:
+      - services/ingest/
+      - services/analytics/
+      - services/ml/
+      - transform/
+      - orchestration/n8n/
+  - id: architecture-reviewer
+    profile: .codex/agents/architecture-reviewer.md
+    mode: review
+    primary_paths:
+      - docs/
+      - .codex/
+  - id: database-engineer
+    profile: .codex/agents/database-engineer.md
+    mode: implementation-and-review
+    primary_paths:
+      - migrations/
+      - ops/seed/
+      - services/*/app/repository.py
+      - libs/common/db.py
+  - id: devops-engineer
+    profile: .codex/agents/devops-engineer.md
+    mode: implementation-and-review
+    primary_paths:
+      - deploy/
+      - .github/
+      - docker-compose.yml
+      - .env.example
+      - Makefile
+      - ops/
+  - id: qa-reviewer
+    profile: .codex/agents/qa-reviewer.md
+    mode: review-and-test
+    primary_paths:
+      - tests/
+      - ops/check_*.py
+  - id: frontend-engineer
+    profile: .codex/agents/frontend-engineer.md
+    mode: implementation
+    primary_paths:
+      - frontend/

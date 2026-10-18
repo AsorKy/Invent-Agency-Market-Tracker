@@ -1,10 +1,11 @@
-"""Define event types that travel through ``invent.events``.
+"""Define the versioned event envelope that travels through ``invent.events``.
 
 ``DomainEvent`` fixes the common envelope and ``EventType`` limits the names
 services can publish. It relates to the outbox in
 ``services/core/app/repository.py``, the analytics and ML consumers, and the
 ``core.outbox_event`` table from the migration. Its purpose is to support
-at-least-once delivery with idempotent consumers.
+at-least-once delivery with idempotent consumers while introducing the v2.2
+tenant and replay metadata additively.
 """
 
 from datetime import datetime
@@ -12,7 +13,7 @@ from enum import StrEnum
 from typing import Any
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class EventType(StrEnum):
@@ -21,10 +22,17 @@ class EventType(StrEnum):
     LEAD_CREATED = "lead.created"
     LEAD_OUTCOME_RECORDED = "lead.outcome_recorded"
     LEAD_SCORE_UPDATED = "lead.score_updated"
+    SIGNAL_ACTIVITY_LOGGED = "signal.activity_logged"
+    SIGNAL_CONVERTED_TO_PROJECT = "signal.converted_to_project"
+    TENANT_CONFIG_UPDATED = "tenant.config_updated"
     INGEST_QUARANTINE = "ingest.quarantine"
 
 
 class DomainEvent(BaseModel):
+    """Describe a replayable event with compatibility defaults for F0 producers."""
+
+    model_config = ConfigDict(extra="forbid")
+
     event_id: UUID = Field(default_factory=uuid4)
     event_type: EventType
     aggregate_type: str
@@ -33,3 +41,12 @@ class DomainEvent(BaseModel):
     occurred_at: datetime
     payload: dict[str, Any]
     request_id: str | None = None
+    schema_version: int = Field(default=1, ge=1)
+    tenant_id: UUID | None = None
+    replay: bool = False
+
+    @property
+    def occurred_at_ms(self) -> int:
+        """Return the event instant in the v2.2 millisecond UTC representation."""
+
+        return int(self.occurred_at.timestamp() * 1000)

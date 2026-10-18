@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS ingest.raw_snapshot (
     dataset_id text NOT NULL,
     source text NOT NULL,
     payload jsonb NOT NULL,
-    payload_sha256 text NOT NULL,
+    payload_sha256 text NOT NULL CHECK (payload_sha256 ~ '^[0-9a-f]{64}$'),
     fetched_at timestamptz NOT NULL,
     created_at timestamptz NOT NULL DEFAULT now(),
     UNIQUE (source, snapshot_id, payload_sha256)
@@ -56,7 +56,7 @@ CREATE TABLE IF NOT EXISTS ingest.source_registry (
 CREATE TABLE IF NOT EXISTS ingest.entity_candidate (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     raw_snapshot_id uuid NOT NULL REFERENCES ingest.raw_snapshot(id),
-    candidate_key text NOT NULL,
+    candidate_key text NOT NULL CHECK (candidate_key ~ '^[0-9a-f]{64}$'),
     name text NOT NULL,
     city text,
     candidate_nit text,
@@ -106,6 +106,7 @@ CREATE TABLE IF NOT EXISTS core.company (
 );
 
 CREATE INDEX IF NOT EXISTS ix_company_name_trgm ON core.company USING gin (legal_name gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS ix_company_cursor ON core.company (updated_at DESC, id DESC);
 
 CREATE TABLE IF NOT EXISTS core.location (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -145,6 +146,8 @@ CREATE TABLE IF NOT EXISTS core.lead (
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now()
 );
+
+CREATE INDEX IF NOT EXISTS ix_lead_cursor ON core.lead (updated_at DESC, id DESC);
 
 CREATE TABLE IF NOT EXISTS core.lead_outcome (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -273,6 +276,9 @@ CREATE TABLE IF NOT EXISTS analytics.territory_index (
     as_of timestamptz NOT NULL,
     source_version text NOT NULL
 );
+
+CREATE INDEX IF NOT EXISTS ix_territory_iop
+    ON analytics.territory_index (iop DESC NULLS LAST, territory_code);
 
 CREATE TABLE IF NOT EXISTS analytics.semantic_metric_definition (
     metric_name text PRIMARY KEY,

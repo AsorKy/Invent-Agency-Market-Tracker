@@ -1,10 +1,20 @@
--- Create minimum per-schema roles for Postgres/Supabase.
--- Relates to migrations/20261017_0001_expand_initial_schemas.sql,
--- docker-compose.yml, and each service repository. Run as an administrator and
--- change example passwords outside local development; services communicate via
--- APIs and events instead of crossing schemas.
+-- Create per-schema roles for Postgres/Supabase.
+--
+-- This example relates to migrations/20261017_0001_expand_initial_schemas.sql
+-- and migrations/20261017_0002_arch_v22_foundations.sql. Run it as a database
+-- administrator after the schemas exist. Replace the CHANGE_ME passwords with
+-- values supplied by a secret manager; this file intentionally contains no
+-- real credentials. Apply schema migrations with the corresponding *_owner
+-- role and run application services with the corresponding *_app role.
+
 DO $$
 BEGIN
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'identity_owner') THEN
+        CREATE ROLE identity_owner NOLOGIN;
+    END IF;
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'identity_app') THEN
+        CREATE ROLE identity_app LOGIN PASSWORD 'CHANGE_ME_IDENTITY';
+    END IF;
     IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'ingest_owner') THEN
         CREATE ROLE ingest_owner NOLOGIN;
     END IF;
@@ -17,11 +27,17 @@ BEGIN
     IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'core_app') THEN
         CREATE ROLE core_app LOGIN PASSWORD 'CHANGE_ME_CORE';
     END IF;
-    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'analytics_owner') THEN
-        CREATE ROLE analytics_owner NOLOGIN;
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'pulse_owner') THEN
+        CREATE ROLE pulse_owner NOLOGIN;
     END IF;
-    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'analytics_app') THEN
-        CREATE ROLE analytics_app LOGIN PASSWORD 'CHANGE_ME_ANALYTICS';
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'pulse_app') THEN
+        CREATE ROLE pulse_app LOGIN PASSWORD 'CHANGE_ME_PULSE';
+    END IF;
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'brief_owner') THEN
+        CREATE ROLE brief_owner NOLOGIN;
+    END IF;
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'brief_app') THEN
+        CREATE ROLE brief_app LOGIN PASSWORD 'CHANGE_ME_BRIEF';
     END IF;
     IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'ml_owner') THEN
         CREATE ROLE ml_owner NOLOGIN;
@@ -29,43 +45,108 @@ BEGIN
     IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'ml_app') THEN
         CREATE ROLE ml_app LOGIN PASSWORD 'CHANGE_ME_ML';
     END IF;
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'socio_owner') THEN
+        CREATE ROLE socio_owner NOLOGIN;
+    END IF;
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'socio_app') THEN
+        CREATE ROLE socio_app LOGIN PASSWORD 'CHANGE_ME_SOCIO';
+    END IF;
+
+    -- Compatibility roles for the F0 analytics and socioeconomic schemas.
+    -- New services use pulse and socio; remove these roles in a later contract
+    -- migration after the legacy schemas are no longer queried.
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'analytics_owner') THEN
+        CREATE ROLE analytics_owner NOLOGIN;
+    END IF;
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'analytics_app') THEN
+        CREATE ROLE analytics_app LOGIN PASSWORD 'CHANGE_ME_ANALYTICS';
+    END IF;
     IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'socioeconomic_owner') THEN
         CREATE ROLE socioeconomic_owner NOLOGIN;
     END IF;
     IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'socioeconomic_app') THEN
-        CREATE ROLE socioeconomic_app LOGIN PASSWORD 'CHANGE_ME_SOCIOECONOMIC';
+        CREATE ROLE socioeconomic_app LOGIN PASSWORD 'CHANGE_ME_LEGACY_SOCIOECONOMIC';
     END IF;
 END $$;
 
+ALTER SCHEMA identity OWNER TO identity_owner;
+ALTER SCHEMA ingest OWNER TO ingest_owner;
+ALTER SCHEMA core OWNER TO core_owner;
+ALTER SCHEMA pulse OWNER TO pulse_owner;
+ALTER SCHEMA brief OWNER TO brief_owner;
+ALTER SCHEMA ml OWNER TO ml_owner;
+ALTER SCHEMA socio OWNER TO socio_owner;
+ALTER SCHEMA analytics OWNER TO analytics_owner;
+ALTER SCHEMA socioeconomic OWNER TO socioeconomic_owner;
+
+REVOKE ALL ON SCHEMA identity, ingest, core, pulse, brief, ml, socio,
+    analytics, socioeconomic FROM PUBLIC;
+
+GRANT USAGE ON SCHEMA identity TO identity_app;
 GRANT USAGE ON SCHEMA ingest TO ingest_app;
 GRANT USAGE ON SCHEMA core TO core_app;
-GRANT USAGE ON SCHEMA analytics TO analytics_app;
+GRANT USAGE ON SCHEMA pulse TO pulse_app;
+GRANT USAGE ON SCHEMA brief TO brief_app;
 GRANT USAGE ON SCHEMA ml TO ml_app;
+GRANT USAGE ON SCHEMA socio TO socio_app;
+GRANT USAGE ON SCHEMA analytics TO analytics_app;
 GRANT USAGE ON SCHEMA socioeconomic TO socioeconomic_app;
 
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA identity TO identity_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA ingest TO ingest_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA core TO core_app;
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA analytics TO analytics_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA pulse TO pulse_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA brief TO brief_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA ml TO ml_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA socio TO socio_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA analytics TO analytics_app;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA socioeconomic TO socioeconomic_app;
 
+GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA identity TO identity_app;
 GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA ingest TO ingest_app;
 GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA core TO core_app;
-GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA analytics TO analytics_app;
+GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA pulse TO pulse_app;
+GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA brief TO brief_app;
 GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA ml TO ml_app;
+GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA socio TO socio_app;
+GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA analytics TO analytics_app;
 GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA socioeconomic TO socioeconomic_app;
 
-ALTER DEFAULT PRIVILEGES IN SCHEMA ingest
+ALTER DEFAULT PRIVILEGES FOR ROLE identity_owner IN SCHEMA identity
+    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO identity_app;
+ALTER DEFAULT PRIVILEGES FOR ROLE ingest_owner IN SCHEMA ingest
     GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO ingest_app;
-ALTER DEFAULT PRIVILEGES IN SCHEMA core
+ALTER DEFAULT PRIVILEGES FOR ROLE core_owner IN SCHEMA core
     GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO core_app;
-ALTER DEFAULT PRIVILEGES IN SCHEMA analytics
-    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO analytics_app;
-ALTER DEFAULT PRIVILEGES IN SCHEMA ml
+ALTER DEFAULT PRIVILEGES FOR ROLE pulse_owner IN SCHEMA pulse
+    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO pulse_app;
+ALTER DEFAULT PRIVILEGES FOR ROLE brief_owner IN SCHEMA brief
+    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO brief_app;
+ALTER DEFAULT PRIVILEGES FOR ROLE ml_owner IN SCHEMA ml
     GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO ml_app;
-ALTER DEFAULT PRIVILEGES IN SCHEMA socioeconomic
+ALTER DEFAULT PRIVILEGES FOR ROLE socio_owner IN SCHEMA socio
+    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO socio_app;
+
+ALTER DEFAULT PRIVILEGES FOR ROLE identity_owner IN SCHEMA identity
+    GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO identity_app;
+ALTER DEFAULT PRIVILEGES FOR ROLE ingest_owner IN SCHEMA ingest
+    GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO ingest_app;
+ALTER DEFAULT PRIVILEGES FOR ROLE core_owner IN SCHEMA core
+    GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO core_app;
+ALTER DEFAULT PRIVILEGES FOR ROLE pulse_owner IN SCHEMA pulse
+    GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO pulse_app;
+ALTER DEFAULT PRIVILEGES FOR ROLE brief_owner IN SCHEMA brief
+    GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO brief_app;
+ALTER DEFAULT PRIVILEGES FOR ROLE ml_owner IN SCHEMA ml
+    GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO ml_app;
+ALTER DEFAULT PRIVILEGES FOR ROLE socio_owner IN SCHEMA socio
+    GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO socio_app;
+
+ALTER DEFAULT PRIVILEGES FOR ROLE analytics_owner IN SCHEMA analytics
+    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO analytics_app;
+ALTER DEFAULT PRIVILEGES FOR ROLE socioeconomic_owner IN SCHEMA socioeconomic
     GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO socioeconomic_app;
 
--- Do not grant cross-schema access to app roles: services exchange information
--- through APIs and events.
-
+-- Do not grant cross-schema access to app roles. Services exchange data via
+-- authenticated APIs and events; owner roles are reserved for migrations,
+-- backups, and controlled administrative operations.

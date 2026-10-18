@@ -22,7 +22,7 @@
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={\"dataset_id\":\"google-maps-medellin\",\"inputs\":{\"city\":\"Medellin\",\"country\":\"CO\"},\"notify\":\"{{$env.INGEST_WEBHOOK_URL}}\"}",
-        "options": {}
+        "options": {"timeout": 10000}
       },
       "id": "trigger-bright-data",
       "name": "Trigger Bright Data",

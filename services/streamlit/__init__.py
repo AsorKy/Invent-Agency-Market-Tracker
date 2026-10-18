@@ -1,0 +1,1 @@
+"""Streamlit reporting service scaffold."""

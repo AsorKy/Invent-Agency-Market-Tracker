@@ -22,6 +22,7 @@ from libs.common.internal_auth import require_internal_token
 from libs.common.logging import configure_logging
 from libs.common.redis_client import check_redis
 from libs.common.request_id import RequestIdMiddleware
+from libs.common.security import valid_signed_webhook
 from libs.common.settings import get_settings
 from libs.contracts.api import BrightDataWebhook
 from services.ingest.app.repository import IngestRepository
@@ -32,7 +33,11 @@ configure_logging(settings.log_level)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    app.state.repository = IngestRepository(settings.database_url, settings.redis_url)
+    app.state.repository = IngestRepository(
+        settings.database_url,
+        settings.redis_url,
+        enqueue_mark_ttl_seconds=settings.ingest_enqueue_mark_ttl_seconds,
+    )
     yield
     await app.state.repository.close()
 
@@ -61,6 +66,15 @@ async def ready() -> JSONResponse:
 
 @app.post("/internal/ingest/webhook/bd", status_code=202)
 async def bright_data_webhook(payload: BrightDataWebhook, request: Request) -> dict[str, object]:
+    raw_body = await request.body()
+    if not valid_signed_webhook(
+        raw_body,
+        signature=request.headers.get("X-BrightData-Signature"),
+        timestamp=request.headers.get("X-BrightData-Timestamp"),
+        secret=settings.bright_data_webhook_secret,
+        replay_window_seconds=settings.bright_data_replay_window_seconds,
+    ):
+        raise HTTPException(status_code=401, detail="invalid_bright_data_signature")
     normalized = orjson.dumps(payload.payload, option=orjson.OPT_SORT_KEYS)
     payload_sha256 = hashlib.sha256(normalized).hexdigest()
     try:

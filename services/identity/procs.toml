@@ -1,0 +1,6 @@
+# Identity bootstrap process for local topology validation.
+# Relates to app/main.py and the future Django/DRF identity service.
+[[proc]]
+name = "api"
+cmd = ["uvicorn", "services.identity.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+probe = "http://127.0.0.1:8000/health"

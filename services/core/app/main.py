@@ -72,31 +72,41 @@ async def create_signal(payload: SignalCreate, request: Request) -> dict[str, st
 
 @app.get("/internal/core/companies", dependencies=[Depends(require_internal_token)])
 async def companies(
-    request: Request, limit: int = Query(default=50, ge=1, le=200)
-) -> list[dict[str, object]]:
+    request: Request,
+    limit: int = Query(default=50, ge=1, le=200),
+    cursor: str | None = Query(default=None),
+) -> dict[str, object]:
     try:
         repository: CoreRepository = request.app.state.repository
-        return await repository.list_companies(limit)
+        data, next_cursor = await repository.list_companies(limit, cursor)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="invalid_cursor") from exc
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return {"data": data, "next_cursor": next_cursor}
 
 
 @app.get("/internal/core/leads", dependencies=[Depends(require_internal_token)])
 async def leads(
-    request: Request, limit: int = Query(default=50, ge=1, le=200)
-) -> list[dict[str, object]]:
+    request: Request,
+    limit: int = Query(default=50, ge=1, le=200),
+    cursor: str | None = Query(default=None),
+) -> dict[str, object]:
     try:
         repository: CoreRepository = request.app.state.repository
-        return await repository.list_leads(limit)
+        data, next_cursor = await repository.list_leads(limit, cursor)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="invalid_cursor") from exc
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return {"data": data, "next_cursor": next_cursor}
 
 
 @app.get("/internal/core/pipeline/kanban", dependencies=[Depends(require_internal_token)])
 async def pipeline_kanban(request: Request) -> dict[str, object]:
     try:
         repository: CoreRepository = request.app.state.repository
-        leads_data = await repository.list_leads(200)
+        leads_data, _next_cursor = await repository.list_leads(200)
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     columns: dict[str, list[dict[str, object]]] = {}

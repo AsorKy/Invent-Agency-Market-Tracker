@@ -1,0 +1,6 @@
+# Pulse processes for the v2.2 service shell. The API relates to app/main.py;
+# a worker and rollup process will be added when the Pulse event consumer is implemented.
+[[proc]]
+name = "api"
+cmd = ["uvicorn", "services.pulse.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+probe = "http://127.0.0.1:8000/health"

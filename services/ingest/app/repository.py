@@ -22,9 +22,18 @@ from libs.domain.entity_resolution import normalize_company_name
 
 
 class IngestRepository:
-    def __init__(self, database_url: str | None, redis_url: str) -> None:
+    def __init__(
+        self,
+        database_url: str | None,
+        redis_url: str,
+        *,
+        enqueue_mark_ttl_seconds: int = 86_400,
+    ) -> None:
+        if enqueue_mark_ttl_seconds < 1:
+            raise ValueError("enqueue mark TTL must be greater than zero")
         self.engine = create_engine(database_url, pool_size=2)
         self.redis: Redis = create_redis(redis_url)
+        self.enqueue_mark_ttl_seconds = enqueue_mark_ttl_seconds
 
     async def close(self) -> None:
         if self.engine:
@@ -84,7 +93,12 @@ class IngestRepository:
 
     async def _enqueue_snapshot(self, *, row_id: UUID, dataset_id: str, snapshot_id: str) -> bool:
         queue_key = f"invent:ingest:queued:{row_id}"
-        claimed = await self.redis.set(queue_key, "1", nx=True, ex=86_400)
+        claimed = await self.redis.set(
+            queue_key,
+            "1",
+            nx=True,
+            ex=self.enqueue_mark_ttl_seconds,
+        )
         if not claimed:
             return False
         try:
@@ -126,9 +140,19 @@ class IngestRepository:
                 city = record.get("city")
                 nit = record.get("nit")
                 normalized_name = normalize_company_name(name)
-                candidate_key = hashlib.sha256(
-                    f"{normalized_name}|{city or ''}|{nit or ''}".encode()
-                ).hexdigest()
+                candidate_city = city if isinstance(city, str) else None
+                candidate_nit = nit if isinstance(nit, str) else None
+                candidate_fingerprint = json.dumps(
+                    {
+                        "name": normalized_name,
+                        "city": candidate_city,
+                        "nit": candidate_nit,
+                    },
+                    ensure_ascii=False,
+                    separators=(",", ":"),
+                    sort_keys=True,
+                ).encode("utf-8")
+                candidate_key = hashlib.sha256(candidate_fingerprint).hexdigest()
                 result = await connection.execute(
                     text(
                         """
@@ -144,8 +168,8 @@ class IngestRepository:
                         "raw_snapshot_id": raw_snapshot_id,
                         "candidate_key": candidate_key,
                         "name": name,
-                        "city": city if isinstance(city, str) else None,
-                        "candidate_nit": nit if isinstance(nit, str) else None,
+                        "city": candidate_city,
+                        "candidate_nit": candidate_nit,
                         "normalized_name": normalized_name,
                     },
                 )

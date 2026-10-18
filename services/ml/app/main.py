@@ -65,7 +65,12 @@ async def ready() -> JSONResponse:
 async def regenerate_score(features: ScoreFeatures, request: Request) -> ScoreResponse:
     lock_key = f"lock:score:{features.company_id}"
     owner_id = str(uuid4())
-    acquired = await request.app.state.redis.set(lock_key, owner_id, nx=True, px=30_000)
+    acquired = await request.app.state.redis.set(
+        lock_key,
+        owner_id,
+        nx=True,
+        px=settings.score_lock_ttl_seconds * 1000,
+    )
     if not acquired:
         previous = await request.app.state.repository.latest_score(features.company_id)
         return ScoreResponse(
