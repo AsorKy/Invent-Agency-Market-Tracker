@@ -8,14 +8,14 @@ health helpers used by the other backend services. It is used behind the
 gateway while the event-driven Pulse projections are implemented.
 """
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from typing import Annotated
 from uuid import UUID
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 
 from libs.common.db import check_database
 from libs.common.internal_auth import require_internal_token
@@ -23,10 +23,13 @@ from libs.common.logging import configure_logging
 from libs.common.redis_client import check_redis
 from libs.common.request_id import RequestIdMiddleware
 from libs.common.settings import get_settings
+from libs.contracts.pulse import CACHE_CONTROL, is_stale
 from services.pulse.app.models import (
+    OpsHealthResponse,
     PipelineBacklogResponse,
     PipelineTimeResponse,
     SourceEfficiencyResponse,
+    SourceFreshness,
     TopSourcesResponse,
     UnprocessedSignalsResponse,
 )
@@ -34,9 +37,6 @@ from services.pulse.app.repository import PulseRepository
 
 settings = get_settings()
 configure_logging(settings.log_level)
-
-STALE_AFTER_MS = 26 * 60 * 60 * 1000
-CACHE_CONTROL = "private, max-age=60"
 
 
 @asynccontextmanager
@@ -52,6 +52,17 @@ app = FastAPI(title="Invent Market Tracker Pulse", version=settings.app_version,
 app.add_middleware(RequestIdMiddleware)
 
 
+@app.middleware("http")
+async def pulse_cache_header(
+    request: Request, call_next: Callable[[Request], Awaitable[Response]]
+) -> Response:
+    """Add the browser cache header to every successful Pulse response."""
+    response = await call_next(request)
+    if request.url.path.startswith("/internal/pulse/") and response.status_code == 200:
+        response.headers["Cache-Control"] = CACHE_CONTROL
+    return response
+
+
 def _now_ms() -> int:
     """Return the current instant as UTC epoch milliseconds."""
     return int(datetime.now(UTC).timestamp() * 1000)
@@ -60,7 +71,7 @@ def _now_ms() -> int:
 def _freshness(as_of: datetime | None) -> tuple[int, bool]:
     """Convert a source timestamp to API metadata and apply the 26-hour rule."""
     as_of_ms = int(as_of.timestamp() * 1000) if as_of is not None else _now_ms()
-    return as_of_ms, _now_ms() - as_of_ms > STALE_AFTER_MS
+    return as_of_ms, is_stale(as_of_ms, _now_ms())
 
 
 def _json_response(payload: object, *, as_of: int) -> JSONResponse:
@@ -192,4 +203,22 @@ async def top_sources(
     )
     as_of, stale = _freshness(source_as_of)
     payload = TopSourcesResponse(ranking=rows, as_of=as_of, stale=stale)
+    return _json_response(payload.model_dump(mode="json"), as_of=as_of)
+
+
+@app.get("/internal/pulse/ops/health", dependencies=[Depends(require_internal_token)])
+async def ops_health(request: Request) -> JSONResponse:
+    """Return per-source freshness and outbox backlog for the Ops page."""
+    sources, backlog, source_as_of = await request.app.state.repository.ops_health()
+    as_of, stale = _freshness(source_as_of)
+    now = _now_ms()
+    rows = [
+        SourceFreshness(
+            source=row.source,
+            as_of=row.as_of,
+            stale=row.as_of is not None and is_stale(row.as_of, now),
+        )
+        for row in sources
+    ]
+    payload = OpsHealthResponse(sources=rows, outbox_backlog=backlog, as_of=as_of, stale=stale)
     return _json_response(payload.model_dump(mode="json"), as_of=as_of)

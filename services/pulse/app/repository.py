@@ -19,6 +19,7 @@ from services.pulse.app.models import (
     PipelineTimeGroup,
     SignalPoint,
     SourceEfficiency,
+    SourceFreshness,
     TopSource,
 )
 
@@ -104,3 +105,9 @@ class PulseRepository:
         """Return a bounded source ranking or an empty projection."""
         del limit, service_line
         return [], None
+
+    async def ops_health(
+        self,
+    ) -> tuple[list[SourceFreshness], int | None, datetime | None]:
+        """Return source freshness, outbox backlog, and their timestamp, or empty."""
+        return [], None, None

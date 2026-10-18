@@ -560,7 +560,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_pulse_consumer.py` -> 6 passed; services/analytics removed; make static and make test pass
 
 ### T-051 Pulse endpoints, freshness, and response rules
-- status: todo
+- status: done
 - spec: REQ-PUL-001, REQ-EXT-004
 - owner: second-backend-engineer
 - depends: T-050
@@ -569,7 +569,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_pulse_contract.py`
 - note: the five Pulse endpoints plus `ops/health` with `as_of`, `stale` after 26 hours, `low_sample`, null for no data, optional `method_version`, and `Cache-Control: private, max-age=60`.
-- evidence:
+- evidence: `pytest -q tests/unit/test_pulse_contract.py` -> 25 passed; make static and make test pass
 
 ### T-052 Pulse incremental rollups
 - status: todo
