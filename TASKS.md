@@ -538,7 +538,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_ingest_to_core.py` 11 passed; make static/test pass
 
 ### T-046 Enrichment agent contract
-- status: todo
+- status: done
 - spec: REQ-ING-006
 - owner: second-backend-engineer
 - depends: T-045
@@ -547,7 +547,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_enrichment.py`
 - note: replaceable `EnrichmentAgent` interface (mock in run 1), rate limit and daily budget, `pending_retry` with backoff on provider failure, and a Brief warning code rather than a 500.
-- evidence:
+- evidence: `pytest -q tests/unit/test_enrichment.py` 7 passed; make static/test pass
 
 ### T-047 n8n source workflows
 - status: done
