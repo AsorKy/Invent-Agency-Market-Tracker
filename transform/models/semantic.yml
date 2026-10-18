@@ -6,7 +6,7 @@ version: 2
 semantic_models:
   - name: signals
     description: "Signals observed per company."
-    model: ref('fact_signal')
+    model: ref('mart_fact_signal')
     defaults:
       agg_time_dimension: observed_date
     entities:
@@ -39,7 +39,7 @@ semantic_models:
 
   - name: lead_outcomes
     description: "Outcomes recorded on leads."
-    model: ref('fact_lead_outcome')
+    model: ref('mart_fact_lead_outcome')
     defaults:
       agg_time_dimension: occurred_date
     entities:
@@ -68,7 +68,7 @@ semantic_models:
 
   - name: lead_scores
     description: "Daily lead score snapshot."
-    model: ref('fact_lead_score')
+    model: ref('mart_fact_lead_score')
     primary_entity: company
     defaults:
       agg_time_dimension: score_date

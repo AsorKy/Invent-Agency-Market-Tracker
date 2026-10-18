@@ -754,7 +754,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-093 Unique indexes migration
-- status: todo
+- status: done
 - spec: REQ-DAT-001, REQ-DAT-005, REQ-DAT-007
 - owner: database-engineer
 - depends: T-018, T-020, T-041
@@ -763,10 +763,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `python ops/check_migrations.py` and `pytest -q tests/unit/test_unique_indexes.py`
 - note: one expand migration with the next free number (date prefix 20261019). (1) Scan `services/` and `libs/` for `ON CONFLICT (...)` targets and make sure each is backed by a unique index or constraint; add the missing ones, notably the natural key of `ingest.failed_fetch` used by `budget.py`. (2) `CREATE UNIQUE INDEX IF NOT EXISTS` on `core.company (tenant_id, nit) WHERE nit IS NOT NULL`. (3) A plain index on `core.project (lead_id)` only if some query filters by `lead_id` without `tenant_id` as the first predicate; otherwise say in a comment that `(tenant_id, lead_id, updated_at, id)` already covers it. Expand only: no DROP, RENAME, or NOT NULL. Before each unique index a `DO` block raises a clear error that lists duplicate keys; no data is deleted. The test parses the file (no database) and checks every scanned `ON CONFLICT` target against the indexes in all migrations.
-- evidence:
+- evidence: `python ops/check_migrations.py` OK; `pytest -q tests/unit/test_unique_indexes.py` 4 passed; make static/test pass
 
 ### T-094 SQL consistency checks (offline)
-- status: todo
+- status: done
 - spec: REQ-QA-002, REQ-DAT-001, REQ-DAT-005
 - owner: qa-reviewer
 - depends: T-093
@@ -775,10 +775,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/unit/test_sql_consistency.py`
 - note: decision D-18, offline tier. Parse SQL with `pglast` (the PostgreSQL parser). `support_sql.py` provides `collect_statements()`, which walks `services/` and `libs/` with `ast` and returns every string passed to `text(...)` or `exec_driver_sql(...)` with file and line (implicit concatenation joined), and `load_schema()`, which builds tables, columns, and primary or unique keys from all files in `migrations/` in order (CREATE TABLE, ALTER TABLE ADD COLUMN, CREATE UNIQUE INDEX; `contract_` files last). Tests: every statement parses; every table and column named in SELECT, INSERT, UPDATE, and DELETE exists; every INSERT column list is a subset of the table; every `ON CONFLICT` target matches a primary key or unique index (a partial index matches only when the statement repeats its predicate). SQL built with f-strings goes to an explicit `DYNAMIC_SQL` list in the test file that must stay empty or be justified line by line. Nothing is skipped silently: unsupported constructs go to a named allow list with a reason.
-- evidence:
+- evidence: `pytest -q tests/unit/test_sql_consistency.py` 24 passed; make static/test pass
 
 ### T-095 SQL integration tests with psycopg
-- status: todo
+- status: done
 - spec: REQ-QA-005, REQ-DAT-001, REQ-DAT-005
 - owner: qa-reviewer
 - depends: T-094
@@ -787,7 +787,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/integration/test_sql_postgres.py --collect-only` and `make static`
 - note: decision D-18, database tier. Marked `integration` and skipped unless `TEST_DATABASE_URL` is set. With psycopg 3: create a scratch schema or database, apply `migrations/` in order (twice, to prove idempotence), then for every statement from `collect_statements()` replace `:name` binds with `$n` and run `PREPARE stmt_n AS ...` followed by `DEALLOCATE`; PREPARE makes PostgreSQL check tables, columns, types, and `ON CONFLICT` arbiters without running anything. Also assert that row level security is enabled on every table with a `tenant_id` column (`pg_class.relrowsecurity`). Statements that cannot be prepared (DDL, several statements) go to a named skip list with a reason. Try `pip install pgserver` (embedded PostgreSQL) or any local PostgreSQL in the sandbox: if one starts, run the suite and record the result; if not, record why and write evidence `unverified: needs PostgreSQL`. The owner runs it with Docker through `make test-sql`.
-- evidence:
+- evidence: real PostgreSQL 16 (system install, not Docker): 6 passed incl. migrations twice and PREPARE of all 105 statements; `pytest --collect-only` 6 collected; make static/test pass. RLS gap on 9 tenant_id tables recorded in RLS_EXEMPT pending owner decision
 
 ### T-096 Mapping verification harness
 - status: todo
@@ -802,7 +802,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-097 dbt mart naming
-- status: todo
+- status: done
 - spec: REQ-PUL-003
 - owner: second-backend-engineer
 - depends: T-055
@@ -811,7 +811,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `dbt parse --project-dir transform --profiles-dir <copy of profiles.yml.example>` and `pytest -q tests/unit/test_dbt_naming.py`
 - note: decision D-19. Tables in `pulse` have four kinds, each with its own name component: projections written by the pulse consumer keep `fact_*` (created by migrations, tenant scoped, row level security); rollups keep `*_rollup`; dbt staging views are `stg_<source>__<entity>`; dbt marts get the component `mart`: `mart_dim_<name>` and `mart_fact_<name>`. Rename the seven dimensions and five facts in the model files, every `ref()`, `schema.yml`, `semantic.yml`, `export_parquet.py`, and the README (Parquet files take the new names); keep `metricflow_time_spine` because MetricFlow expects it. Fix the outdated comment in `macros/generate_schema_name.sql`. Search `services/` for readers of the old dbt names and report them instead of editing outside `transform/`. The test checks that every model in `transform/models/marts/` starts with `mart_` (except the time spine) and that no dbt model name equals a table created by `migrations/`.
-- evidence:
+- evidence: `dbt parse` OK; `pytest -q tests/unit/test_dbt_naming.py` 2 passed; make static/test pass
 
 ### T-060 Zero trust between services
 - status: todo
