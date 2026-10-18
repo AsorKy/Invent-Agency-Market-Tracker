@@ -122,6 +122,7 @@ async def ready() -> JSONResponse:
     upstreams = {
         "ingest": settings.ingest_url,
         "core": settings.core_url,
+        "analytics": settings.analytics_url,
         "identity": settings.identity_url,
         "pulse": settings.pulse_url,
         "brief": settings.brief_url,
