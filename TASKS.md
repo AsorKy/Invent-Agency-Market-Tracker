@@ -296,7 +296,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `python ops/check_migrations.py` -> OK; `pytest -q tests/unit/test_schema_catalog.py tests/unit/test_migration_guard.py tests/unit/test_taxonomy.py` -> 43 passed, 1 xfailed (SQL never run against real Postgres)
 
 ### T-020 Company upsert API with history
-- status: todo
+- status: done
 - spec: REQ-COR-007
 - owner: lead-backend-engineer
 - depends: T-014, T-018
@@ -305,10 +305,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_company_upsert.py`
 - note: implement `POST /internal/core/companies/upsert`, SCD2 history, version bump, and the event in the same transaction. Test with a fake repository that records the transaction boundary; also cover repeating the same payload.
-- evidence:
+- evidence: `pytest -q tests/unit/test_company_upsert.py` -> 11 passed; make static OK; make test 263 passed. CompanyUpsert lives in services/core/app/companies.py (not libs/contracts, frozen snapshot); SCD2 history goes to core.audit_log (no history table in schema).
 
 ### T-021 Lead model, state machine, and list filters
-- status: todo
+- status: done
 - spec: REQ-COR-002
 - owner: lead-backend-engineer
 - depends: T-020
@@ -317,10 +317,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/unit/test_lead_state.py`
 - note: valid transitions per the E1.1 diagram, `expected_version` with 409 and the current state, `Idempotency-Key` on create, filters (state, service_line, city, segment, min_score) with keyset cursor, `GET /leads/{id}`, and the kanban read model. Pure transition logic lives in `libs/domain/pipeline.py` with at least 90 percent coverage.
-- evidence:
+- evidence: `pytest -q tests/unit/test_lead_state.py` -> 11 passed; pipeline.py coverage 100%; make static OK; make test 274 passed. Models in services/core/app/leads.py (contracts frozen); no status-change event type exists.
 
 ### T-022 Outcomes, activities, project conversion, and projects read
-- status: todo
+- status: done
 - spec: REQ-COR-003, REQ-COR-005
 - owner: lead-backend-engineer
 - depends: T-021
@@ -329,10 +329,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/unit/test_outcomes.py tests/unit/test_lead_actions.py`
 - note: outcome capture (contact, response, meeting, close, spam) emitting `lead.outcome_recorded`; activity logging; lead to project conversion in one transaction; replace the 501 on `GET /internal/core/projects` with a real read model and add `POST /internal/core/projects`.
-- evidence:
+- evidence: `pytest -q tests/unit/test_outcomes.py tests/unit/test_lead_actions.py` -> 16 passed; make static OK; make test 290 passed. Models in services/core/app/actions.py (contracts frozen).
 
 ### T-023 Tenant configuration with ETag and reserved keys
-- status: todo
+- status: done
 - spec: REQ-COR-004, REQ-EXT-002
 - owner: lead-backend-engineer
 - depends: T-021
@@ -341,10 +341,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_tenant_config.py`
 - note: Pydantic model for `brief_rules` and the reserved `funnel_rules` with `geo_overrides`; `GET` and `PUT /internal/core/admin/tenant-config` with `If-Match` (412 on stale); previous version stored in the history table; emits `tenant.config_updated`. Unknown top-level keys are rejected; reserved keys are accepted without a migration.
-- evidence:
+- evidence: `pytest -q tests/unit/test_tenant_config.py` -> 9 passed; make static OK; make test 299 passed. Models in services/core/app/tenant_config.py (contracts frozen).
 
 ### T-024 Automatic qualification consumer
-- status: todo
+- status: done
 - spec: REQ-COR-008
 - owner: lead-backend-engineer
 - depends: T-023
@@ -353,10 +353,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_auto_qualification.py`
 - note: consume `lead.score_updated` with the inbox pattern; create or advance leads by the tenant thresholds; never move backward or override a human-set status; write `audit_log`; emit `lead.created` for new leads.
-- evidence:
+- evidence: `pytest -q tests/unit/test_auto_qualification.py` -> 12 passed; make static OK; make test 311 passed.
 
 ### T-025 Dead letter queue and republish
-- status: todo
+- status: done
 - spec: REQ-EVT-003, REQ-EVT-004
 - owner: lead-backend-engineer
 - depends: T-020
@@ -365,10 +365,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_dead_letter.py tests/unit/test_republish.py`
 - note: backoff 10 s, 30 s, 90 s, 5 min, 15 min then `core.outbox_dead_letter` with an alert log line; `python -m services.core.app.republish --target <pulse|brief|ml> --since <date>` replays with `replay: true`, requires `--confirm`, and blocks writes to the target while running (lock key).
-- evidence:
+- evidence: `pytest -q tests/unit/test_dead_letter.py tests/unit/test_republish.py` -> 28 passed (incl. test_outbox); make static OK; make test 324 passed. NOTE: dead_letter relay not wired into compose/outbox_relay.main (test_outbox.py pins old relay); needs devops+qa follow-up.
 
 ### T-026 CSV imports as background jobs
-- status: todo
+- status: done
 - spec: REQ-ING-005
 - owner: lead-backend-engineer
 - depends: T-020
@@ -377,10 +377,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/unit/test_imports.py`
 - note: implement the 202 plus job flow, limits (10 MB, 100,000 rows, 3 active jobs per tenant with 429), Polars chunked parsing with Pydantic validation, upsert by `row_sha256`, events per changed aggregate, and blob cleanup. Add `polars` to the `analytics` extra only if it is not already a base dependency; ask the coordinator for `pyproject.toml` changes.
-- evidence:
+- evidence: `pytest -q tests/unit/test_imports.py` -> 15 passed; make static OK; make test 339 passed. stdlib csv parser behind ChunkParser (polars declared in pyproject but not installed); raw CSV body, gateway must unwrap multipart.
 
 ### T-027 Retention purge and opt-out
-- status: todo
+- status: done
 - spec: REQ-CMP-001
 - owner: lead-backend-engineer
 - depends: T-020
@@ -389,7 +389,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_retention.py`
 - note: purge companies 12 months after their last signal (job callable from a scheduler, dry-run option), idempotent opt-out delete endpoint, a guard that rejects storing personal identifiers (document numbers, private phones), and a short processing-activities record in English.
-- evidence:
+- evidence: `pytest -q tests/unit/test_retention.py` -> 16 passed; make static OK; make test 355 passed.
 
 ### T-030 Identity service: Django project, RBAC, JWKS
 - status: todo
