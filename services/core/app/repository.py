@@ -10,18 +10,150 @@ ingest retries and turns accepted changes into events.
 import hashlib
 import json
 from datetime import datetime
+from types import TracebackType
 from uuid import UUID, uuid4
 
 from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 
 from libs.common.db import create_engine
 from libs.common.pagination import decode_cursor, encode_cursor
 from libs.contracts.api import SignalCreate
 
 
+class SqlCompanyTransaction:
+    """Company writes bound to one open connection (one transaction)."""
+
+    def __init__(self, connection: AsyncConnection) -> None:
+        self.connection = connection
+
+    async def lock_key(self, key: str) -> None:
+        await self.connection.execute(
+            text("SELECT pg_advisory_xact_lock(hashtext(:key))"), {"key": f"company:{key}"}
+        )
+
+    async def find_company(self, nit: str | None, slug: str) -> dict[str, object] | None:
+        result = await self.connection.execute(
+            text(
+                """
+                SELECT id, tenant_id, nit, slug, legal_name, trade_name, sector_code,
+                       employee_count, website, city, source_flags, version, valid_from
+                FROM core.company
+                WHERE (CAST(:nit AS text) IS NOT NULL AND nit = :nit) OR slug = :slug
+                ORDER BY (nit = :nit) DESC NULLS LAST
+                LIMIT 1
+                FOR UPDATE
+                """
+            ),
+            {"nit": nit, "slug": slug},
+        )
+        row = result.mappings().first()
+        return dict(row) if row else None
+
+    async def insert_company(self, row: dict[str, object]) -> None:
+        await self.connection.execute(
+            text(
+                """
+                INSERT INTO core.company
+                    (id, tenant_id, nit, slug, legal_name, trade_name, sector_code,
+                     employee_count, website, city, source_flags, version, valid_from,
+                     created_at, updated_at)
+                VALUES
+                    (:id, :tenant_id, :nit, :slug, :legal_name, :trade_name, :sector_code,
+                     :employee_count, :website, :city, CAST(:source_flags AS jsonb), :version,
+                     :valid_from, :updated_at, :updated_at)
+                """
+            ),
+            {**row, "source_flags": json.dumps(row["source_flags"])},
+        )
+
+    async def close_version(self, old: dict[str, object], closed_at: datetime) -> None:
+        """Append the superseded version to history (SCD2 row with valid_from/valid_to)."""
+        snapshot = {k: v for k, v in old.items() if k not in {"id", "valid_from"}}
+        await self.connection.execute(
+            text(
+                """
+                INSERT INTO core.audit_log (actor, action, aggregate_type, aggregate_id, payload)
+                VALUES ('core', 'company.version_closed', 'company', :id, CAST(:payload AS jsonb))
+                """
+            ),
+            {
+                "id": old["id"],
+                "payload": json.dumps(
+                    snapshot
+                    | {
+                        "valid_from": str(old["valid_from"]),
+                        "valid_to": closed_at.isoformat(),
+                    },
+                    default=str,
+                ),
+            },
+        )
+
+    async def update_company(self, row: dict[str, object]) -> None:
+        await self.connection.execute(
+            text(
+                """
+                UPDATE core.company SET
+                    nit = :nit, legal_name = :legal_name, trade_name = :trade_name,
+                    sector_code = :sector_code, employee_count = :employee_count,
+                    website = :website, city = :city,
+                    source_flags = CAST(:source_flags AS jsonb), version = :version,
+                    valid_from = :valid_from, updated_at = :updated_at
+                WHERE id = :id
+                """
+            ),
+            {**row, "source_flags": json.dumps(row["source_flags"])},
+        )
+
+    async def add_outbox_event(
+        self, *, event_id: UUID, aggregate_id: UUID, version: int, payload: dict[str, object]
+    ) -> None:
+        await self.connection.execute(
+            text(
+                """
+                INSERT INTO core.outbox_event
+                    (event_id, aggregate_type, aggregate_id, event_type, version, payload)
+                VALUES
+                    (:event_id, 'company', :aggregate_id, 'company.updated', :version,
+                     CAST(:payload AS jsonb))
+                """
+            ),
+            {
+                "event_id": event_id,
+                "aggregate_id": aggregate_id,
+                "version": version,
+                "payload": json.dumps(payload, default=str),
+            },
+        )
+
+
+class SqlCompanyUnitOfWork:
+    """Open ``engine.begin()``: commit on success, roll back on any error."""
+
+    def __init__(self, engine: AsyncEngine) -> None:
+        self._context = engine.begin()
+
+    async def __aenter__(self) -> SqlCompanyTransaction:
+        return SqlCompanyTransaction(await self._context.__aenter__())
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
+    ) -> None:
+        await self._context.__aexit__(exc_type, exc, tb)
+
+
 class CoreRepository:
     def __init__(self, database_url: str | None) -> None:
         self.engine = create_engine(database_url, pool_size=4)
+
+    def company_unit_of_work(self) -> SqlCompanyUnitOfWork:
+        if self.engine is None:
+            raise RuntimeError("DATABASE_URL is required for core writes")
+        return SqlCompanyUnitOfWork(self.engine)
 
     async def close(self) -> None:
         if self.engine:

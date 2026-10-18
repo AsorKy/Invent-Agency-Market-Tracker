@@ -296,7 +296,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `python ops/check_migrations.py` -> OK; `pytest -q tests/unit/test_schema_catalog.py tests/unit/test_migration_guard.py tests/unit/test_taxonomy.py` -> 43 passed, 1 xfailed (SQL never run against real Postgres)
 
 ### T-020 Company upsert API with history
-- status: todo
+- status: done
 - spec: REQ-COR-007
 - owner: lead-backend-engineer
 - depends: T-014, T-018
@@ -305,7 +305,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_company_upsert.py`
 - note: implement `POST /internal/core/companies/upsert`, SCD2 history, version bump, and the event in the same transaction. Test with a fake repository that records the transaction boundary; also cover repeating the same payload.
-- evidence:
+- evidence: `pytest -q tests/unit/test_company_upsert.py` -> 11 passed; make static OK; make test 263 passed. CompanyUpsert lives in services/core/app/companies.py (not libs/contracts, frozen snapshot); SCD2 history goes to core.audit_log (no history table in schema).
 
 ### T-021 Lead model, state machine, and list filters
 - status: todo
