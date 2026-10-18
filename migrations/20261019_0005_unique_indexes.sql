@@ -18,7 +18,7 @@ BEGIN
     SELECT string_agg(format('(%s, %s) x%s', source, external_id, copies), '; ')
       INTO duplicates
       FROM (
-          SELECT source, COALESCE(external_id, '<null>') AS external_id, count(*) AS copies
+          SELECT source, COALESCE(external_id, '') AS external_id, count(*) AS copies
             FROM ingest.failed_fetch
            WHERE dead_lettered_at IS NULL
            GROUP BY source, COALESCE(external_id, '')

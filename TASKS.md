@@ -778,7 +778,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_sql_consistency.py` 24 passed; make static/test pass
 
 ### T-095 SQL integration tests with psycopg
-- status: todo
+- status: done
 - spec: REQ-QA-005, REQ-DAT-001, REQ-DAT-005
 - owner: qa-reviewer
 - depends: T-094
@@ -787,7 +787,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/integration/test_sql_postgres.py --collect-only` and `make static`
 - note: decision D-18, database tier. Marked `integration` and skipped unless `TEST_DATABASE_URL` is set. With psycopg 3: create a scratch schema or database, apply `migrations/` in order (twice, to prove idempotence), then for every statement from `collect_statements()` replace `:name` binds with `$n` and run `PREPARE stmt_n AS ...` followed by `DEALLOCATE`; PREPARE makes PostgreSQL check tables, columns, types, and `ON CONFLICT` arbiters without running anything. Also assert that row level security is enabled on every table with a `tenant_id` column (`pg_class.relrowsecurity`). Statements that cannot be prepared (DDL, several statements) go to a named skip list with a reason. Try `pip install pgserver` (embedded PostgreSQL) or any local PostgreSQL in the sandbox: if one starts, run the suite and record the result; if not, record why and write evidence `unverified: needs PostgreSQL`. The owner runs it with Docker through `make test-sql`.
-- evidence:
+- evidence: real PostgreSQL 16 (system install, not Docker): 6 passed incl. migrations twice and PREPARE of all 105 statements; `pytest --collect-only` 6 collected; make static/test pass. RLS gap on 9 tenant_id tables recorded in RLS_EXEMPT pending owner decision
 
 ### T-096 Mapping verification harness
 - status: todo
