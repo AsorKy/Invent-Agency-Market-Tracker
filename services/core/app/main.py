@@ -45,6 +45,14 @@ from services.core.app.leads import (
     create_lead,
 )
 from services.core.app.repository import CoreRepository
+from services.core.app.tenant_config import (
+    StaleConfigError,
+    TenantConfig,
+    etag,
+    parse_etag,
+    read_config,
+    update_config,
+)
 
 settings = get_settings()
 configure_logging(settings.log_level)
@@ -347,3 +355,52 @@ async def projects(
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     return {"data": data, "next_cursor": next_cursor}
+
+
+@app.get("/internal/core/admin/tenant-config", dependencies=[Depends(require_internal_token)])
+async def get_tenant_config(
+    request: Request, response: Response, x_tenant_id: Annotated[UUID, Header()]
+) -> dict[str, object]:
+    try:
+        repository: CoreRepository = request.app.state.repository
+        body = await read_config(repository.config_unit_of_work(), x_tenant_id)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    response.headers["ETag"] = etag(int(body["version"]))
+    return body
+
+
+@app.put("/internal/core/admin/tenant-config", dependencies=[Depends(require_internal_token)])
+async def put_tenant_config(
+    payload: TenantConfig,
+    request: Request,
+    response: Response,
+    x_tenant_id: Annotated[UUID, Header()],
+    if_match: Annotated[str | None, Header()] = None,
+    x_user_id: Annotated[UUID | None, Header()] = None,
+) -> dict[str, object]:
+    if if_match is None:
+        raise HTTPException(status_code=428, detail="if_match_required")
+    try:
+        expected = parse_etag(if_match)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="invalid_if_match") from exc
+    try:
+        repository: CoreRepository = request.app.state.repository
+        body = await update_config(
+            repository.config_unit_of_work(),
+            x_tenant_id,
+            payload,
+            if_match=expected,
+            updated_by=x_user_id,
+            request_id=request.headers.get("X-Request-ID"),
+        )
+    except StaleConfigError as exc:
+        raise HTTPException(
+            status_code=412,
+            detail={"error": "stale_etag", "current_version": exc.current_version},
+        ) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    response.headers["ETag"] = etag(int(body["version"]))
+    return body

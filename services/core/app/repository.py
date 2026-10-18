@@ -386,6 +386,115 @@ class SqlActionUnitOfWork(SqlCompanyUnitOfWork):
         return SqlActionTransaction(await self._context.__aenter__())
 
 
+class SqlConfigTransaction:
+    """Tenant configuration writes bound to one open connection."""
+
+    def __init__(self, connection: AsyncConnection) -> None:
+        self.connection = connection
+
+    async def get_config(self, tenant_id: UUID) -> dict[str, object] | None:
+        result = await self.connection.execute(
+            text(
+                """
+                SELECT tenant_id, version, scoring_rules, brief_rules, bright_data_budget_usd,
+                       metadata, updated_by, updated_at
+                FROM core.tenant_config
+                WHERE tenant_id = :tenant_id
+                FOR UPDATE
+                """
+            ),
+            {"tenant_id": tenant_id},
+        )
+        row = result.mappings().first()
+        return dict(row) if row else None
+
+    @staticmethod
+    def _params(row: dict[str, object]) -> dict[str, object]:
+        return {
+            **row,
+            "scoring_rules": json.dumps(row["scoring_rules"]),
+            "brief_rules": json.dumps(row["brief_rules"]),
+            "metadata": json.dumps(row["metadata"]),
+        }
+
+    async def insert_config(self, row: dict[str, object]) -> None:
+        await self.connection.execute(
+            text(
+                """
+                INSERT INTO core.tenant_config
+                    (tenant_id, version, scoring_rules, brief_rules, bright_data_budget_usd,
+                     metadata, updated_by, created_at, updated_at)
+                VALUES
+                    (:tenant_id, :version, CAST(:scoring_rules AS jsonb),
+                     CAST(:brief_rules AS jsonb), :bright_data_budget_usd,
+                     CAST(:metadata AS jsonb), :updated_by, :updated_at, :updated_at)
+                """
+            ),
+            self._params(row),
+        )
+
+    async def close_version(self, old: dict[str, object], closed_at: datetime) -> None:
+        """Copy the superseded version into history (valid_from = its last update)."""
+        await self.connection.execute(
+            text(
+                """
+                INSERT INTO core.tenant_config_history
+                    (tenant_id, version, scoring_rules, brief_rules, bright_data_budget_usd,
+                     metadata, changed_by, valid_from, valid_to)
+                VALUES
+                    (:tenant_id, :version, CAST(:scoring_rules AS jsonb),
+                     CAST(:brief_rules AS jsonb), :bright_data_budget_usd,
+                     CAST(:metadata AS jsonb), :updated_by, :updated_at, :closed_at)
+                """
+            ),
+            {**self._params(old), "closed_at": closed_at},
+        )
+
+    async def update_config(self, row: dict[str, object]) -> None:
+        await self.connection.execute(
+            text(
+                """
+                UPDATE core.tenant_config SET
+                    version = :version, scoring_rules = CAST(:scoring_rules AS jsonb),
+                    brief_rules = CAST(:brief_rules AS jsonb),
+                    bright_data_budget_usd = :bright_data_budget_usd,
+                    metadata = CAST(:metadata AS jsonb), updated_by = :updated_by,
+                    updated_at = :updated_at
+                WHERE tenant_id = :tenant_id
+                """
+            ),
+            self._params(row),
+        )
+
+    async def add_outbox_event(
+        self, *, event_id: UUID, aggregate_id: UUID, version: int, payload: dict[str, object]
+    ) -> None:
+        await self.connection.execute(
+            text(
+                """
+                INSERT INTO core.outbox_event
+                    (event_id, aggregate_type, aggregate_id, event_type, version, payload)
+                VALUES
+                    (:event_id, 'tenant', :aggregate_id, 'tenant.config_updated', :version,
+                     CAST(:payload AS jsonb))
+                """
+            ),
+            {
+                "event_id": event_id,
+                "aggregate_id": aggregate_id,
+                "version": version,
+                "payload": json.dumps(payload, default=str),
+            },
+        )
+
+
+class SqlConfigUnitOfWork(SqlCompanyUnitOfWork):
+    """Same commit-or-rollback boundary, yielding tenant configuration operations."""
+
+    async def __aenter__(self) -> SqlConfigTransaction:  # type: ignore[override]
+        return SqlConfigTransaction(await self._context.__aenter__())
+
+
 class SqlLeadUnitOfWork(SqlCompanyUnitOfWork):
     """Same commit-or-rollback boundary, yielding lead operations."""
 
@@ -411,6 +520,11 @@ class CoreRepository:
         if self.engine is None:
             raise RuntimeError("DATABASE_URL is required for core writes")
         return SqlActionUnitOfWork(self.engine)
+
+    def config_unit_of_work(self) -> SqlConfigUnitOfWork:
+        if self.engine is None:
+            raise RuntimeError("DATABASE_URL is required for core writes")
+        return SqlConfigUnitOfWork(self.engine)
 
     async def close(self) -> None:
         if self.engine:

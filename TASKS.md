@@ -332,7 +332,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_outcomes.py tests/unit/test_lead_actions.py` -> 16 passed; make static OK; make test 290 passed. Models in services/core/app/actions.py (contracts frozen).
 
 ### T-023 Tenant configuration with ETag and reserved keys
-- status: todo
+- status: done
 - spec: REQ-COR-004, REQ-EXT-002
 - owner: lead-backend-engineer
 - depends: T-021
@@ -341,7 +341,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_tenant_config.py`
 - note: Pydantic model for `brief_rules` and the reserved `funnel_rules` with `geo_overrides`; `GET` and `PUT /internal/core/admin/tenant-config` with `If-Match` (412 on stale); previous version stored in the history table; emits `tenant.config_updated`. Unknown top-level keys are rejected; reserved keys are accepted without a migration.
-- evidence:
+- evidence: `pytest -q tests/unit/test_tenant_config.py` -> 9 passed; make static OK; make test 299 passed. Models in services/core/app/tenant_config.py (contracts frozen).
 
 ### T-024 Automatic qualification consumer
 - status: todo
