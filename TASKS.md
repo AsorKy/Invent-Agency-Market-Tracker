@@ -212,7 +212,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_contracts.py` -> 4 passed, 1 skipped (envelope test needs pydantic, unverified offline)
 
 ### T-012 Process supervisor, health, and readiness
-- status: todo
+- status: done
 - spec: REQ-EVT-006, REQ-RES-001
 - owner: lead-backend-engineer
 - depends: T-001
@@ -221,7 +221,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_supervise.py tests/unit/test_health.py`
 - note: the supervisor must stop all children and exit 1 when one dies and must treat a missing heartbeat (90 s) as dead; implement what is missing. Health tests import every service app and check `/health` (always 200) and `/ready` (503 when its dependency fake fails). Do not edit service `main.py` files; report services that lack the endpoints so their lane fixes them.
-- evidence:
+- evidence: `pytest -q tests/unit/test_supervise.py tests/unit/test_health.py` -> 12 passed, 1 skipped (health needs fastapi, unverified offline); identity, streamlit, mocks lack a real /ready (xfail)
 
 ### T-013 Datagen determinism and snapshot-shaped output
 - status: todo
