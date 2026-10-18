@@ -260,7 +260,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `python ops/check_configuration.py` -> OK (82 variables); `pytest -q tests/unit/test_settings.py` -> skipped offline (pydantic_settings missing), unverified until CI
 
 ### T-016 Agent ownership registry
-- status: todo
+- status: done
 - spec: REQ-ARC-002
 - owner: architecture-reviewer
 - depends: T-001
@@ -269,7 +269,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: S
 - acceptance: `pytest -q tests/unit/test_registry.py`
 - note: add owners for identity, brief, pulse, streamlit, and mocks as in SPEC section 3.1, remove `analytics`, and keep the registry, the roster in `AGENTS.md`, and `.codex/agents/` in sync. The test checks every directory under `services/` has an owner.
-- evidence:
+- evidence: `pytest -q tests/unit/test_registry.py` -> 5 passed; AGENTS.md roster synced by coordinator
 
 ### T-017 Guards: workflows, secrets, and static wiring
 - status: todo

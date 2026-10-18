@@ -25,6 +25,8 @@ Own the backend foundation and coordinate implementation decisions that affect s
 
 - `services/core/`
 - `services/gateway/`
+- `services/identity/`
+- `services/brief/`
 - `libs/common/`
 - `libs/contracts/`
 
