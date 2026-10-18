@@ -754,7 +754,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-093 Unique indexes migration
-- status: todo
+- status: done
 - spec: REQ-DAT-001, REQ-DAT-005, REQ-DAT-007
 - owner: database-engineer
 - depends: T-018, T-020, T-041
@@ -763,7 +763,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `python ops/check_migrations.py` and `pytest -q tests/unit/test_unique_indexes.py`
 - note: one expand migration with the next free number (date prefix 20261019). (1) Scan `services/` and `libs/` for `ON CONFLICT (...)` targets and make sure each is backed by a unique index or constraint; add the missing ones, notably the natural key of `ingest.failed_fetch` used by `budget.py`. (2) `CREATE UNIQUE INDEX IF NOT EXISTS` on `core.company (tenant_id, nit) WHERE nit IS NOT NULL`. (3) A plain index on `core.project (lead_id)` only if some query filters by `lead_id` without `tenant_id` as the first predicate; otherwise say in a comment that `(tenant_id, lead_id, updated_at, id)` already covers it. Expand only: no DROP, RENAME, or NOT NULL. Before each unique index a `DO` block raises a clear error that lists duplicate keys; no data is deleted. The test parses the file (no database) and checks every scanned `ON CONFLICT` target against the indexes in all migrations.
-- evidence:
+- evidence: `python ops/check_migrations.py` OK; `pytest -q tests/unit/test_unique_indexes.py` 4 passed; make static/test pass
 
 ### T-094 SQL consistency checks (offline)
 - status: todo
