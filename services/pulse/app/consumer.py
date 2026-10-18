@@ -2,7 +2,9 @@
 
 The consumer creates the Redis ``pulse`` group, records each ``event_id`` in the
 consumer-owned ``pulse.processed_event``, and materializes ``signal.created`` in
-``pulse.fact_signal`` within one transaction. It relates to
+``pulse.fact_signal`` within one transaction, and updates only the affected
+local day of ``pulse.daily_rollup`` (``rollups.py``) for ``signal.created`` and
+``lead.outcome_recorded``. It relates to
 ``services/core/app/outbox_relay.py``, ``PulseRepository``, and the Pulse SQL
 migration. It is an idempotent worker so Pulse endpoints read rebuildable
 projections. Events without a tenant id cannot be stored under the tenant
@@ -11,7 +13,6 @@ policies, so they are skipped and acknowledged.
 
 import asyncio
 import json
-from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import text
@@ -23,6 +24,7 @@ from libs.common.redis_streams import ensure_consumer_group, read_consumer_batch
 from libs.common.retry import retry_with_backoff
 from libs.common.settings import get_settings
 from libs.common.tenant import set_tenant_context
+from services.pulse.app.rollups import apply_outcome, apply_signal
 
 STREAM_NAME = "invent.events"
 GROUP_NAME = "pulse"
@@ -62,28 +64,10 @@ async def process_event(connection: AsyncConnection, event: dict[str, str]) -> N
     if inserted.scalar_one_or_none() is None:
         return
 
-    if event["event_type"] != "signal.created":
-        return
-    await connection.execute(
-        text(
-            """
-            INSERT INTO pulse.fact_signal
-                (signal_id, tenant_id, company_id, source, signal_type, observed_at, strength)
-            VALUES (:signal_id, :tenant_id, :company_id, :source, :signal_type,
-                    :observed_at, :strength)
-            ON CONFLICT (signal_id) DO NOTHING
-            """
-        ),
-        {
-            "signal_id": UUID(payload["signal_id"]),
-            "tenant_id": tenant_id,
-            "company_id": UUID(payload["company_id"]),
-            "source": payload["source"],
-            "signal_type": payload["signal_type"],
-            "observed_at": datetime.fromisoformat(payload["observed_at"].replace("Z", "+00:00")),
-            "strength": payload["strength"],
-        },
-    )
+    if event["event_type"] == "signal.created":
+        await apply_signal(connection, tenant_id, payload)
+    elif event["event_type"] == "lead.outcome_recorded":
+        await apply_outcome(connection, tenant_id, payload)
 
 
 async def main() -> None:

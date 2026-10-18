@@ -572,7 +572,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_pulse_contract.py` -> 25 passed; make static and make test pass
 
 ### T-052 Pulse incremental rollups
-- status: todo
+- status: done
 - spec: REQ-PUL-002
 - owner: second-backend-engineer
 - depends: T-050
@@ -581,7 +581,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_rollups.py`
 - note: event-driven update of only the affected local day, `local_day(ts, city)` for grouping, and a daily close job.
-- evidence:
+- evidence: `pytest -q tests/unit/test_rollups.py` -> 8 passed; make static and make test pass
 
 ### T-053 ML scoring service with single-flight and rule score
 - status: done

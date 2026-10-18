@@ -10,3 +10,6 @@ probe = "http://127.0.0.1:8000/health"
 name = "consumer"
 cmd = ["python", "-m", "services.pulse.app.consumer"]
 heartbeat = "/tmp/hb/consumer"
+
+# Daily close job: run on a schedule (n8n or cron), not as a long-lived process:
+# python -m services.pulse.app.rollup_close --tenant <uuid>
