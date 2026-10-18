@@ -970,7 +970,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-077 Offline end-to-end pipeline test
-- status: todo
+- status: done
 - spec: REQ-QA-004
 - owner: qa-reviewer
 - depends: T-045, T-053, T-052, T-033, T-024, T-032
@@ -979,7 +979,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/unit/test_pipeline_flow.py` and `make test`
 - note: wire in-memory fake repositories and fake Redis Streams so one mock snapshot travels the whole path of REQ-QA-004 and the final `/api/v1/leads`, `/api/v1/leads/{id}/brief`, and `/api/v1/pulse/*` payloads are asserted through the gateway ASGI app. Report production defects you find; fix only test code.
-- evidence:
+- evidence: `pytest -q tests/unit/test_pipeline_flow.py` 7 passed, 4 strict xfail (defects D-1..D-4 in run report); make test green
 
 ### T-078 Integration test tier
 - status: todo
