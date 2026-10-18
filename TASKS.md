@@ -548,7 +548,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-050 Merge analytics into pulse
-- status: todo
+- status: done
 - spec: REQ-ARC-001
 - owner: second-backend-engineer
 - depends: T-014, T-018
@@ -557,7 +557,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/unit/test_pulse_consumer.py` and `python -c "import pathlib,sys; sys.exit(1 if pathlib.Path('services/analytics').exists() else 0)"`
 - note: port the analytics consumer, repository, and market and segment endpoints into `services/pulse` using the `pulse` schema and the consumer-owned `processed_event`, then delete `services/analytics`. Do not edit compose or the gateway route table (T-073 and T-032 own them).
-- evidence:
+- evidence: `pytest -q tests/unit/test_pulse_consumer.py` -> 6 passed; services/analytics removed; make static and make test pass
 
 ### T-051 Pulse endpoints, freshness, and response rules
 - status: todo

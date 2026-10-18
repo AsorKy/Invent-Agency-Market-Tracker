@@ -11,7 +11,7 @@ pytest.importorskip("httpx")
 pytest.importorskip("pydantic")
 from fastapi.testclient import TestClient  # noqa: E402
 
-DB_REDIS_SERVICES = ["analytics", "core", "ml", "ingest", "brief", "pulse"]
+DB_REDIS_SERVICES = ["core", "ml", "ingest", "brief", "pulse"]
 NO_DEPENDENCY_CHECK = {
     "identity": "bootstrap /ready always returns 200 and ignores database and Redis",
     "streamlit": "shell /ready always returns 200 and ignores database and Redis",

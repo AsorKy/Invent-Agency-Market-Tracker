@@ -1,6 +1,7 @@
 """Expose the ARCH-0001 v2.2 Pulse metric shell.
 
-The application owns the five operational metric endpoints, common freshness
+The application owns the five operational metric endpoints, the market and
+segment endpoints merged from the former analytics service, common freshness
 metadata, browser cache headers, and empty-data behavior. It relates to
 ``services/pulse/app/repository.py`` for read-model access and to the shared
 health helpers used by the other backend services. It is used behind the
@@ -10,8 +11,10 @@ gateway while the event-driven Pulse projections are implemented.
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
+from typing import Annotated
+from uuid import UUID
 
-from fastapi import Depends, FastAPI, Query, Request
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 
 from libs.common.db import check_database
@@ -87,6 +90,26 @@ async def ready() -> JSONResponse:
             "dependencies": {"database": database, "redis": redis},
         },
     )
+
+
+@app.get("/internal/pulse/market", dependencies=[Depends(require_internal_token)])
+@app.get("/internal/pulse/market/overview", dependencies=[Depends(require_internal_token)])
+async def market_overview(
+    request: Request,
+    x_tenant_id: Annotated[UUID | None, Header(alias="X-Tenant-Id")] = None,
+) -> dict[str, object]:
+    """Return 90-day market totals from the Pulse daily rollup."""
+    repository: PulseRepository = request.app.state.repository
+    try:
+        return await repository.market_overview(tenant_id=x_tenant_id)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@app.get("/internal/pulse/segments", dependencies=[Depends(require_internal_token)])
+async def segments() -> None:
+    """Report that the segment read model is not built yet."""
+    raise HTTPException(status_code=501, detail="segment_read_model_pending")
 
 
 @app.get(

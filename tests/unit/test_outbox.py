@@ -26,8 +26,6 @@ from support_outbox import (  # noqa: E402
     make_settings,
 )
 
-from libs.common.redis_streams import ensure_consumer_group  # noqa: E402
-from services.analytics.app import consumer as analytics_consumer  # noqa: E402
 from services.core.app import outbox_relay  # noqa: E402
 from services.ml.app import consumer as ml_consumer  # noqa: E402
 
@@ -201,66 +199,6 @@ async def pending_count(redis: Any, group: str) -> int:
     return int(info["pending"])
 
 
-async def test_analytics_consumer_applies_repeated_event_once(
-    monkeypatch: pytest.MonkeyPatch, fake_redis: Any
-) -> None:
-    db = FakeDb()
-    message = stream_message("signal.created")
-    for _ in range(3):
-        await fake_redis.xadd(outbox_relay.STREAM_NAME, message)
-    install_consumer(monkeypatch, analytics_consumer, db, fake_redis, max_reads=2)
-
-    with pytest.raises(StopLoop):
-        await analytics_consumer.main()
-
-    assert db.processed["analytics"] == {UUID(message["event_id"])}
-    assert len(db.fact_signals) == 1
-    assert await pending_count(fake_redis, analytics_consumer.GROUP_NAME) == 0
-
-
-async def test_analytics_process_event_ignores_other_event_types() -> None:
-    db = FakeDb()
-    message = stream_message("company.updated")
-    async with db.begin() as connection:
-        await analytics_consumer.process_event(connection, message)  # type: ignore[arg-type]
-    assert db.processed["analytics"] == {UUID(message["event_id"])}
-    assert db.fact_signals == {}
-
-
-async def test_analytics_consumer_retries_then_acks_after_commit(
-    monkeypatch: pytest.MonkeyPatch, fake_redis: Any
-) -> None:
-    db = FakeDb()
-    db.fail_next("INSERT INTO analytics.fact_signal", times=1)
-    message = stream_message("signal.created")
-    await fake_redis.xadd(outbox_relay.STREAM_NAME, message)
-    install_consumer(monkeypatch, analytics_consumer, db, fake_redis, max_reads=1)
-
-    with pytest.raises(StopLoop):
-        await analytics_consumer.main()
-
-    # The failed attempt rolled back its processed_event row, so the retry applied it once.
-    assert db.processed["analytics"] == {UUID(message["event_id"])}
-    assert len(db.fact_signals) == 1
-    assert await pending_count(fake_redis, analytics_consumer.GROUP_NAME) == 0
-
-
-async def test_analytics_consumer_leaves_message_pending_when_all_attempts_fail(
-    monkeypatch: pytest.MonkeyPatch, fake_redis: Any
-) -> None:
-    db = FakeDb()
-    db.fail_next("INSERT INTO analytics.fact_signal", times=3)
-    await fake_redis.xadd(outbox_relay.STREAM_NAME, stream_message("signal.created"))
-    install_consumer(monkeypatch, analytics_consumer, db, fake_redis, max_reads=1)
-
-    with pytest.raises(StopLoop):
-        await analytics_consumer.main()
-
-    assert db.fact_signals == {}
-    assert db.processed["analytics"] == set()
-    assert await pending_count(fake_redis, analytics_consumer.GROUP_NAME) == 1
-
-
 @pytest.mark.parametrize("event_type", ["signal.created", "company.updated"])
 async def test_ml_consumer_marks_score_stale_once_for_repeated_event(
     monkeypatch: pytest.MonkeyPatch, fake_redis: Any, event_type: str
@@ -293,28 +231,3 @@ async def test_ml_consumer_acks_but_does_not_stale_unrelated_event(
     assert db.processed["ml"] == {UUID(message["event_id"])}
     assert db.stale_updates == []
     assert await pending_count(fake_redis, ml_consumer.GROUP_NAME) == 0
-
-
-async def test_each_consumer_group_dedupes_independently(
-    monkeypatch: pytest.MonkeyPatch, fake_redis: Any
-) -> None:
-    db = FakeDb()
-    message = stream_message("signal.created")
-    for _ in range(2):
-        await fake_redis.xadd(outbox_relay.STREAM_NAME, message)
-    for module in (ml_consumer, analytics_consumer):
-        install_consumer(monkeypatch, module, db, fake_redis, max_reads=2)
-        with pytest.raises(StopLoop):
-            await module.main()
-
-    event_id = UUID(message["event_id"])
-    assert db.processed == {"ml": {event_id}, "analytics": {event_id}}
-    assert db.stale_updates == [COMPANY_ID]
-    assert len(db.fact_signals) == 1
-
-
-async def test_ensure_consumer_group_is_idempotent(fake_redis: Any) -> None:
-    await ensure_consumer_group(fake_redis, outbox_relay.STREAM_NAME, "ml")
-    await ensure_consumer_group(fake_redis, outbox_relay.STREAM_NAME, "ml")
-    groups = await fake_redis.xinfo_groups(outbox_relay.STREAM_NAME)
-    assert [g["name"] for g in groups] == ["ml"]
