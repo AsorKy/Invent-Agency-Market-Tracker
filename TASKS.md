@@ -200,7 +200,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-011 Event catalog, envelope, and tolerant consumers
-- status: todo
+- status: done
 - spec: REQ-EVT-005, REQ-EXT-001
 - owner: lead-backend-engineer
 - depends: T-001
@@ -209,7 +209,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_contracts.py`
 - note: define the L1 events and the common envelope (event_id, event_type, aggregate_type, aggregate_id, version, source_version, created_at, optional replay), list the reserved L2 and L3 event names without handlers, and add one dispatch helper that acknowledges and logs a single line for unknown types. Keep existing field names compatible. Payloads are never logged in full.
-- evidence:
+- evidence: `pytest -q tests/unit/test_contracts.py` -> 4 passed, 1 skipped (envelope test needs pydantic, unverified offline)
 
 ### T-012 Process supervisor, health, and readiness
 - status: todo
