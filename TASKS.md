@@ -802,7 +802,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-097 dbt mart naming
-- status: todo
+- status: done
 - spec: REQ-PUL-003
 - owner: second-backend-engineer
 - depends: T-055
@@ -811,7 +811,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `dbt parse --project-dir transform --profiles-dir <copy of profiles.yml.example>` and `pytest -q tests/unit/test_dbt_naming.py`
 - note: decision D-19. Tables in `pulse` have four kinds, each with its own name component: projections written by the pulse consumer keep `fact_*` (created by migrations, tenant scoped, row level security); rollups keep `*_rollup`; dbt staging views are `stg_<source>__<entity>`; dbt marts get the component `mart`: `mart_dim_<name>` and `mart_fact_<name>`. Rename the seven dimensions and five facts in the model files, every `ref()`, `schema.yml`, `semantic.yml`, `export_parquet.py`, and the README (Parquet files take the new names); keep `metricflow_time_spine` because MetricFlow expects it. Fix the outdated comment in `macros/generate_schema_name.sql`. Search `services/` for readers of the old dbt names and report them instead of editing outside `transform/`. The test checks that every model in `transform/models/marts/` starts with `mart_` (except the time spine) and that no dbt model name equals a table created by `migrations/`.
-- evidence:
+- evidence: `dbt parse` OK; `pytest -q tests/unit/test_dbt_naming.py` 2 passed; make static/test pass
 
 ### T-060 Zero trust between services
 - status: todo

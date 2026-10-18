@@ -1,4 +1,4 @@
--- Company locations from the Core transactional plane; feeds dim_location.
+-- Company locations from the Core transactional plane; feeds mart_dim_location.
 
 select
     id as location_id,
