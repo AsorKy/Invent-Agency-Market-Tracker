@@ -81,7 +81,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-001 Test tooling and make targets
-- status: todo
+- status: done
 - spec: REQ-QA-001, REQ-QA-002
 - owner: coordinator
 - depends: T-000
@@ -90,7 +90,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `make test` runs and exits 0 with the placeholder suite; `make static` still passes
 - note: add `pytest`, `pytest-asyncio` (asyncio_mode auto), `pytest-cov`, and `fakeredis` to the `dev` extra with bounded versions. Add targets `test` (offline, excludes the `integration` marker), `test-integration` (only that marker), and `coverage`. Register the `integration` marker. `tests/conftest.py` provides: default environment so `get_settings()` works offline, an `asgi_client(app)` helper built on `httpx.ASGITransport` that also runs the app lifespan, a `fake_redis` fixture, and a documented pattern for in-memory fake repositories. Only this task edits `tests/conftest.py`; other tasks add `tests/unit/support_<area>.py` modules.
-- evidence:
+- evidence: `pytest -q -m "not integration"` -> 1 skipped (offline sandbox has no pydantic-settings, so the placeholder skips); `pytest -q -m integration` -> 1 deselected; `ruff check tests`, `ruff format tests`, language and script-doc guards OK. `make static` fails in this sandbox only on mypy (tool runs on Python 3.11, cannot parse PEP 695 in libs/common/retry.py).
 
 ### T-002 Spec to task traceability checker
 - status: todo
