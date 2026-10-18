@@ -9,6 +9,8 @@ locks the lead row, applies ``libs/domain/pipeline.py`` (version check, then tra
 
 import hashlib
 import json
+import time
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from types import TracebackType
 from typing import Any, Protocol
@@ -22,6 +24,7 @@ from libs.domain.pipeline import (
     VersionConflictError,
     validate_transition,
 )
+from services.core.app.hot_alert import HotAlert, HotCallback, fire
 
 IDEMPOTENCY_TTL = timedelta(hours=24)
 INITIAL_STAGE = PipelineStage.DISCOVERED
@@ -189,6 +192,8 @@ async def change_status(
     tenant_id: UUID | None = None,
     actor: str | None = None,
     now: datetime | None = None,
+    on_hot: HotCallback | None = None,
+    clock: Callable[[], float] = time.monotonic,
 ) -> dict[str, Any]:
     """Move a lead to ``patch.stage`` or raise a conflict or transition error."""
     moment = now or datetime.now(UTC)
@@ -226,4 +231,15 @@ async def change_status(
                 "actor": actor,
             },
         )
-        return lead_view(updated)
+        view = lead_view(updated)
+    if updated["stage"] == PipelineStage.HOT.value:
+        alert = HotAlert(
+            tenant_id=row.get("tenant_id"),
+            lead_id=lead_id,
+            company_id=row["company_id"],
+            version=int(updated["version"]),
+            score=None,
+            committed_at=clock(),
+        )
+        await fire(on_hot, [alert])
+    return view

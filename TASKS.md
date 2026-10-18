@@ -670,7 +670,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-035 Hot lead alert notifier
-- status: todo
+- status: done
 - spec: REQ-ALR-001
 - owner: lead-backend-engineer
 - depends: T-024, T-090
@@ -679,7 +679,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_hot_alert.py`
 - note: when auto-qualification or a user moves a lead to Hot, post one alert to `HOT_LEAD_WEBHOOK_URL` (mock Telegram locally), once per lead and version, with backoff on failure and no effect on the commit. Test the 60-second bound with a fake clock. The alert reads `tenant_id` from the event stream field added by T-090, never from the payload.
-- evidence:
+- evidence: `pytest -q tests/unit/test_hot_alert.py` -> 7 passed; make static OK; make test 555 passed. Post-commit on_hot callback (no Hot event exists); dedupe in process memory; tenant read from DB row not payload.
 
 ### T-048 LinkedIn and Instagram sources
 - status: todo
@@ -742,7 +742,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_outbox.py tests/unit/test_dead_letter.py tests/unit/test_relay_wiring.py` -> 12 passed; `python ops/check_configuration.py` OK; make static OK; make test 543 passed.
 
 ### T-092 Relay to consumers, end to end and offline
-- status: todo
+- status: done
 - spec: REQ-EVT-001, REQ-EVT-002, REQ-QA-004
 - owner: qa-reviewer
 - depends: T-091
@@ -751,7 +751,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_relay_to_consumers.py`
 - note: with fakeredis and fake database layers, create events for a lead, a signal, and an outcome in two tenants through the real core code paths, run one relay pass, run the pulse consumer on the stream, and assert: facts land under the right tenant; a replayed event is applied once; an event without tenant is dead-lettered and projects nothing; tenant A data never appears in tenant B. Report production defects instead of changing production code.
-- evidence:
+- evidence: `pytest -q tests/unit/test_relay_to_consumers.py` -> 5 passed; make static OK; make test 555 passed. No production defects; note city/service_line absent from Pulse event payloads (rollups use unknown).
 
 ### T-093 Unique indexes migration
 - status: todo
