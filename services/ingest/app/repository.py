@@ -19,6 +19,7 @@ from sqlalchemy import text
 from libs.common.db import create_engine
 from libs.common.redis_client import create_redis
 from libs.domain.entity_resolution import normalize_company_name
+from services.ingest.app.snapshot import changed_records
 
 
 class IngestRepository:
@@ -124,11 +125,26 @@ class IngestRepository:
                 {"id": raw_snapshot_id},
             )
             row = result.mappings().first()
-        if row is None:
-            raise ValueError(f"raw snapshot not found: {raw_snapshot_id}")
+            if row is None:
+                raise ValueError(f"raw snapshot not found: {raw_snapshot_id}")
+            previous = await connection.execute(
+                text(
+                    """
+                    SELECT prev.payload FROM ingest.raw_snapshot AS cur
+                    JOIN ingest.raw_snapshot AS prev
+                      ON prev.source = cur.source AND prev.snapshot_id = cur.snapshot_id
+                     AND (prev.created_at, prev.id) < (cur.created_at, cur.id)
+                    WHERE cur.id = :id
+                    ORDER BY prev.created_at DESC, prev.id DESC
+                    LIMIT 1
+                    """
+                ),
+                {"id": raw_snapshot_id},
+            )
+            previous_row = previous.mappings().first()
 
-        raw_payload = row["payload"]
-        records = raw_payload if isinstance(raw_payload, list) else [raw_payload]
+        # Only new or changed records may create candidates, and so new signals.
+        records = changed_records(previous_row["payload"] if previous_row else None, row["payload"])
         created = 0
         async with self.engine.begin() as connection:
             for record in records:

@@ -1,0 +1,41 @@
+# Google Maps (Bright Data scraper) to canonical company fields.
+# unverified: field names come from the public Bright Data documentation, not
+# from a recorded sample (no tests/fixtures/brightdata/ samples exist, D-13).
+version: 1
+source: maps
+unverified: true
+entity: company
+signal_type: maps_listing
+external_id: [place_id, cid, fid]
+fields:
+  name:
+    from: [name, title]
+    transform: strip
+    required: true
+  address:
+    from: [address, full_address]
+    transform: strip
+  city:
+    from: [city, address_city]
+    transform: strip
+  category:
+    from: [category, main_category]
+    transform: lower
+  phone:
+    from: [phone_number, phone]
+    transform: strip
+  website:
+    from: [open_website, website, url]
+    transform: url
+  rating:
+    from: [rating]
+    transform: float
+  review_count:
+    from: [reviews_count, review_count]
+    transform: int
+  lat:
+    from: [lat, location.lat]
+    transform: float
+  lng:
+    from: [lon, lng, location.lng]
+    transform: float

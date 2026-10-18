@@ -452,7 +452,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-040 Raw snapshot ingestion and change detection
-- status: todo
+- status: done
 - spec: REQ-ING-001
 - owner: second-backend-engineer
 - depends: T-014, T-018
@@ -461,10 +461,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_ingest_snapshot.py`
 - note: store snapshots with sha256 and `UNIQUE(source, external_id, sha256)`, create new signals only for changed content, enqueue one processor job per snapshot, and keep the webhook response fast (202).
-- evidence:
+- evidence: `pytest -q tests/unit/test_ingest_snapshot.py` -> 8 passed; make static and make test pass
 
 ### T-041 Budget caps and failed fetch handling
-- status: todo
+- status: done
 - spec: REQ-ING-002
 - owner: second-backend-engineer
 - depends: T-040
@@ -473,10 +473,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_ingest_budget.py`
 - note: monthly cap per source in `ingest.budget` checked before any trigger; failures stored in `ingest.failed_fetch` with exponential backoff and dead letter after 5 failures.
-- evidence:
+- evidence: `pytest -q tests/unit/test_ingest_budget.py` -> 7 passed; make static and make test pass
 
 ### T-042 Connector interface, mapping files, and Bright Data mock
-- status: todo
+- status: done
 - spec: REQ-ING-004, REQ-ING-007
 - owner: second-backend-engineer
 - depends: T-040, T-015
@@ -485,10 +485,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/unit/test_connectors.py tests/unit/test_mocks.py`
 - note: define `SourceConnector` (trigger, fetch, normalize), the YAML mapping format, mapping files for maps and computrabajo, and the mock connector. Extend the Flask mock to emulate trigger, progress, snapshot download, latency, failure rate, and signed webhooks. If `tests/fixtures/brightdata/` contains real samples (decision D-13), build mappings from them; otherwise mark each mapping `unverified: true` and list it for the run report.
-- evidence:
+- evidence: `pytest -q tests/unit/test_connectors.py tests/unit/test_mocks.py` -> 29 passed; make static and make test pass; mappings unverified (no fixtures/brightdata)
 
 ### T-043 Bright Data live connector and polling fallback
-- status: todo
+- status: done
 - spec: REQ-ING-004, REQ-ING-008, REQ-RUN-004
 - owner: second-backend-engineer
 - depends: T-042, T-041
@@ -497,10 +497,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/unit/test_connectors.py tests/unit/test_ingest_poll.py tests/unit/test_source_config.py`
 - note: implement the Bright Data Datasets API client with `httpx` (Bearer token, trigger with the notify URL built from `PUBLIC_WEBHOOK_BASE_URL`, progress, snapshot download, retry with backoff only for idempotent calls). Track triggers in `ingest.pending_snapshot` and poll when `INGEST_POLL_ENABLED`; deduplicate against webhook delivery. `INGEST_MODE` selects mock or live per source; a live source without credentials fails at startup naming the variable. Tests use `httpx.MockTransport` only.
-- evidence:
+- evidence: `pytest -q tests/unit/test_connectors.py tests/unit/test_ingest_poll.py tests/unit/test_source_config.py` -> 48 passed; make static/test pass
 
 ### T-044 Entity resolution against RUES (mock lookup)
-- status: todo
+- status: done
 - spec: REQ-ING-003
 - owner: second-backend-engineer
 - depends: T-040
@@ -509,7 +509,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/unit/test_entity_resolution.py`
 - note: thresholds 0.9 and 0.6, `entity_match_log` for review, `rues_lookup_queue`, quarantine after two failed attempts, and a `RuesLookup` interface with a mock. Splink is optional: use a pure-Python scorer (rapidfuzz or difflib) behind the same interface and record that choice in the run report.
-- evidence:
+- evidence: `pytest -q tests/unit/test_entity_resolution.py` -> 8 passed; make static/test pass
 
 ### T-045 Processor to core flow
 - status: todo
@@ -536,7 +536,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-047 n8n source workflows
-- status: todo
+- status: done
 - spec: REQ-ORC-001
 - owner: second-backend-engineer
 - depends: T-017, T-042
@@ -545,7 +545,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_workflows.py` and `python ops/check_workflows.py`
 - note: versioned workflows for maps and computrabajo (trigger, notify URL, budget check, notification) that call ingest only; no code nodes, no secrets; credentials referenced by n8n credential names.
-- evidence:
+- evidence: `pytest -q tests/unit/test_workflows.py` 8 passed; `python ops/check_workflows.py` OK; make static/test pass
 
 ### T-050 Merge analytics into pulse
 - status: todo

@@ -1,0 +1,33 @@
+# Computrabajo job postings (custom scraper) to canonical job posting fields.
+# unverified: no recorded provider sample exists yet (D-13); field names are
+# the assumed output of the custom scraper.
+version: 1
+source: computrabajo
+unverified: true
+entity: job_posting
+signal_type: job_posting
+external_id: [job_id, id, url]
+fields:
+  title:
+    from: [title, job_title]
+    transform: strip
+    required: true
+  company_name:
+    from: [company, company_name]
+    transform: strip
+    required: true
+  city:
+    from: [city, location]
+    transform: strip
+  salary_text:
+    from: [salary]
+    transform: strip
+  description:
+    from: [description]
+    transform: strip
+  posted_at:
+    from: [posted_at, date_posted]
+    transform: strip
+  url:
+    from: [url, job_url]
+    transform: url
