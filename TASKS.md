@@ -105,7 +105,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `python ops/check_traceability.py` -> OK (119 requirements, 83 tasks); `pytest -q tests/unit/test_traceability.py` -> 9 passed; ruff, language, script-doc guards OK.
 
 ### T-003 Unit tests for shared helpers
-- status: todo
+- status: done
 - spec: REQ-QA-002, REQ-SEC-001, REQ-DAT-002
 - owner: qa-reviewer
 - depends: T-001
@@ -114,7 +114,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_common.py`
 - note: cover cursor round trip and ordering, retry attempts and bounded backoff, UTC millisecond helpers, and redaction of document numbers, emails, and secret-bearing keys. Report production defects instead of changing production code.
-- evidence:
+- evidence: `/tmp/py12 -m pytest -q tests/unit/test_common.py` -> 37 passed (python3.12 with pytest only; offline sandbox)
 
 ### T-004 Gateway tests
 - status: todo
