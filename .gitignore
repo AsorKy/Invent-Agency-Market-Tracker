@@ -28,7 +28,15 @@ launch_managed_run.pyz
 # RESTRICTED owner-only asset, zero tolerance. See .claude/conventions/restricted-assets.md
 launch_managed_run.*
 launhc_managed_run.*
-
+launch_wave.py
+launch_wave.pyc
+launch_wave.pyo
+launch_wave.pyd
+launch_wave.pyw
+launch_wave.pyz
+launch_wave.pywz
+launch_wave.pyz
+wave-*.json
 .managed-agents.json
 
 # Private keys and secrets. See .claude/conventions/private-assets.md
@@ -41,3 +49,9 @@ launhc_managed_run.*
 *.pfx
 *.p12
 *.pfx
+# Managed Agents launchers and plans (local only)
+launch_wave.py
+merge_wave.py
+wave-*.json
+.managed-agents*.json
+*.patch

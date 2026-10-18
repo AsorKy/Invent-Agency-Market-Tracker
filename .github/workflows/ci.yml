@@ -19,7 +19,7 @@ jobs:
         with:
           python-version: "3.12"
       - run: python -m pip install --upgrade pip
-      - run: python -m pip install ".[dev,streamlit]"
+      - run: python -m pip install ".[dev,streamlit,identity]"
       - run: python ops/check_migrations.py
       - run: python ops/check_restricted_assets.py
       - run: python ops/check_configuration.py
@@ -40,7 +40,7 @@ jobs:
         with:
           python-version: "3.12"
       - run: python -m pip install --upgrade pip
-      - run: python -m pip install ".[dev,streamlit]"
+      - run: python -m pip install ".[dev,streamlit,identity]"
       - run: make test
 
   contracts:

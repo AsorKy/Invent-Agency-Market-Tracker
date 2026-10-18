@@ -81,6 +81,10 @@ module = ["streamlit.*", "plotly.*", "pyarrow.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
+module = ["django.*", "rest_framework.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
 module = ["services.streamlit.*"]
 disallow_untyped_decorators = false
 
