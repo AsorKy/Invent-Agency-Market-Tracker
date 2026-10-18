@@ -464,7 +464,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_ingest_snapshot.py` -> 8 passed; make static and make test pass
 
 ### T-041 Budget caps and failed fetch handling
-- status: todo
+- status: done
 - spec: REQ-ING-002
 - owner: second-backend-engineer
 - depends: T-040
@@ -473,7 +473,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_ingest_budget.py`
 - note: monthly cap per source in `ingest.budget` checked before any trigger; failures stored in `ingest.failed_fetch` with exponential backoff and dead letter after 5 failures.
-- evidence:
+- evidence: `pytest -q tests/unit/test_ingest_budget.py` -> 7 passed; make static and make test pass
 
 ### T-042 Connector interface, mapping files, and Bright Data mock
 - status: todo
