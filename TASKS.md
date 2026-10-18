@@ -117,7 +117,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `/tmp/py12 -m pytest -q tests/unit/test_common.py` -> 37 passed (python3.12 with pytest only; offline sandbox)
 
 ### T-004 Gateway tests
-- status: todo
+- status: done
 - spec: REQ-QA-002, REQ-GW-001, REQ-GW-002
 - owner: qa-reviewer
 - depends: T-001
@@ -126,7 +126,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_gateway.py`
 - note: use the in-process ASGI client and fake upstreams. No Redis or Postgres. Cover `/health`, `/ready` with a failing upstream, 404 for non-public paths, edge secret enforcement (404, never 403), double-submit CSRF (403 `csrf_token_invalid`), the rate limiter with the fake Redis, and `X-Request-ID` propagation. Report production defects instead of changing production code.
-- evidence:
+- evidence: `pytest -q tests/unit/test_gateway.py` -> 1 skipped (fastapi/httpx/fakeredis missing offline); ~45 cases written from code reading, unverified until CI
 
 ### T-005 Outbox relay and idempotent consumer tests
 - status: todo
