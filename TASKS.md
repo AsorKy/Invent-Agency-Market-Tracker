@@ -658,7 +658,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_streamlit_pages_a.py` -> 9 passed; make static and make test pass
 
 ### T-058 Streamlit pages 5 to 7
-- status: todo
+- status: done
 - spec: REQ-STR-001
 - owner: second-backend-engineer
 - depends: T-056, T-022
@@ -667,7 +667,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_streamlit_pages_b.py` (Streamlit AppTest)
 - note: Pipeline (kanban from the gateway), Proyectos, and Ops (freshness per source, outbox backlog, service health). Also bring `services/streamlit/pages/README.md` up to date with the seven pages.
-- evidence:
+- evidence: `pytest -q tests/unit/test_streamlit_pages_b.py` -> 8 passed; make static and make test pass
 
 ### T-035 Hot lead alert notifier
 - status: todo
