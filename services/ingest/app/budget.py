@@ -91,6 +91,21 @@ class BudgetRepository:
                 {"source": source, "period": budget_period(now), "max_records": max_records},
             )
 
+    async def remaining(self, source: str, now: datetime) -> int:
+        """Return the records left in this month's cap; 0 without a budget row."""
+        async with self.engine.connect() as connection:
+            result = await connection.execute(
+                text(
+                    """
+                    SELECT max_records - consumed FROM ingest.budget
+                    WHERE source = :source AND period = :period
+                    """
+                ),
+                {"source": source, "period": budget_period(now)},
+            )
+            left = result.scalar_one_or_none()
+        return max(int(left), 0) if left is not None else 0
+
     async def reserve(self, source: str, now: datetime, records: int) -> int:
         """Atomically consume ``records`` of the cap or raise ``BudgetExceededError``.
 

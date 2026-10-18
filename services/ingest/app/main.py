@@ -3,14 +3,20 @@
 The webhook validates the contract, calculates a stable payload hash, and
 delegates persistence, idempotency, and enqueueing to ``IngestRepository``;
 the processing endpoint remains a contract placeholder for the next iteration.
-It relates to ``libs/contracts/api.py``, ``services/ingest/app/processor.py``,
+It also exposes the token-protected budget check used by n8n, a trigger endpoint
+that tracks collections in ``ingest.pending_snapshot``, and starts the polling
+fallback (REQ-ING-008) when enabled. It relates to ``libs/contracts/api.py``,
+``services/ingest/app/processor.py``,
 and ``orchestration/n8n/wf_maps_medellin.json``. It accepts external data
 without blocking the provider response.
 """
 
+import asyncio
+import contextlib
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
+from typing import Annotated, Any
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -23,10 +29,23 @@ from libs.common.request_id import RequestIdMiddleware
 from libs.common.security import valid_signed_webhook
 from libs.common.settings import get_settings
 from libs.contracts.api import BrightDataWebhook
+from services.ingest.app.budget import BudgetRepository
+from services.ingest.app.connectors import ConnectorError
+from services.ingest.app.poll import (
+    PendingSnapshotRepository,
+    SnapshotPoller,
+    trigger_and_track,
+)
 from services.ingest.app.repository import IngestRepository
 from services.ingest.app.snapshot import payload_sha256 as compute_payload_sha256
+from services.ingest.app.source_config import (
+    build_connectors,
+    notify_url,
+    validate_live_credentials,
+)
 
 settings = get_settings()
+validate_live_credentials(settings)
 configure_logging(settings.log_level)
 
 
@@ -37,7 +56,21 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         settings.redis_url,
         enqueue_mark_ttl_seconds=settings.ingest_enqueue_mark_ttl_seconds,
     )
+    engine = getattr(app.state.repository, "engine", None)
+    app.state.budget = BudgetRepository(engine) if engine else None
+    app.state.connectors = build_connectors(settings)
+    app.state.pending = PendingSnapshotRepository(engine) if engine else None
+    poll_task: asyncio.Task[None] | None = None
+    if settings.ingest_poll_enabled and app.state.pending is not None:
+        poller = SnapshotPoller(
+            app.state.pending, app.state.connectors, app.state.repository.persist_snapshot
+        )
+        poll_task = asyncio.create_task(poller.run_forever(settings.ingest_poll_interval_seconds))
     yield
+    if poll_task is not None:
+        poll_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await poll_task
     await app.state.repository.close()
 
 
@@ -104,3 +137,48 @@ async def bright_data_webhook(payload: BrightDataWebhook, request: Request) -> d
 )
 async def process_snapshot(snapshot_id: str) -> dict[str, str]:
     return {"status": "queued", "snapshot_id": snapshot_id}
+
+
+def get_budget_repository(request: Request) -> BudgetRepository:
+    """Return the budget repository; tests override this dependency."""
+    budget: BudgetRepository | None = request.app.state.budget
+    if budget is None:
+        raise HTTPException(status_code=503, detail="DATABASE_URL is required for budgets")
+    return budget
+
+
+@app.get("/internal/ingest/budget/{source}", dependencies=[Depends(require_internal_token)])
+async def source_budget(
+    source: str, budget: Annotated[BudgetRepository, Depends(get_budget_repository)]
+) -> dict[str, Any]:
+    """Return 200 while the monthly budget has records left, 429 otherwise."""
+    remaining = await budget.remaining(source, datetime.now(UTC))
+    if remaining <= 0:
+        raise HTTPException(status_code=429, detail="budget_exhausted")
+    return {"source": source, "remaining": remaining}
+
+
+@app.post(
+    "/internal/ingest/trigger/{source}",
+    status_code=202,
+    dependencies=[Depends(require_internal_token)],
+)
+async def trigger_source(
+    source: str,
+    inputs: list[dict[str, Any]],
+    request: Request,
+    budget: Annotated[BudgetRepository, Depends(get_budget_repository)],
+) -> dict[str, str]:
+    """Trigger a collection for a source and track it for polling."""
+    connector = request.app.state.connectors.get(source)
+    if connector is None or request.app.state.pending is None:
+        raise HTTPException(status_code=404, detail="source_not_available")
+    if await budget.remaining(source, datetime.now(UTC)) <= 0:
+        raise HTTPException(status_code=429, detail="budget_exhausted")
+    try:
+        snapshot_id = await trigger_and_track(
+            connector, request.app.state.pending, inputs, notify_url=notify_url(settings)
+        )
+    except ConnectorError as exc:
+        raise HTTPException(status_code=502, detail="provider_error") from exc
+    return {"status": "triggered", "source": source, "snapshot_id": snapshot_id}

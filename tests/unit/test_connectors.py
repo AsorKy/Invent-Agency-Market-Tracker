@@ -177,3 +177,124 @@ def test_mock_connector_unknown_snapshot_is_not_retryable() -> None:
     with pytest.raises(ConnectorError) as info:
         connector.fetch("missing")
     assert info.value.retryable is False
+
+
+# --- Bright Data live connector (T-043), httpx.MockTransport only -------------------------------
+
+import json  # noqa: E402
+
+from services.ingest.app.connectors import BrightDataConnector  # noqa: E402
+
+TOKEN = "sentinel-live-token"
+
+
+def live_connector(handler: Any, *, attempts: int = 3) -> tuple[BrightDataConnector, list[float]]:
+    sleeps: list[float] = []
+    client = httpx.Client(transport=httpx.MockTransport(handler), base_url="https://bd.test")
+    connector = BrightDataConnector(
+        "maps",
+        client,
+        dataset_id="gd_maps",
+        api_token=TOKEN,
+        retry_attempts=attempts,
+        retry_base_delay_seconds=1.0,
+        retry_max_delay_seconds=3.0,
+        sleep=sleeps.append,
+    )
+    return connector, sleeps
+
+
+def test_live_trigger_sends_bearer_notify_and_inputs() -> None:
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json={"snapshot_id": "s_1"})
+
+    connector, _ = live_connector(handler)
+    result = connector.trigger([{"keyword": "cafe"}], notify_url="https://pub.test/hook")
+    request = seen[0]
+    assert result.snapshot_id == "s_1"
+    assert request.method == "POST" and request.url.path == "/datasets/v3/trigger"
+    assert request.headers["Authorization"] == f"Bearer {TOKEN}"
+    assert request.url.params["dataset_id"] == "gd_maps"
+    assert request.url.params["notify"] == "https://pub.test/hook"
+    assert json.loads(request.content) == [{"keyword": "cafe"}]
+
+
+def test_live_trigger_is_never_retried() -> None:
+    calls: list[int] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(1)
+        return httpx.Response(503)
+
+    connector, sleeps = live_connector(handler)
+    with pytest.raises(ConnectorError) as info:
+        connector.trigger([{"keyword": "cafe"}])
+    assert info.value.retryable is True
+    assert len(calls) == 1 and sleeps == []
+    assert TOKEN not in str(info.value)
+
+
+def test_live_progress_retries_with_backoff_then_succeeds() -> None:
+    answers = iter([httpx.Response(502), httpx.Response(429), None])
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        answer = next(answers)
+        return answer or httpx.Response(200, json={"status": "ready", "records": 7})
+
+    connector, sleeps = live_connector(handler)
+    progress = connector.progress("s_1")
+    assert (progress.status, progress.records) == ("ready", 7)
+    assert sleeps == [1.0, 2.0]
+
+
+def test_live_progress_gives_up_after_attempts_and_skips_client_errors() -> None:
+    connector, sleeps = live_connector(lambda request: httpx.Response(500), attempts=2)
+    with pytest.raises(ConnectorError) as info:
+        connector.progress("s_1")
+    assert info.value.retryable and sleeps == [1.0]
+
+    connector, sleeps = live_connector(lambda request: httpx.Response(401))
+    with pytest.raises(ConnectorError) as rejected:
+        connector.progress("s_1")
+    assert not rejected.value.retryable and sleeps == []
+
+
+def test_live_progress_maps_statuses_and_rejects_unknown() -> None:
+    connector, _ = live_connector(lambda request: httpx.Response(200, json={"status": "starting"}))
+    assert connector.progress("s_1").status == "running"
+    connector, _ = live_connector(lambda request: httpx.Response(200, json={"status": "failed"}))
+    assert connector.progress("s_1").status == "failed"
+    connector, _ = live_connector(lambda request: httpx.Response(200, json={"status": "weird"}))
+    with pytest.raises(ConnectorError):
+        connector.progress("s_1")
+
+
+def test_live_fetch_returns_dict_records_and_handles_not_ready() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.params["format"] == "json"
+        return httpx.Response(200, json=[{"a": 1}, "junk", {"b": 2}])
+
+    connector, _ = live_connector(handler)
+    assert connector.fetch("s_1") == [{"a": 1}, {"b": 2}]
+
+    connector, _ = live_connector(lambda request: httpx.Response(202, json={"status": "running"}))
+    with pytest.raises(ConnectorError) as info:
+        connector.fetch("s_1")
+    assert info.value.retryable
+
+    connector, _ = live_connector(lambda request: httpx.Response(200, json={"not": "a list"}))
+    with pytest.raises(ConnectorError):
+        connector.fetch("s_1")
+
+
+def test_live_transport_error_is_retryable_for_idempotent_calls() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("boom", request=request)
+
+    connector, sleeps = live_connector(handler)
+    with pytest.raises(ConnectorError) as info:
+        connector.fetch("s_1")
+    assert info.value.retryable and len(sleeps) == 2

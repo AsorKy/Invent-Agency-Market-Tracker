@@ -488,7 +488,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_connectors.py tests/unit/test_mocks.py` -> 29 passed; make static and make test pass; mappings unverified (no fixtures/brightdata)
 
 ### T-043 Bright Data live connector and polling fallback
-- status: todo
+- status: done
 - spec: REQ-ING-004, REQ-ING-008, REQ-RUN-004
 - owner: second-backend-engineer
 - depends: T-042, T-041
@@ -497,7 +497,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/unit/test_connectors.py tests/unit/test_ingest_poll.py tests/unit/test_source_config.py`
 - note: implement the Bright Data Datasets API client with `httpx` (Bearer token, trigger with the notify URL built from `PUBLIC_WEBHOOK_BASE_URL`, progress, snapshot download, retry with backoff only for idempotent calls). Track triggers in `ingest.pending_snapshot` and poll when `INGEST_POLL_ENABLED`; deduplicate against webhook delivery. `INGEST_MODE` selects mock or live per source; a live source without credentials fails at startup naming the variable. Tests use `httpx.MockTransport` only.
-- evidence:
+- evidence: `pytest -q tests/unit/test_connectors.py tests/unit/test_ingest_poll.py tests/unit/test_source_config.py` -> 48 passed; make static/test pass
 
 ### T-044 Entity resolution against RUES (mock lookup)
 - status: done
