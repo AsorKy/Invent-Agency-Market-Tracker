@@ -614,7 +614,7 @@ Template entry:
 - phase: F0
 - scope: run1
 - source: ADR-IMT-0001 sections 7.3, E1.4, E2.3
-- statement: `libs/contracts/events.py` defines the L1 events (`signal.created`, `company.updated`, `lead.created`, `lead.outcome_recorded`, `lead.score_updated`, `ingest.quarantine`, `tenant.config_updated`, `signal.activity_logged`, `signal.converted_to_project`) with a common envelope (`event_id`, `event_type`, `aggregate_type`, `aggregate_id`, `version`, `source_version`, `created_at`, optional `replay`). Event logs never include full payloads.
+- statement: `libs/contracts/events.py` defines the L1 events (`signal.created`, `company.updated`, `lead.created`, `lead.outcome_recorded`, `lead.score_updated`, `ingest.quarantine`, `tenant.config_updated`, `signal.activity_logged`, `signal.converted_to_project`) with a common envelope (`event_id`, `event_type`, `aggregate_type`, `aggregate_id`, `version`, `source_version`, `created_at`, optional `replay`, and `tenant_id`, which the relay always publishes as its own stream field and never leaves to the payload). Event logs never include full payloads.
 - verify: `pytest -q tests/unit/test_contracts.py`
 - tasks: none yet
 
@@ -666,7 +666,7 @@ Template entry:
 - phase: F2
 - scope: run1
 - source: ADR-IMT-0001 sections 5.2, 8.1
-- statement: The dbt project builds the dimensions (company, location, sector, service_line, source, date, territory) and facts (signal, company_snapshot, lead_outcome, lead_score, territory_indicator) in `pulse`, defines measures once in MetricFlow YAML, and materializes Parquet to the volume shared with Streamlit.
+- statement: The dbt project builds the dimensions (company, location, sector, service_line, source, date, territory) and facts (signal, company_snapshot, lead_outcome, lead_score, territory_indicator) in `pulse` as `mart_dim_<name>` and `mart_fact_<name>` (the `mart` component keeps them apart from the `fact_*` projection tables written by the pulse consumer), defines measures once in MetricFlow YAML, and materializes Parquet to the volume shared with Streamlit.
 - verify: `dbt parse --project-dir transform`
 - tasks: none yet
 
@@ -1391,9 +1391,13 @@ An agent must not resolve open decisions. A task that depends on one stays `bloc
 | D-10 | Job runner: Celery or arq | ADR recommends Celery (already used by `procs.toml`). Run 1 keeps asyncio workers and the supervisor and does not add Celery. | open, default applies |
 | D-11 | Habeas data detail (ADR-IMT-0006-HABEAS) | Pending ADR. REQ-CMP-001 carries the minimum. | open |
 | D-12 | Frontend visual specification | Pending separate ADR (ADR-IMT-0004-LOOK is `proposed`). Frontend is out of scope for run 1. | open, does not block run 1 |
-| D-13 | Bright Data dataset IDs and sample payloads | The owner supplies dataset IDs through `.env` and recorded sample responses under `tests/fixtures/brightdata/` before the run. Without samples the agent writes the connector from the ADR and the documented Datasets API, marks the field mappings `unverified`, and records that in the run report. | open, owner input |
+| D-13 | Bright Data dataset IDs and sample payloads | The owner supplies dataset IDs through `.env`. Samples are optional: mappings stay `unverified` until `make verify-live` captures redacted records from the first real snapshot and `ops/verify_mappings.py` passes on them (T-096). Synthetic fixtures never count as verification. | open, owner input (dataset IDs only) |
 | D-14 | Identity framework | Django plus DRF (ADR-IMT-0001 section E1.2, decision E1-D2). If Django proves impractical in the sandbox after three focused attempts, mark the identity tasks `blocked`; do not substitute another framework without an owner decision. | closed 2026-10-18 |
 | D-15 | Live RUES connector | No official API is available to the sandbox. Run 1 delivers the interface and a mock; a live adapter is added when the owner provides access details. | open, does not block run 1 |
+| D-16 | Tenant on the event stream | The relay publishes `tenant_id` as its own stream field on every event; a row without tenant goes to the dead letter queue with `missing_tenant_id`. Consumers read the field first. See T-090. | closed 2026-10-18 |
+| D-17 | Single outbox relay | The dead letter loop is the only relay; `outbox_relay.main` delegates to it and the legacy loop is deleted. See T-091. | closed 2026-10-18 |
+| D-18 | SQL consistency tests | Two tiers: offline parsing with `pglast` against the schema built from migrations (T-094), and PostgreSQL checks with psycopg 3 using `PREPARE` (T-095), run by the owner or in the sandbox when an embedded PostgreSQL starts. | closed 2026-10-18 |
+| D-19 | Naming of pulse tables | Projections `fact_*`, rollups `*_rollup`, dbt staging `stg_<source>__<entity>`, dbt marts `mart_dim_*` and `mart_fact_*`. See T-097. | closed 2026-10-18 |
 
 ## 6. Definition of done per layer
 
@@ -1428,4 +1432,5 @@ An agent must not resolve open decisions. A task that depends on one stays `bloc
 | 2026-10-18 | Initial template generated from the repository state and ADR-IMT-0001 v2.2.1. |
 | 2026-10-18 | Rewritten against ADR-IMT-0001 v2.3, ADR-IMT-0002 v1.1, and ADR-IMT-0003 v1.2. Added layers L1 to L3, the end-state definition, the service and schema catalogs, requirements for all three layers, extension points for runs 2 and 3, and decisions D-01 to D-04 closed. Existing requirement IDs are unchanged. |
 | 2026-10-18 | v3: ADRs accepted, all requirements `accepted`. Added run and go-live requirements (REQ-RUN-001 to 006, REQ-DOC-001), the public API for the frontend (REQ-API-001 to 003), the ingestion flow and live connector (REQ-ING-004 rewritten, REQ-ING-008, REQ-ING-009), company upsert and auto-qualification (REQ-COR-007, 008), and the offline and integration test tiers (REQ-QA-004, 005). Traceability now covers every accepted `L1` `run1` requirement. Decisions D-13 to D-15 added, D-14 closed. |
+| 2026-10-18 | v3.1: decisions D-16 to D-19 and D-13 revised; REQ-EVT-005 adds `tenant_id`; REQ-PUL-003 fixes the `mart_` naming. Tasks T-090 to T-097 added in TASKS.md v4. |
 | 2026-10-18 | v3.1: review against ADR-0001 found five gaps. Added REQ-SOC-001 (socioeconomic indices), REQ-ALR-001 (hot lead alert), REQ-OBS-002 (deferred); added the territory route to REQ-API-002; REQ-DEP-001 no longer needs a Docker CLI; D-06 no longer blocks the L2 code; defined the continuation from run 1 to the L2 tasks. |
