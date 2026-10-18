@@ -320,7 +320,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_lead_state.py` -> 11 passed; pipeline.py coverage 100%; make static OK; make test 274 passed. Models in services/core/app/leads.py (contracts frozen); no status-change event type exists.
 
 ### T-022 Outcomes, activities, project conversion, and projects read
-- status: todo
+- status: done
 - spec: REQ-COR-003, REQ-COR-005
 - owner: lead-backend-engineer
 - depends: T-021
@@ -329,7 +329,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/unit/test_outcomes.py tests/unit/test_lead_actions.py`
 - note: outcome capture (contact, response, meeting, close, spam) emitting `lead.outcome_recorded`; activity logging; lead to project conversion in one transaction; replace the 501 on `GET /internal/core/projects` with a real read model and add `POST /internal/core/projects`.
-- evidence:
+- evidence: `pytest -q tests/unit/test_outcomes.py tests/unit/test_lead_actions.py` -> 16 passed; make static OK; make test 290 passed. Models in services/core/app/actions.py (contracts frozen).
 
 ### T-023 Tenant configuration with ETag and reserved keys
 - status: todo

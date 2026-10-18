@@ -279,6 +279,113 @@ class SqlLeadTransaction:
         )
 
 
+class SqlActionTransaction:
+    """Outcome, activity, and project writes bound to one open connection."""
+
+    def __init__(self, connection: AsyncConnection) -> None:
+        self.connection = connection
+
+    async def get_lead(self, lead_id: UUID, tenant_id: UUID | None) -> dict[str, object] | None:
+        return await SqlLeadTransaction(self.connection).get_lead(lead_id, tenant_id)
+
+    async def insert_outcome(self, row: dict[str, object]) -> None:
+        await self.connection.execute(
+            text(
+                """
+                INSERT INTO core.lead_outcome (id, tenant_id, lead_id, outcome, notes, occurred_at)
+                VALUES (:id, :tenant_id, :lead_id, :outcome, :notes, :occurred_at)
+                """
+            ),
+            row,
+        )
+
+    async def find_activity(self, tenant_id: UUID, key: str) -> dict[str, object] | None:
+        result = await self.connection.execute(
+            text(
+                """
+                SELECT id FROM core.lead_activity
+                WHERE tenant_id = :tenant_id AND idempotency_key = :key
+                """
+            ),
+            {"tenant_id": tenant_id, "key": key},
+        )
+        row = result.mappings().first()
+        return dict(row) if row else None
+
+    async def insert_activity(self, row: dict[str, object]) -> None:
+        await self.connection.execute(
+            text(
+                """
+                INSERT INTO core.lead_activity
+                    (id, tenant_id, lead_id, activity_type, channel, source, payload,
+                     occurred_at, created_by, idempotency_key)
+                VALUES
+                    (:id, :tenant_id, :lead_id, :activity_type, :channel, :source,
+                     CAST(:payload AS jsonb), :occurred_at, :created_by, :idempotency_key)
+                """
+            ),
+            {**row, "payload": json.dumps(row["payload"], default=str)},
+        )
+
+    async def find_project_for_lead(self, lead_id: UUID) -> UUID | None:
+        result = await self.connection.execute(
+            text("SELECT id FROM core.project WHERE lead_id = :lead_id LIMIT 1"),
+            {"lead_id": lead_id},
+        )
+        found: UUID | None = result.scalar_one_or_none()
+        return found
+
+    async def insert_project(self, row: dict[str, object]) -> None:
+        await self.connection.execute(
+            text(
+                """
+                INSERT INTO core.project
+                    (id, tenant_id, lead_id, name, service_line, hypothesis, status,
+                     estimated_roi, metadata, created_at, updated_at)
+                VALUES
+                    (:id, :tenant_id, :lead_id, :name, :service_line, :hypothesis, :status,
+                     :estimated_roi, CAST(:metadata AS jsonb), :created_at, :updated_at)
+                """
+            ),
+            {**row, "metadata": json.dumps(row["metadata"])},
+        )
+
+    async def add_outbox_event(
+        self,
+        *,
+        event_id: UUID,
+        aggregate_type: str,
+        aggregate_id: UUID,
+        event_type: str,
+        payload: dict[str, object],
+    ) -> None:
+        await self.connection.execute(
+            text(
+                """
+                INSERT INTO core.outbox_event
+                    (event_id, aggregate_type, aggregate_id, event_type, version, payload)
+                VALUES
+                    (:event_id, :aggregate_type, :aggregate_id, :event_type, 1,
+                     CAST(:payload AS jsonb))
+                """
+            ),
+            {
+                "event_id": event_id,
+                "aggregate_type": aggregate_type,
+                "aggregate_id": aggregate_id,
+                "event_type": event_type,
+                "payload": json.dumps(payload, default=str),
+            },
+        )
+
+
+class SqlActionUnitOfWork(SqlCompanyUnitOfWork):
+    """Same commit-or-rollback boundary, yielding action operations."""
+
+    async def __aenter__(self) -> SqlActionTransaction:  # type: ignore[override]
+        return SqlActionTransaction(await self._context.__aenter__())
+
+
 class SqlLeadUnitOfWork(SqlCompanyUnitOfWork):
     """Same commit-or-rollback boundary, yielding lead operations."""
 
@@ -299,6 +406,11 @@ class CoreRepository:
         if self.engine is None:
             raise RuntimeError("DATABASE_URL is required for core writes")
         return SqlLeadUnitOfWork(self.engine)
+
+    def action_unit_of_work(self) -> SqlActionUnitOfWork:
+        if self.engine is None:
+            raise RuntimeError("DATABASE_URL is required for core writes")
+        return SqlActionUnitOfWork(self.engine)
 
     async def close(self) -> None:
         if self.engine:
@@ -518,3 +630,54 @@ class CoreRepository:
             )
             row = result.mappings().first()
         return dict(row) if row else None
+
+    async def list_projects(
+        self,
+        limit: int,
+        cursor: str | None = None,
+        *,
+        status: str | None = None,
+        tenant_id: UUID | None = None,
+    ) -> tuple[list[dict[str, object]], str | None]:
+        if self.engine is None:
+            raise RuntimeError("DATABASE_URL is required for core reads")
+        page_cursor = decode_cursor(cursor) if cursor else None
+        clauses: list[str] = []
+        parameters: dict[str, object] = {"limit": limit + 1}
+        if status is not None:
+            clauses.append("status = :status")
+            parameters["status"] = status
+        if tenant_id is not None:
+            clauses.append("tenant_id = :tenant_id")
+            parameters["tenant_id"] = tenant_id
+        if page_cursor:
+            clauses.append("(updated_at, id) < (:cursor_updated_at, :cursor_id)")
+            parameters.update(
+                {"cursor_updated_at": page_cursor.updated_at, "cursor_id": page_cursor.item_id}
+            )
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        async with self.engine.connect() as connection:
+            result = await connection.execute(
+                text(
+                    f"""
+                    SELECT id, lead_id, name, service_line, hypothesis, status, estimated_roi,
+                           metadata, created_at, updated_at
+                    FROM core.project
+                    {where}
+                    ORDER BY updated_at DESC, id DESC
+                    LIMIT :limit
+                    """
+                ),
+                parameters,
+            )
+            rows = [dict(row) for row in result.mappings().all()]
+        has_more = len(rows) > limit
+        rows = rows[:limit]
+        next_cursor = None
+        if has_more and rows:
+            last = rows[-1]
+            updated_at, item_id = last["updated_at"], last["id"]
+            if not isinstance(updated_at, datetime) or not isinstance(item_id, UUID):
+                raise RuntimeError("database returned invalid project cursor fields")
+            next_cursor = encode_cursor(updated_at, item_id)
+        return rows, next_cursor

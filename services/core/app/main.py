@@ -23,6 +23,16 @@ from libs.common.request_id import RequestIdMiddleware
 from libs.common.settings import get_settings
 from libs.contracts.api import SignalCreate
 from libs.domain.pipeline import PipelineStage, group_by_stage
+from services.core.app.actions import (
+    ActivityCreate,
+    LeadAlreadyConvertedError,
+    LeadClosedError,
+    OutcomeCreate,
+    ProjectCreate,
+    convert_to_project,
+    log_activity,
+    record_outcome,
+)
 from services.core.app.companies import CompanyUpsert, upsert_company
 from services.core.app.leads import (
     IdempotencyKeyReuseError,
@@ -235,6 +245,105 @@ async def pipeline_kanban(
     return {"as_of": None, "columns": group_by_stage(leads_data)}
 
 
+@app.post(
+    "/internal/core/leads/{lead_id}/outcomes",
+    status_code=201,
+    dependencies=[Depends(require_internal_token)],
+)
+async def record_outcome_route(
+    lead_id: UUID,
+    payload: OutcomeCreate,
+    request: Request,
+    x_tenant_id: Annotated[UUID | None, Header()] = None,
+) -> dict[str, object]:
+    try:
+        repository: CoreRepository = request.app.state.repository
+        return await record_outcome(
+            repository.action_unit_of_work(),
+            lead_id,
+            payload,
+            tenant_id=x_tenant_id,
+            request_id=request.headers.get("X-Request-ID"),
+        )
+    except LeadNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="lead_not_found") from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@app.post(
+    "/internal/core/leads/{lead_id}/activities", dependencies=[Depends(require_internal_token)]
+)
+async def log_activity_route(
+    lead_id: UUID,
+    payload: ActivityCreate,
+    request: Request,
+    response: Response,
+    x_tenant_id: Annotated[UUID, Header()],
+    idempotency_key: Annotated[str | None, Header(max_length=200)] = None,
+) -> dict[str, object]:
+    try:
+        repository: CoreRepository = request.app.state.repository
+        body, created = await log_activity(
+            repository.action_unit_of_work(),
+            lead_id,
+            payload,
+            tenant_id=x_tenant_id,
+            idempotency_key=idempotency_key,
+            request_id=request.headers.get("X-Request-ID"),
+        )
+    except LeadNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="lead_not_found") from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    response.status_code = 201 if created else 200
+    return dict(body)
+
+
+@app.post(
+    "/internal/core/projects", status_code=201, dependencies=[Depends(require_internal_token)]
+)
+async def create_project(
+    payload: ProjectCreate,
+    request: Request,
+    x_tenant_id: Annotated[UUID | None, Header()] = None,
+) -> dict[str, object]:
+    try:
+        repository: CoreRepository = request.app.state.repository
+        return await convert_to_project(
+            repository.action_unit_of_work(),
+            payload,
+            tenant_id=x_tenant_id,
+            request_id=request.headers.get("X-Request-ID"),
+        )
+    except LeadNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="lead_not_found") from exc
+    except LeadClosedError as exc:
+        raise HTTPException(status_code=422, detail="lead_lost") from exc
+    except LeadAlreadyConvertedError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={"error": "lead_already_converted", "project_id": str(exc.project_id)},
+        ) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
 @app.get("/internal/core/projects", dependencies=[Depends(require_internal_token)])
-async def projects() -> None:
-    raise HTTPException(status_code=501, detail="project_read_model_pending")
+async def projects(
+    request: Request,
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    cursor: str | None = None,
+    status: str | None = None,
+    x_tenant_id: Annotated[UUID | None, Header()] = None,
+) -> dict[str, object]:
+    try:
+        repository: CoreRepository = request.app.state.repository
+        data, next_cursor = await repository.list_projects(
+            limit, cursor, status=status, tenant_id=x_tenant_id
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="invalid_cursor") from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return {"data": data, "next_cursor": next_cursor}
