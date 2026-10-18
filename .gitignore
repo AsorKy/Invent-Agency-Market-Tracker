@@ -16,4 +16,28 @@ data/generated/
 data/backups/
 notebooks/.ipynb_checkpoints/
 .DS_Store
+launch_managed_run.py
+launch_managed_run.pyc
+launch_managed_run.pyo
+launch_managed_run.pyd
+launch_managed_run.pyw
+launch_managed_run.pyz
+launch_managed_run.pywz
+launch_managed_run.pyz
 
+# RESTRICTED owner-only asset, zero tolerance. See .claude/conventions/restricted-assets.md
+launch_managed_run.*
+launhc_managed_run.*
+
+.managed-agents.json
+
+# Private keys and secrets. See .claude/conventions/private-assets.md
+*.key
+*.pem
+*.p8
+*.p12
+*.pfx
+*.p12
+*.pfx
+*.p12
+*.pfx

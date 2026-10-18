@@ -6,9 +6,14 @@ Invent Market Tracker is a data-driven platform for evaluating Colombian market 
 
 The frontend is currently out of scope unless a task explicitly requests it.
 
+## Restricted assets
+
+Before any other action, read `.claude/conventions/restricted-assets.md`. It lists an owner-only file that no agent may open, search, run, stage, or mention. The rule has zero tolerance and no exceptions. Repository-wide scans must list files with `git ls-files --cached --others --exclude-standard`, never with `rglob`, `os.walk`, or `find`.
+
 ## Language and documentation
 
 - Write source code, comments, docstrings, commit messages, and repository documentation in English.
+- Exception: the ADRs in `docs/adr/` stay in Spanish. `ops/check_language.py` skips that folder only.
 - Add a module docstring at the beginning of every executable Python script.
 - Keep role-specific agent instructions in `.codex/agents/`.
 - Read the relevant architecture documentation before changing service boundaries or data contracts.
@@ -35,7 +40,7 @@ This section applies to unattended runs, for example a Claude Managed Agents ses
 
 ### Source of truth
 
-1. The ADRs (ADR-IMT-0001, ADR-IMT-0002, ADR-IMT-0003) win over everything else. They live in `docs/adr/` once consolidated.
+1. The ADRs (ADR-IMT-0001, ADR-IMT-0002, ADR-IMT-0003) win over everything else. They live in `docs/adr/`, are written in Spanish, and are exported from the project vault: never edit them. `docs/README.md` indexes them by topic.
 2. `SPEC.md` states the requirements derived from the ADRs, each with a stable ID.
 3. `TASKS.md` lists executable work. Every task cites the requirement IDs it satisfies.
 4. Code and tests come last. If code contradicts `SPEC.md`, fix the code or record a conflict. Do not edit `SPEC.md` to match the code.
@@ -67,6 +72,7 @@ If two sources disagree, stop work on that point and record the conflict in the 
 ### Stop conditions
 
 - Every task is `done` or `blocked`.
+- Layer L2 tasks (T-100 and later) run only after T-080 is `done` and only while budget remains; when T-112 is done or the budget ends, stop. Never start layer L3 (ADR-IMT-0003) in the same session.
 - The session budget is reached.
 - A conflict between sources of truth needs a human decision.
 
@@ -95,7 +101,7 @@ Role profiles live in `.codex/agents/` and are cataloged in `.codex/agent-regist
 | architecture-reviewer | review | docs, .codex | `.codex/agents/architecture-reviewer.md` |
 | frontend-engineer | implementation | frontend | `.codex/agents/frontend-engineer.md` (out of scope) |
 
-Open ownership gap: `services/brief`, `services/pulse`, `services/identity`, and `services/streamlit` exist in the repository but are not assigned in `agent-registry.yaml`. Proposal to settle during ADR consolidation: lead-backend-engineer owns `identity` and `brief`; second-backend-engineer owns `pulse` and `streamlit`.
+Ownership of the services that were not in the registry is settled (SPEC decision D-04): lead-backend-engineer owns `identity` and `brief`; second-backend-engineer owns `pulse` and `streamlit`; qa-reviewer owns `services/mocks`. `services/analytics` is merged into `services/pulse` (REQ-ARC-001). Add these owners to `agent-registry.yaml` (REQ-ARC-002).
 
 ### Session modes
 

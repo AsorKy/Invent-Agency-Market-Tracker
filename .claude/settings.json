@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(**/launch_managed_run.*)",
+      "Read(**/launhc_managed_run.*)",
+      "Edit(**/launch_managed_run.*)",
+      "Edit(**/launhc_managed_run.*)",
+      "Bash(*launch_managed_run*)",
+      "Bash(*launhc_managed_run*)",
+      "Edit(.claude/settings.json)",
+      "Edit(.claude/settings.local.json)",
+      "Edit(.claude/hooks/**)",
+      "Edit(.claude/conventions/restricted-assets.md)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard_restricted_assets.py\""
+          }
+        ]
+      }
+    ]
+  }
+}
