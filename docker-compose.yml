@@ -1,6 +1,62 @@
 # F0 local environment: Postgres, Redis, APIs, workers, mocks, and n8n.
-# Relates to .env.example, deploy/Dockerfile.python, migrations/, and the
-# versioned workflows in orchestration/n8n; it contains no production secrets.
+# Relates to .env.example, deploy/Dockerfile.python, migrations/, ops/migrate.py,
+# and the versioned workflows in orchestration/n8n; it contains no production
+# secrets. Service catalog: SPEC section 3.1.
+# Each database-backed service reads only its own <schema>_app role; the
+# one-shot migrate service is the only place that applies migrations.
+x-app-env: &app_env
+  APP_VERSION: ${APP_VERSION:-dev}
+  ENVIRONMENT: ${ENVIRONMENT:-local}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  SERVICE_NAME: ${SERVICE_NAME:-invent-market-tracker}
+  REDIS_URL: redis://redis:6379/0
+  DATABASE_POOL_TIMEOUT_SECONDS: ${DATABASE_POOL_TIMEOUT_SECONDS:-5}
+  DATABASE_CONNECT_TIMEOUT_SECONDS: ${DATABASE_CONNECT_TIMEOUT_SECONDS:-5}
+  DATABASE_POOL_SIZE: ${DATABASE_POOL_SIZE:-4}
+  DATABASE_MAX_OVERFLOW: ${DATABASE_MAX_OVERFLOW:-0}
+  DATABASE_SSL_MODE: ${DATABASE_SSL_MODE:-prefer}
+  REDIS_SOCKET_TIMEOUT_SECONDS: ${REDIS_SOCKET_TIMEOUT_SECONDS:-10}
+  REDIS_SOCKET_CONNECT_TIMEOUT_SECONDS: ${REDIS_SOCKET_CONNECT_TIMEOUT_SECONDS:-5}
+  WORKER_RETRY_ATTEMPTS: ${WORKER_RETRY_ATTEMPTS:-3}
+  WORKER_STREAM_BLOCK_MS: ${WORKER_STREAM_BLOCK_MS:-5000}
+  WORKER_FAILURE_SLEEP_SECONDS: ${WORKER_FAILURE_SLEEP_SECONDS:-1}
+  OUTBOX_POLL_INTERVAL_SECONDS: ${OUTBOX_POLL_INTERVAL_SECONDS:-1}
+  WORKER_RETRY_BASE_DELAY_SECONDS: ${WORKER_RETRY_BASE_DELAY_SECONDS:-1}
+  WORKER_RETRY_MAX_DELAY_SECONDS: ${WORKER_RETRY_MAX_DELAY_SECONDS:-30}
+  WORKER_RETRY_JITTER_RATIO: ${WORKER_RETRY_JITTER_RATIO:-0.25}
+  INGEST_ENQUEUE_MARK_TTL_SECONDS: ${INGEST_ENQUEUE_MARK_TTL_SECONDS:-86400}
+  SCORE_LOCK_TTL_SECONDS: ${SCORE_LOCK_TTL_SECONDS:-30}
+  INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-local-development-token}
+  BRIGHT_DATA_WEBHOOK_SECRET: ${BRIGHT_DATA_WEBHOOK_SECRET:-}
+  BRIGHT_DATA_REPLAY_WINDOW_SECONDS: ${BRIGHT_DATA_REPLAY_WINDOW_SECONDS:-300}
+  INGEST_MODE: ${INGEST_MODE:-mock}
+  INGEST_POLL_ENABLED: ${INGEST_POLL_ENABLED:-true}
+  INGEST_POLL_INTERVAL_SECONDS: ${INGEST_POLL_INTERVAL_SECONDS:-300}
+  SOURCE_MAPS_ENABLED: ${SOURCE_MAPS_ENABLED:-true}
+  SOURCE_MAPS_DATASET_ID: ${SOURCE_MAPS_DATASET_ID:-}
+  SOURCE_COMPUTRABAJO_ENABLED: ${SOURCE_COMPUTRABAJO_ENABLED:-true}
+  SOURCE_COMPUTRABAJO_DATASET_ID: ${SOURCE_COMPUTRABAJO_DATASET_ID:-}
+  SOURCE_LINKEDIN_COMPANIES_ENABLED: ${SOURCE_LINKEDIN_COMPANIES_ENABLED:-false}
+  SOURCE_LINKEDIN_COMPANIES_DATASET_ID: ${SOURCE_LINKEDIN_COMPANIES_DATASET_ID:-}
+  SOURCE_LINKEDIN_JOBS_ENABLED: ${SOURCE_LINKEDIN_JOBS_ENABLED:-false}
+  SOURCE_LINKEDIN_JOBS_DATASET_ID: ${SOURCE_LINKEDIN_JOBS_DATASET_ID:-}
+  SOURCE_INSTAGRAM_ENABLED: ${SOURCE_INSTAGRAM_ENABLED:-false}
+  SOURCE_INSTAGRAM_DATASET_ID: ${SOURCE_INSTAGRAM_DATASET_ID:-}
+  SOURCE_RUES_ENABLED: ${SOURCE_RUES_ENABLED:-false}
+  SOURCE_RUES_DATASET_ID: ${SOURCE_RUES_DATASET_ID:-}
+  BRIGHT_DATA_API_URL: ${BRIGHT_DATA_API_URL:-https://api.brightdata.com}
+  BRIGHT_DATA_API_TOKEN: ${BRIGHT_DATA_API_TOKEN:-}
+  PUBLIC_WEBHOOK_BASE_URL: ${PUBLIC_WEBHOOK_BASE_URL:-}
+  HOT_LEAD_WEBHOOK_URL: ${HOT_LEAD_WEBHOOK_URL:-}
+  SOCIO_DATA_DIR: ${SOCIO_DATA_DIR:-data/socio}
+  APP_PROFILE: ${APP_PROFILE:-local}
+  FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:3000}
+  DEV_USER_PASSWORD_ADMIN: ${DEV_USER_PASSWORD_ADMIN:-}
+  DEV_USER_PASSWORD_STRATEGIST: ${DEV_USER_PASSWORD_STRATEGIST:-}
+  DEV_USER_PASSWORD_INTAKE: ${DEV_USER_PASSWORD_INTAKE:-}
+  DEV_USER_PASSWORD_BD_REP: ${DEV_USER_PASSWORD_BD_REP:-}
+  DEV_USER_PASSWORD_ANALYST: ${DEV_USER_PASSWORD_ANALYST:-}
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -12,7 +68,6 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./migrations:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
@@ -29,10 +84,25 @@ services:
       timeout: 3s
       retries: 10
 
+  migrate:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.python
+    command: ["python", "-m", "ops.migrate"]
+    environment:
+      MIGRATE_DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-invent_market_tracker}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
   gateway:
     build:
       context: .
       dockerfile: deploy/Dockerfile.python
+    env_file:
+      - path: .env
+        required: false
     command: ["uvicorn", "services.gateway.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
     environment:
       APP_VERSION: ${APP_VERSION:-dev}
@@ -44,7 +114,6 @@ services:
       FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:3000}
       INGEST_URL: http://ingest:8000
       CORE_URL: http://core:8000
-      ANALYTICS_URL: http://analytics:8000
       ML_URL: http://ml:8000
       IDENTITY_URL: http://identity:8000
       PULSE_URL: http://pulse:8000
@@ -70,21 +139,25 @@ services:
       IDENTITY_VALIDATION_ENABLED: ${IDENTITY_VALIDATION_ENABLED:-false}
     ports:
       - "${GATEWAY_PORT:-8000}:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health', timeout=3).status == 200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
     depends_on:
       identity:
-        condition: service_started
+        condition: service_healthy
       ingest:
-        condition: service_started
+        condition: service_healthy
       core:
-        condition: service_started
-      analytics:
-        condition: service_started
+        condition: service_healthy
       pulse:
-        condition: service_started
+        condition: service_healthy
       brief:
-        condition: service_started
+        condition: service_healthy
       ml:
-        condition: service_started
+        condition: service_healthy
       redis:
         condition: service_healthy
 
@@ -92,61 +165,22 @@ services:
     build:
       context: .
       dockerfile: deploy/Dockerfile.python
+    env_file:
+      - path: .env
+        required: false
     command: ["uvicorn", "services.ingest.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
-    environment: &service_environment
-      APP_VERSION: ${APP_VERSION:-dev}
-      ENVIRONMENT: ${ENVIRONMENT:-local}
-      LOG_LEVEL: ${LOG_LEVEL:-INFO}
-      SERVICE_NAME: ${SERVICE_NAME:-invent-market-tracker}
-      DATABASE_URL: "postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-invent_market_tracker}"
-      REDIS_URL: redis://redis:6379/0
-      DATABASE_POOL_TIMEOUT_SECONDS: ${DATABASE_POOL_TIMEOUT_SECONDS:-5}
-      DATABASE_CONNECT_TIMEOUT_SECONDS: ${DATABASE_CONNECT_TIMEOUT_SECONDS:-5}
-      DATABASE_POOL_SIZE: ${DATABASE_POOL_SIZE:-4}
-      DATABASE_MAX_OVERFLOW: ${DATABASE_MAX_OVERFLOW:-0}
-      DATABASE_SSL_MODE: ${DATABASE_SSL_MODE:-prefer}
-      REDIS_SOCKET_TIMEOUT_SECONDS: ${REDIS_SOCKET_TIMEOUT_SECONDS:-10}
-      REDIS_SOCKET_CONNECT_TIMEOUT_SECONDS: ${REDIS_SOCKET_CONNECT_TIMEOUT_SECONDS:-5}
-      WORKER_RETRY_ATTEMPTS: ${WORKER_RETRY_ATTEMPTS:-3}
-      WORKER_STREAM_BLOCK_MS: ${WORKER_STREAM_BLOCK_MS:-5000}
-      WORKER_FAILURE_SLEEP_SECONDS: ${WORKER_FAILURE_SLEEP_SECONDS:-1}
-      OUTBOX_POLL_INTERVAL_SECONDS: ${OUTBOX_POLL_INTERVAL_SECONDS:-1}
-      WORKER_RETRY_BASE_DELAY_SECONDS: ${WORKER_RETRY_BASE_DELAY_SECONDS:-1}
-      WORKER_RETRY_MAX_DELAY_SECONDS: ${WORKER_RETRY_MAX_DELAY_SECONDS:-30}
-      WORKER_RETRY_JITTER_RATIO: ${WORKER_RETRY_JITTER_RATIO:-0.25}
-      INGEST_ENQUEUE_MARK_TTL_SECONDS: ${INGEST_ENQUEUE_MARK_TTL_SECONDS:-86400}
-      SCORE_LOCK_TTL_SECONDS: ${SCORE_LOCK_TTL_SECONDS:-30}
-      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-local-development-token}
-      BRIGHT_DATA_WEBHOOK_SECRET: ${BRIGHT_DATA_WEBHOOK_SECRET:-}
-      BRIGHT_DATA_REPLAY_WINDOW_SECONDS: ${BRIGHT_DATA_REPLAY_WINDOW_SECONDS:-300}
-      INGEST_MODE: ${INGEST_MODE:-mock}
-      INGEST_POLL_ENABLED: ${INGEST_POLL_ENABLED:-true}
-      INGEST_POLL_INTERVAL_SECONDS: ${INGEST_POLL_INTERVAL_SECONDS:-300}
-      SOURCE_MAPS_ENABLED: ${SOURCE_MAPS_ENABLED:-true}
-      SOURCE_MAPS_DATASET_ID: ${SOURCE_MAPS_DATASET_ID:-}
-      SOURCE_COMPUTRABAJO_ENABLED: ${SOURCE_COMPUTRABAJO_ENABLED:-true}
-      SOURCE_COMPUTRABAJO_DATASET_ID: ${SOURCE_COMPUTRABAJO_DATASET_ID:-}
-      SOURCE_LINKEDIN_COMPANIES_ENABLED: ${SOURCE_LINKEDIN_COMPANIES_ENABLED:-false}
-      SOURCE_LINKEDIN_COMPANIES_DATASET_ID: ${SOURCE_LINKEDIN_COMPANIES_DATASET_ID:-}
-      SOURCE_LINKEDIN_JOBS_ENABLED: ${SOURCE_LINKEDIN_JOBS_ENABLED:-false}
-      SOURCE_LINKEDIN_JOBS_DATASET_ID: ${SOURCE_LINKEDIN_JOBS_DATASET_ID:-}
-      SOURCE_INSTAGRAM_ENABLED: ${SOURCE_INSTAGRAM_ENABLED:-false}
-      SOURCE_INSTAGRAM_DATASET_ID: ${SOURCE_INSTAGRAM_DATASET_ID:-}
-      SOURCE_RUES_ENABLED: ${SOURCE_RUES_ENABLED:-false}
-      SOURCE_RUES_DATASET_ID: ${SOURCE_RUES_DATASET_ID:-}
-      BRIGHT_DATA_API_URL: ${BRIGHT_DATA_API_URL:-https://api.brightdata.com}
-      BRIGHT_DATA_API_TOKEN: ${BRIGHT_DATA_API_TOKEN:-}
-      PUBLIC_WEBHOOK_BASE_URL: ${PUBLIC_WEBHOOK_BASE_URL:-}
-      HOT_LEAD_WEBHOOK_URL: ${HOT_LEAD_WEBHOOK_URL:-}
-      SOCIO_DATA_DIR: ${SOCIO_DATA_DIR:-data/socio}
-      APP_PROFILE: ${APP_PROFILE:-local}
-      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:3000}
-      DEV_USER_PASSWORD_ADMIN: ${DEV_USER_PASSWORD_ADMIN:-}
-      DEV_USER_PASSWORD_STRATEGIST: ${DEV_USER_PASSWORD_STRATEGIST:-}
-      DEV_USER_PASSWORD_INTAKE: ${DEV_USER_PASSWORD_INTAKE:-}
-      DEV_USER_PASSWORD_BD_REP: ${DEV_USER_PASSWORD_BD_REP:-}
-      DEV_USER_PASSWORD_ANALYST: ${DEV_USER_PASSWORD_ANALYST:-}
+    environment:
+      <<: *app_env
+      DATABASE_URL: "postgresql+asyncpg://ingest_app:${BOOTSTRAP_PASSWORD_INGEST:-CHANGE_ME_INGEST}@postgres:5432/${POSTGRES_DB:-invent_market_tracker}"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health', timeout=3).status == 200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:
@@ -156,21 +190,22 @@ services:
     build:
       context: .
       dockerfile: deploy/Dockerfile.python
+    env_file:
+      - path: .env
+        required: false
     command: ["uvicorn", "services.core.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
-    environment: *service_environment
+    environment:
+      <<: *app_env
+      DATABASE_URL: "postgresql+asyncpg://core_app:${BOOTSTRAP_PASSWORD_CORE:-CHANGE_ME_CORE}@postgres:5432/${POSTGRES_DB:-invent_market_tracker}"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health', timeout=3).status == 200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
     depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-
-  analytics:
-    build:
-      context: .
-      dockerfile: deploy/Dockerfile.python
-    command: ["uvicorn", "services.analytics.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
-    environment: *service_environment
-    depends_on:
+      migrate:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:
@@ -180,33 +215,47 @@ services:
     build:
       context: .
       dockerfile: deploy/Dockerfile.python
+    env_file:
+      - path: .env
+        required: false
     command: ["uvicorn", "services.ml.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
-    environment: *service_environment
+    environment:
+      <<: *app_env
+      DATABASE_URL: "postgresql+asyncpg://ml_app:${BOOTSTRAP_PASSWORD_ML:-CHANGE_ME_ML}@postgres:5432/${POSTGRES_DB:-invent_market_tracker}"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health', timeout=3).status == 200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
 
-  identity:
-    build:
-      context: .
-      dockerfile: deploy/Dockerfile.python
-    command: ["uvicorn", "services.identity.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
-    environment:
-      APP_VERSION: ${APP_VERSION:-dev}
-      ENVIRONMENT: ${ENVIRONMENT:-local}
-      LOG_LEVEL: ${LOG_LEVEL:-INFO}
-      SERVICE_NAME: ${SERVICE_NAME:-invent-market-tracker}
-      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-local-development-token}
-
   pulse:
     build:
       context: .
       dockerfile: deploy/Dockerfile.python
+    env_file:
+      - path: .env
+        required: false
     command: ["uvicorn", "services.pulse.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
-    environment: *service_environment
+    environment:
+      <<: *app_env
+      DATABASE_URL: "postgresql+asyncpg://pulse_app:${BOOTSTRAP_PASSWORD_PULSE:-CHANGE_ME_PULSE}@postgres:5432/${POSTGRES_DB:-invent_market_tracker}"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health', timeout=3).status == 200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:
@@ -216,88 +265,179 @@ services:
     build:
       context: .
       dockerfile: deploy/Dockerfile.python
+    env_file:
+      - path: .env
+        required: false
     command: ["uvicorn", "services.brief.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
-    environment: *service_environment
+    environment:
+      <<: *app_env
+      DATABASE_URL: "postgresql+asyncpg://brief_app:${BOOTSTRAP_PASSWORD_BRIEF:-CHANGE_ME_BRIEF}@postgres:5432/${POSTGRES_DB:-invent_market_tracker}"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health', timeout=3).status == 200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
 
-  streamlit:
+  identity:
     build:
       context: .
       dockerfile: deploy/Dockerfile.python
-    # Temporary reporting shell. The Streamlit runtime is introduced with the
-    # reporting dependency; this keeps the v2.2 service topology bootable now.
-    command: ["uvicorn", "services.streamlit.app.main:app", "--host", "0.0.0.0", "--port", "8501"]
+    env_file:
+      - path: .env
+        required: false
+    command: ["uvicorn", "services.identity.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
     environment:
       APP_VERSION: ${APP_VERSION:-dev}
       ENVIRONMENT: ${ENVIRONMENT:-local}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       SERVICE_NAME: ${SERVICE_NAME:-invent-market-tracker}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-local-development-token}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health', timeout=3).status == 200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+
+  streamlit:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.python
+    env_file:
+      - path: .env
+        required: false
+    command:
+      - streamlit
+      - run
+      - services/streamlit/Home.py
+      - --server.port=8501
+      - --server.address=0.0.0.0
+      - --server.headless=true
+    environment:
+      APP_VERSION: ${APP_VERSION:-dev}
+      ENVIRONMENT: ${ENVIRONMENT:-local}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      SERVICE_NAME: ${SERVICE_NAME:-invent-market-tracker}
+      GATEWAY_URL: http://gateway:8000
     ports:
       - "${STREAMLIT_PORT:-8501}:8501"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8501/_stcore/health', timeout=3).status == 200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+    depends_on:
+      gateway:
+        condition: service_healthy
 
   core-relay:
     build:
       context: .
       dockerfile: deploy/Dockerfile.python
+    env_file:
+      - path: .env
+        required: false
     command: ["python", "-m", "services.core.app.outbox_relay"]
-    environment: *service_environment
+    environment:
+      <<: *app_env
+      DATABASE_URL: "postgresql+asyncpg://core_app:${BOOTSTRAP_PASSWORD_CORE:-CHANGE_ME_CORE}@postgres:5432/${POSTGRES_DB:-invent_market_tracker}"
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+    restart: unless-stopped
 
   core-worker:
     build:
       context: .
       dockerfile: deploy/Dockerfile.python
+    env_file:
+      - path: .env
+        required: false
     command: ["python", "-m", "services.core.app.worker"]
-    environment: *service_environment
+    environment:
+      <<: *app_env
+      DATABASE_URL: "postgresql+asyncpg://core_app:${BOOTSTRAP_PASSWORD_CORE:-CHANGE_ME_CORE}@postgres:5432/${POSTGRES_DB:-invent_market_tracker}"
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+    restart: unless-stopped
 
   ingest-processor:
     build:
       context: .
       dockerfile: deploy/Dockerfile.python
+    env_file:
+      - path: .env
+        required: false
     command: ["python", "-m", "services.ingest.app.processor"]
-    environment: *service_environment
+    environment:
+      <<: *app_env
+      DATABASE_URL: "postgresql+asyncpg://ingest_app:${BOOTSTRAP_PASSWORD_INGEST:-CHANGE_ME_INGEST}@postgres:5432/${POSTGRES_DB:-invent_market_tracker}"
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+    restart: unless-stopped
 
-  analytics-consumer:
+  pulse-consumer:
     build:
       context: .
       dockerfile: deploy/Dockerfile.python
-    command: ["python", "-m", "services.analytics.app.consumer"]
-    environment: *service_environment
+    env_file:
+      - path: .env
+        required: false
+    command: ["python", "-m", "services.pulse.app.consumer"]
+    environment:
+      <<: *app_env
+      DATABASE_URL: "postgresql+asyncpg://pulse_app:${BOOTSTRAP_PASSWORD_PULSE:-CHANGE_ME_PULSE}@postgres:5432/${POSTGRES_DB:-invent_market_tracker}"
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+    restart: unless-stopped
 
   ml-consumer:
     build:
       context: .
       dockerfile: deploy/Dockerfile.python
+    env_file:
+      - path: .env
+        required: false
     command: ["python", "-m", "services.ml.app.consumer"]
-    environment: *service_environment
+    environment:
+      <<: *app_env
+      DATABASE_URL: "postgresql+asyncpg://ml_app:${BOOTSTRAP_PASSWORD_ML:-CHANGE_ME_ML}@postgres:5432/${POSTGRES_DB:-invent_market_tracker}"
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+    restart: unless-stopped
 
   mocks:
     build:
