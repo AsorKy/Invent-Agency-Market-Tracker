@@ -830,7 +830,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `dbt parse` OK; `pytest -q tests/unit/test_dbt_naming.py` 2 passed; make static/test pass
 
 ### T-081 SQL collector follows buffered statements
-- status: todo
+- status: done
 - spec: REQ-QA-002, REQ-DAT-001
 - owner: qa-reviewer
 - depends: T-094, T-045
@@ -839,7 +839,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_sql_consistency.py`
 - note: teach `collect_statements()` to follow SQL literals that are appended or stored as `(sql, params)` tuples in the same class and later passed to `text()`, then remove the `UNRESOLVED_SQL` entry for `services/ingest/app/to_core.py`. Every new finding is reported in the run report and recorded in `KNOWN_FINDINGS` with a reason; do not edit production code.
-- evidence:
+- evidence: `pytest -q tests/unit/test_sql_consistency.py` 25 passed; make static/test pass (916 passed); no new findings
 
 ### T-083 Identity tables as an SQL migration
 - status: done
