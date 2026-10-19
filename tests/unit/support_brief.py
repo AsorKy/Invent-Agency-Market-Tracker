@@ -44,6 +44,13 @@ class FakeCore:
             raise CoreNotFound("missing")
         return self.facts.model_copy(update={"company_id": company_id})
 
+    async def get_lead_company(self, lead_id: UUID, tenant_id: UUID | None) -> UUID:
+        if self.down:
+            raise CoreUnavailable("down")
+        if self.missing:
+            raise CoreNotFound("missing")
+        return lead_id
+
     async def get_rules(self, tenant_id: UUID | None) -> tuple[BriefRules, int]:
         if self.down:
             raise CoreUnavailable("down")
