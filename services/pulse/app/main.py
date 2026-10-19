@@ -14,8 +14,10 @@ from datetime import UTC, datetime
 from typing import Annotated
 from uuid import UUID
 
+import structlog
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, Response
+from sqlalchemy.exc import SQLAlchemyError
 
 from libs.common.db import check_database
 from libs.common.internal_auth import require_internal_token
@@ -58,6 +60,17 @@ app = FastAPI(
 )
 app.add_middleware(RequestIdMiddleware)
 instrument_app(app, "pulse")
+
+
+@app.exception_handler(SQLAlchemyError)
+@app.exception_handler(OSError)
+@app.exception_handler(RuntimeError)
+async def database_unavailable(request: Request, exc: Exception) -> JSONResponse:
+    """Answer 503 instead of 500 when a metric read cannot reach the database."""
+    structlog.get_logger("pulse").warning(
+        "pulse_database_unavailable", path=request.url.path, error=type(exc).__name__
+    )
+    return JSONResponse(status_code=503, content={"detail": "database_unavailable"})
 
 
 @app.middleware("http")

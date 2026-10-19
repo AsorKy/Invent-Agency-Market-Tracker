@@ -376,12 +376,6 @@ async def test_defect_core_serves_brief_facts(stack: tuple[World, Any]) -> None:
     assert response.status_code == 200
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-4: ML publishes lead.score_updated straight to invent.events without a payload "
-    "or tenant_id field, so the Pulse consumer raises KeyError on it and, because pending "
-    "entries are re-read first, stays stuck on that entry",
-)
 async def test_defect_pulse_consumer_survives_score_events(stack: tuple[World, Any]) -> None:
     world, client = stack
     await _run_to_scored_leads(world, client)

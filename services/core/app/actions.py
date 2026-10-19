@@ -17,6 +17,7 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from libs.contracts.events import EventType
+from services.core.app.event_dimensions import lead_dimensions
 from services.core.app.leads import LeadNotFoundError
 
 
@@ -161,7 +162,7 @@ async def record_outcome(
                 "outcome_id": str(row["id"]),
                 "lead_id": str(lead_id),
                 "company_id": str(lead["company_id"]),
-                "service_line": lead["service_line"],
+                **lead_dimensions(lead),
                 "outcome": row["outcome"],
                 "occurred_at": row["occurred_at"].isoformat(),
                 "request_id": request_id,
