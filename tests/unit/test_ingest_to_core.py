@@ -3,7 +3,7 @@
 import json
 from datetime import UTC, datetime
 from typing import Any
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import httpx
 
@@ -22,6 +22,7 @@ from services.ingest.app.to_core import (
 )
 
 NOW = datetime(2026, 10, 18, tzinfo=UTC)
+TENANT = UUID("00000000-0000-4000-8000-0000000000a1")
 MAPS_OK = {"place_id": "p1", "name": "Panaderia Sol", "city": "Cali", "url": "https://x.co"}
 JOB_OK = {"job_id": "j1", "title": "Baker", "company": "Panaderia Sol", "city": "Cali"}
 
@@ -67,6 +68,7 @@ def make_flow(
         failures=failures,
         resolve=resolver.resolve,
         dataset_sources={"d-maps": "maps", "d-jobs": "computrabajo"},
+        tenant_id=TENANT,
         retry_attempts=1,
         retry_base_delay_seconds=0,
     )
@@ -88,11 +90,21 @@ async def test_company_record_upserts_company_then_signal() -> None:
     assert outcome.status == "delivered"
     assert core.companies[0]["legal_name"] == "Panaderia Sol"
     assert core.companies[0]["source_ids"] == {"maps": "p1"}
+    assert core.companies[0]["tenant_id"] == str(TENANT)
+    assert core.signals[0]["tenant_id"] == str(TENANT)
     signal = core.signals[0]
     assert signal["signal_type"] == "maps_listing"
     assert signal["source_external_id"] == "p1"
     assert signal["observed_at"] == NOW.isoformat()
     assert failures.rows == []
+
+
+async def test_tenant_comes_from_configuration_not_from_the_payload() -> None:
+    core, failures = FakeCore(), FakeFailures()
+    record = MAPS_OK | {"tenant_id": str(uuid4())}
+    await run(make_flow(core, failures), "maps", record)
+    assert core.companies[0]["tenant_id"] == str(TENANT)
+    assert core.signals[0]["tenant_id"] == str(TENANT)
 
 
 async def test_job_posting_resolves_the_company_name() -> None:

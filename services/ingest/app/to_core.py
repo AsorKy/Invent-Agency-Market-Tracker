@@ -4,7 +4,8 @@ For each record of a changed snapshot, ``SnapshotFlow`` applies the source
 mapping file (``mapping.py``), registers the entity candidate, resolves it with
 the injected resolver (``libs/domain/entity_resolution.py``), and then calls
 core's internal API through an injectable ``CoreClient``: first the company
-upsert, then the signal. ``HttpCoreClient`` is the real adapter and sends the
+upsert, then the signal, both stamped with the ingest tenant (never taken from the
+payload). ``HttpCoreClient`` is the real adapter and sends the
 service token. A record that fails mapping, resolution, or delivery is written
 to ``ingest.failed_record`` through a ``FailureSink`` and never stops the rest
 of the batch. ``SqlResolutionStore`` buffers the writes of the synchronous
@@ -250,6 +251,7 @@ class SnapshotFlow:
         failures: FailureSink,
         resolve: Resolve,
         dataset_sources: Mapping[str, str],
+        tenant_id: UUID,
         mappings: Mapping[str, SourceMapping] | None = None,
         retry_attempts: int = 2,
         retry_base_delay_seconds: float = 0.1,
@@ -259,6 +261,7 @@ class SnapshotFlow:
         self.failures = failures
         self.resolve = resolve
         self.dataset_sources = dict(dataset_sources)
+        self.tenant_id = tenant_id
         self._mappings: dict[str, SourceMapping] = dict(mappings or {})
         self.retry_attempts = retry_attempts
         self.retry_base_delay_seconds = retry_base_delay_seconds
@@ -360,7 +363,7 @@ class SnapshotFlow:
         fields = normalized.fields
         city = fields.get("city")
         website = fields.get("website")
-        company_body: dict[str, Any] = {"legal_name": name}
+        company_body: dict[str, Any] = {"legal_name": name, "tenant_id": str(self.tenant_id)}
         if resolution.rues_nit:
             company_body["nit"] = resolution.rues_nit
         if isinstance(city, str):
@@ -377,6 +380,7 @@ class SnapshotFlow:
             "observed_at": observed_at.isoformat(),
             "payload": _json_safe(fields),
             "source_external_id": normalized.external_id,
+            "tenant_id": str(self.tenant_id),
         }
         await self._call(self.core.create_signal, signal_body)
 

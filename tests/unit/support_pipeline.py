@@ -683,20 +683,6 @@ class FakeIngestEngine:
         return _Rows()
 
 
-class TenantStampingCore:
-    """Wrap ``HttpCoreClient`` and add the tenant that ingest does not send (defect D-1)."""
-
-    def __init__(self, inner: HttpCoreClient, tenant_id: UUID) -> None:
-        self.inner = inner
-        self.tenant_id = tenant_id
-
-    async def upsert_company(self, body: dict[str, Any]) -> dict[str, Any]:
-        return await self.inner.upsert_company(body | {"tenant_id": str(self.tenant_id)})
-
-    async def create_signal(self, body: dict[str, Any]) -> dict[str, Any]:
-        return await self.inner.create_signal(body)
-
-
 class WiredIngestRepository(IngestRepository):
     """``IngestRepository`` on the fake engine and fake Redis, built like ``processor.main``."""
 
@@ -739,9 +725,9 @@ def port_of(url: str) -> int:
 
 
 class World:
-    """All fakes plus the real apps, wired together; ``stamp_tenant`` toggles the ingest shim."""
+    """All fakes plus the real apps, wired together."""
 
-    def __init__(self, redis: Any, *, stamp_tenant: bool = True) -> None:
+    def __init__(self, redis: Any) -> None:
         from services.brief.app import main as brief_main
         from services.brief.app.repository import BriefRepository
         from services.core.app import main as core_main
@@ -791,19 +777,17 @@ class World:
         self.core_http = HttpCoreClient(
             settings.core_url, settings.internal_service_token, client=http_client
         )
-        core_client: Any = (
-            TenantStampingCore(self.core_http, TENANT_ID) if stamp_tenant else self.core_http
-        )
         self.resolution_store = SqlResolutionStore()
         self.ingest_repo.resolution_store = self.resolution_store
         rues = MockRuesLookup([])
         self.ingest_repo.flow = SnapshotFlow(
-            core=core_client,
+            core=self.core_http,
             failures=SqlFailureSink(self.ingest_engine),  # type: ignore[arg-type]
             resolve=lambda candidate: EntityResolver(
                 rues, self.resolution_store, now=datetime.now(UTC)
             ).resolve(candidate),
             dataset_sources={DATASET_ID: "maps"},
+            tenant_id=TENANT_ID,
             retry_attempts=1,
             retry_base_delay_seconds=0,
             retry_max_delay_seconds=0,

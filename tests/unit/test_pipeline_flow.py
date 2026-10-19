@@ -65,10 +65,10 @@ def _signed(body: bytes) -> dict[str, str]:
 
 
 async def _boot(
-    monkeypatch: pytest.MonkeyPatch, asgi_client: Any, *, stamp_tenant: bool
+    monkeypatch: pytest.MonkeyPatch, asgi_client: Any
 ) -> AsyncIterator[tuple[World, Any]]:
     redis = ScriptlessRedis(decode_responses=True)
-    world = World(redis, stamp_tenant=stamp_tenant)
+    world = World(redis)
     monkeypatch.setattr(ingest_main.settings, "bright_data_webhook_secret", SECRET)
     monkeypatch.setattr(gw, "httpx", world.gateway_shim(REAL_ASYNC_CLIENT))
     monkeypatch.setattr(
@@ -91,17 +91,8 @@ async def _boot(
 async def stack(
     monkeypatch: pytest.MonkeyPatch, asgi_client: Any
 ) -> AsyncIterator[tuple[World, Any]]:
-    """World with the tenant shim for the ingest-to-core call, plus the gateway client."""
-    async for pair in _boot(monkeypatch, asgi_client, stamp_tenant=True):
-        yield pair
-
-
-@pytest.fixture
-async def unstamped_stack(
-    monkeypatch: pytest.MonkeyPatch, asgi_client: Any
-) -> AsyncIterator[tuple[World, Any]]:
-    """World that uses the production ingest client as it is (no tenant on the upsert)."""
-    async for pair in _boot(monkeypatch, asgi_client, stamp_tenant=False):
+    """World with every service wired together, plus the gateway client."""
+    async for pair in _boot(monkeypatch, asgi_client):
         yield pair
 
 
@@ -339,15 +330,10 @@ async def test_pulse_endpoints_answer_through_the_gateway(stack: tuple[World, An
 # --- production defects found while wiring the path (strict xfail) ------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-1: ingest upserts companies without tenant_id, so every outbox event of an "
-    "ingested company is dead-lettered as missing_tenant_id and never reaches Pulse",
-)
-async def test_defect_ingested_companies_reach_the_stream(
-    unstamped_stack: tuple[World, Any],
+async def test_ingested_companies_reach_the_stream(
+    stack: tuple[World, Any],
 ) -> None:
-    world, client = unstamped_stack
+    world, client = stack
     await _post_snapshot(client, _snapshot_body())
     await world.run_processor()
 

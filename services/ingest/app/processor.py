@@ -17,6 +17,7 @@ from libs.common.retry import retry_with_backoff
 from libs.common.settings import get_settings
 from libs.domain.entity_resolution import EntityResolver, MockRuesLookup
 from services.ingest.app.repository import IngestRepository
+from services.ingest.app.tenant import load_ingest_tenant_id
 from services.ingest.app.to_core import (
     HttpCoreClient,
     SnapshotFlow,
@@ -58,6 +59,7 @@ async def main() -> None:
                 for source in settings.enabled_sources()
                 if (dataset_id := getattr(settings, f"source_{source}_dataset_id", None))
             },
+            tenant_id=load_ingest_tenant_id(),
             retry_attempts=settings.upstream_retry_attempts,
             retry_base_delay_seconds=settings.upstream_retry_base_delay_seconds,
             retry_max_delay_seconds=settings.upstream_retry_max_delay_seconds,
