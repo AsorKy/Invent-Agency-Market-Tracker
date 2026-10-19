@@ -15,7 +15,8 @@ COPY datagen ./datagen
 COPY ops ./ops
 COPY migrations ./migrations
 
-RUN pip install --no-cache-dir ".[streamlit]"
+# psycopg is needed only by ops/bootstrap_roles.py (bootstrap-roles service).
+RUN pip install --no-cache-dir ".[streamlit]" "psycopg[binary]>=3.2,<4"
 
 EXPOSE 8000
 
