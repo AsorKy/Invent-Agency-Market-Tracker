@@ -862,8 +862,8 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-064 Eleven-stage CI pipeline
-- status: todo
-- spec: REQ-CI-002
+- status: blocked
+- blocker: depends T-063 and T-070 are not done on main (T-063 blocked, T-070 only on agent/r1-d-hardening); ci.yml push would also need workflow scope- spec: REQ-CI-002
 - owner: devops-engineer
 - depends: T-007, T-063, T-070
 - write_scope: `.github/workflows/ci.yml`, tests/unit/test_ci_workflow.py
@@ -934,8 +934,8 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-074 The make invent-tracker command
-- status: todo
-- spec: REQ-RUN-001
+- status: blocked
+- blocker: depends T-073, T-072, T-070 are todo on main (done only on unmerged branches agent/r1-d-ops, agent/r1-d-e2e, agent/r1-d-hardening)- spec: REQ-RUN-001
 - owner: devops-engineer
 - depends: T-073, T-072, T-070
 - write_scope: Makefile, ops/bootstrap_env.py, tests/unit/test_make_targets.py, tests/unit/test_bootstrap_env.py
@@ -946,8 +946,8 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-075 Doctor command
-- status: todo
-- spec: REQ-RUN-005
+- status: blocked
+- blocker: depends T-074 is blocked- spec: REQ-RUN-005
 - owner: devops-engineer
 - depends: T-074, T-043
 - write_scope: ops/doctor.py, Makefile (`doctor` target only), tests/unit/test_doctor.py
@@ -958,8 +958,8 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-076 Live verification command
-- status: todo
-- spec: REQ-RUN-006
+- status: blocked
+- blocker: depends T-075 is blocked- spec: REQ-RUN-006
 - owner: second-backend-engineer
 - depends: T-043, T-075, T-096
 - write_scope: ops/verify_live.py, Makefile (`verify-live` target only), tests/unit/test_verify_live.py
@@ -982,8 +982,8 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-078 Integration test tier
-- status: todo
-- spec: REQ-QA-005
+- status: blocked
+- blocker: depends T-071 and T-077 are todo on main (done only on unmerged branches agent/r1-d-ops, agent/r1-d-e2e)- spec: REQ-QA-005
 - owner: qa-reviewer
 - depends: T-071, T-077
 - write_scope: tests/integration/
@@ -994,8 +994,8 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-079 Go-live runbook
-- status: todo
-- spec: REQ-DOC-001
+- status: blocked
+- blocker: depends T-076 is blocked- spec: REQ-DOC-001
 - owner: architecture-reviewer
 - depends: T-076
 - write_scope: docs/runbooks/go-live.md, tests/unit/test_runbook.py
