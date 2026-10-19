@@ -122,3 +122,17 @@ def test_grace_default_and_override(monkeypatch: pytest.MonkeyPatch) -> None:
     assert grace_seconds() == 25.0
     monkeypatch.setenv("SHUTDOWN_GRACE_SECONDS", "0.5")
     assert grace_seconds() == 0.5
+
+
+def test_draining_gate_is_cleared_after_shutdown() -> None:
+    app = FastAPI(lifespan=graceful_lifespan(None))
+    state = instrument_app(app, "t")
+
+    @app.get("/ping")
+    async def ping() -> dict[str, str]:
+        return {"ok": "1"}
+
+    with TestClient(app) as client:
+        assert client.get("/ping").status_code == 200
+    assert state.draining is False
+    assert TestClient(app).get("/ping").status_code == 200
