@@ -356,11 +356,6 @@ async def test_defect_ingested_companies_reach_the_stream(
     assert counts == {"published": 4, "retried": 0, "dead_lettered": 0}
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-2: the lead brief route passes the lead id to Brief as a company id, so core "
-    "cannot find the company and the endpoint answers 404 for an existing lead",
-)
 async def test_defect_lead_brief_resolves_the_lead_company(stack: tuple[World, Any]) -> None:
     world, client = stack
     companies = await _run_to_scored_leads(world, client)
@@ -395,12 +390,6 @@ async def test_defect_core_serves_brief_facts(stack: tuple[World, Any]) -> None:
     assert response.status_code == 200
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="D-4: ML publishes lead.score_updated straight to invent.events without a payload "
-    "or tenant_id field, so the Pulse consumer raises KeyError on it and, because pending "
-    "entries are re-read first, stays stuck on that entry",
-)
 async def test_defect_pulse_consumer_survives_score_events(stack: tuple[World, Any]) -> None:
     world, client = stack
     await _run_to_scored_leads(world, client)

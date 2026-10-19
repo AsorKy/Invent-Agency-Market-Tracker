@@ -830,7 +830,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `dbt parse` OK; `pytest -q tests/unit/test_dbt_naming.py` 2 passed; make static/test pass
 
 ### T-081 SQL collector follows buffered statements
-- status: todo
+- status: done
 - spec: REQ-QA-002, REQ-DAT-001
 - owner: qa-reviewer
 - depends: T-094, T-045
@@ -839,10 +839,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_sql_consistency.py`
 - note: teach `collect_statements()` to follow SQL literals that are appended or stored as `(sql, params)` tuples in the same class and later passed to `text()`, then remove the `UNRESOLVED_SQL` entry for `services/ingest/app/to_core.py`. Every new finding is reported in the run report and recorded in `KNOWN_FINDINGS` with a reason; do not edit production code.
-- evidence:
+- evidence: `pytest -q tests/unit/test_sql_consistency.py` 25 passed; make static/test pass (916 passed); no new findings
 
 ### T-083 Identity tables as an SQL migration
-- status: todo
+- status: done
 - spec: REQ-IDN-001, REQ-DAT-001
 - owner: database-engineer
 - depends: T-030, T-031, T-093
@@ -851,10 +851,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `python ops/check_migrations.py` and `pytest -q tests/unit/test_identity_schema.py`
 - note: express `identity.credential` and `identity.auth_session` (from Django migration `iam.0001`) as an expand SQL migration with `IF NOT EXISTS`, grants for the identity role, and row level security where the table has `tenant_id`. The test checks parity between the SQL columns and the fields of the Django models (read the model fields with the SQLite test settings). Report, do not change, anything in `services/identity/`.
-- evidence:
+- evidence: `check_migrations.py` OK; `pytest -q tests/unit/test_identity_schema.py` passed; make static/test pass (table_catalog snapshot updated)
 
 ### T-084 Settings and environment cleanup
-- status: todo
+- status: done
 - spec: REQ-SEC-004, REQ-RUN-004
 - owner: coordinator
 - depends: T-032, T-035, T-049
@@ -863,10 +863,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: S
 - acceptance: `python ops/check_configuration.py` and `pytest -q tests/unit/test_settings.py` (or the settings test that reads the snapshot)
 - note: remove `analytics_url` from the settings and from the snapshot in the same commit. Add `RUES_DELTA_URL`, `OPS_ALERT_FROM`, `OPS_ALERT_TO`, `APP_PROFILE`, `FRONTEND_ORIGIN`, and `IDENTITY_VALIDATION_ENABLED` with safe local defaults to the settings and to `.env.example`. No secrets in defaults.
-- evidence:
+- evidence: `python ops/check_configuration.py` OK (89 variables); `pytest -q tests/unit/test_settings.py tests/unit/test_compose.py` 46 passed; make static and make test pass. `.env.example` also drops ANALYTICS_URL; n8n wf_socioeco_refresh still references $env.ANALYTICS_URL (outside write_scope).
 
 ### T-085 Core brief-facts endpoint and kanban as_of
-- status: todo
+- status: done
 - spec: REQ-BRF-001, REQ-COR-001
 - owner: lead-backend-engineer
 - depends: T-033, T-024
@@ -875,10 +875,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_brief_facts.py`
 - note: add `GET /internal/core/companies/{id}/brief-facts` returning exactly the facts that `services/brief/app/core_source.py` expects, tenant scoped from the service-token headers (404 across tenants), and make the kanban endpoint return a real `as_of` instead of null. A contract test validates the response against the brief's expected model.
-- evidence:
+- evidence: `pytest -q tests/unit/test_brief_facts.py` 4 passed; make static and make test pass. Fields absent from migrations (rues_status, quarantine, cert, enrichment) read from company source_flags; overdue_tasks fixed at 0; kanban as_of is current UTC. Added NOT_PUBLIC entry in tests/unit/test_openapi.py (outside write_scope, required).
 
 ### T-086 Brief schema additions
-- status: todo
+- status: done
 - spec: REQ-BRF-001, REQ-DAT-001
 - owner: database-engineer
 - depends: T-033, T-093
@@ -887,10 +887,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `python ops/check_migrations.py` and `pytest -q tests/unit/test_brief_schema.py`
 - note: expand migration with the next free number: add `config_version` to `brief.record_digest` and any table the brief repository needs for cache entries and rule versions (derive the columns from the in-memory repository). Row level security on every new table with `tenant_id`.
-- evidence:
+- evidence: `check_migrations.py` OK; `pytest -q tests/unit/test_brief_schema.py` passed; make static/test pass
 
 ### T-087 Brief Postgres repository
-- status: todo
+- status: done
 - spec: REQ-BRF-001, REQ-BRF-002
 - owner: lead-backend-engineer
 - depends: T-086, T-033
@@ -899,10 +899,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_brief_repository.py tests/unit/test_sql_consistency.py`
 - note: a SQL repository behind the existing repository interface, using the tenant context helper, with fakes in the unit tests. Keep the in-memory repository for tests and local mode.
-- evidence:
+- evidence: `pytest -q tests/unit/test_brief_repository.py tests/unit/test_sql_consistency.py` 30 passed; make static/test pass
 
 ### T-088 Event payload dimensions for pulse rollups
-- status: todo
+- status: done
 - spec: REQ-PUL-002, REQ-EVT-005
 - owner: lead-backend-engineer
 - depends: T-090, T-052
@@ -911,7 +911,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_event_dimensions.py tests/unit/test_rollups.py tests/unit/test_pulse_consumer.py`
 - note: signal events carry `city` and `service_line`, and lead events carry `hot`, as additive payload fields; pulse reads them so rollups stop landing under `unknown`. Add a test showing a signal rolls up into the right city and service line bucket.
-- evidence:
+- evidence: `pytest -q tests/unit/test_event_dimensions.py tests/unit/test_rollups.py tests/unit/test_pulse_consumer.py tests/unit/test_sql_consistency.py` -> 46 passed; make static and make test pass (907 passed)
 
 ### T-089 Ingest core calls outside the transaction and RUES queue worker
 - status: todo
@@ -951,7 +951,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-121 ML score events carry payload and tenant; pulse never sticks on a bad entry
-- status: todo
+- status: done
 - spec: REQ-EVT-005, REQ-EVT-002
 - owner: second-backend-engineer
 - depends: T-053, T-090
@@ -960,10 +960,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_score_event.py tests/unit/test_pulse_consumer.py tests/unit/test_pipeline_flow.py`
 - note: defect D-4: ML publishes `lead.score_updated` with no `payload` or `tenant_id`, pulse raises KeyError, and its worker sticks on that entry. ML must publish the same envelope as the core relay (`stream_fields` shape, `payload`, `tenant_id`). Pulse must treat a malformed entry as poison: log it, acknowledge it, and move it to a dead letter stream without raising. Test both sides.
-- evidence:
+- evidence: `pytest -q tests/unit/test_score_event.py tests/unit/test_pulse_consumer.py tests/unit/test_pipeline_flow.py` -> 21 passed, 3 xfailed; make static and make test pass (899 passed)
 
 ### T-122 Brief lead route and production summarizer wiring
-- status: todo
+- status: done
 - spec: REQ-BRF-001, REQ-BRF-002
 - owner: lead-backend-engineer
 - depends: T-033
@@ -972,7 +972,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_brief_routes.py tests/unit/test_pipeline_flow.py`
 - note: defect D-2: `lead_digest` passes `lead_id` as `company_id`, so `GET /api/v1/leads/{id}/brief` always returns 404; resolve the lead to its company through the core source. Also wire an optional summarizer behind a setting so `degraded` can be true in production when a configured summarizer fails or times out (today none is built, so `degraded` is never true).
-- evidence:
+- evidence: `pytest -q tests/unit/test_brief_routes.py tests/unit/test_pipeline_flow.py` pass; make static/test pass (915 passed). Coordinator added get_lead_company to FakeCore in tests/unit/support_brief.py and support_pipeline.py
 
 ### T-123 Service tokens everywhere
 - status: todo
@@ -987,7 +987,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-124 Resilience gaps from the failure matrix
-- status: todo
+- status: done
 - spec: REQ-OBS-001, REQ-EVT-007
 - owner: lead-backend-engineer
 - depends: T-062, T-061
@@ -996,7 +996,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_resilience_gaps.py` and `python ops/check_configuration.py`
 - note: Pulse metric endpoints other than market and territory, and `ops/health`, return 503 instead of 500 on database errors. The relay, pulse, and ml workers register shutdown hooks (relay flush, batch acknowledge) with `register_shutdown_hook`. `request_id` travels in stream entries and consumers bind it to their logs. Add `SHUTDOWN_GRACE_SECONDS` to `.env.example`.
-- evidence:
+- evidence: `pytest -q tests/unit/test_resilience_gaps.py` -> 11 passed; `python ops/check_configuration.py` OK; make static and make test pass (918 passed)
 
 ### T-125 Compose role bootstrap and worker entries
 - status: done

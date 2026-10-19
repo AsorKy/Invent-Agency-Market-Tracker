@@ -76,7 +76,8 @@ class Statement:
 
     ``kind`` is ``literal`` (string constant), ``name`` (a variable resolved to
     a constant), ``fstring`` (rendered with every ``{...}`` removed),
-    ``name-fallback`` (a variable fed by a loop; every SQL looking constant of
+    ``buffered`` (a variable fed from a loop over SQL literals buffered in the
+    same class), ``name-fallback`` (a variable fed by a loop; every SQL looking constant of
     the function is checked) or ``unresolved`` (``sql`` is None).
     """
 
@@ -122,6 +123,7 @@ class _Collector(ast.NodeVisitor):
         self.file = file
         self.found: list[Statement] = []
         self.functions: list[ast.AST] = []
+        self.classes: list[ast.ClassDef] = []
         self.module_names: dict[str, ast.AST] = {}
 
     def run(self, tree: ast.Module) -> list[Statement]:
@@ -139,6 +141,11 @@ class _Collector(ast.NodeVisitor):
         self.functions.pop()
 
     visit_AsyncFunctionDef = visit_FunctionDef  # type: ignore[assignment]
+
+    def visit_ClassDef(self, node: ast.ClassDef) -> None:
+        self.classes.append(node)
+        self.generic_visit(node)
+        self.classes.pop()
 
     def visit_Call(self, node: ast.Call) -> None:
         call = _call_name(node)
@@ -186,7 +193,36 @@ class _Collector(ast.NodeVisitor):
             ]
             if found:
                 return found
+        buffered = self._buffered_in_class(call, name)
+        if buffered:
+            return buffered
         return [self._add(call, line, "unresolved", None, name)]
+
+    def _buffered_in_class(self, call: str, name: str) -> list[Statement]:
+        """Follow SQL literals buffered in the same class and later run via ``text(name)``.
+
+        A literal counts when it is the first item of a ``(sql, params)`` tuple or
+        the direct argument of ``.append(...)`` anywhere in the enclosing class.
+        """
+        if not self.classes:
+            return []
+        found: list[Statement] = []
+        seen: set[int] = set()
+        for node in ast.walk(self.classes[-1]):
+            candidates: list[ast.AST] = []
+            if isinstance(node, ast.Tuple) and node.elts:
+                candidates.append(node.elts[0])
+            elif isinstance(node, ast.Call) and node.args:
+                func = node.func
+                if isinstance(func, ast.Attribute) and func.attr == "append":
+                    candidates.append(node.args[0])
+            for item in candidates:
+                value = _string_value(item)
+                if value is None or id(item) in seen or not SQL_START.match(value):
+                    continue
+                seen.add(id(item))
+                found.append(self._add(call, item.lineno, "buffered", value, name))
+        return found
 
 
 def collect_statements() -> list[Statement]:
