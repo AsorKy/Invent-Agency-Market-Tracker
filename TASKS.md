@@ -850,7 +850,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-063 Verified encrypted backups
-- status: todo
+- status: blocked
 - spec: REQ-BAK-001
 - owner: devops-engineer
 - depends: T-018
@@ -859,7 +859,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_backups.py`
 - note: per-schema dump with the owner role, sha256, restore into an ephemeral database and check migration versions and table counts, `age` encryption, retention 7 and 28 days, and RPO and RTO in `ops/backups/README.md`. Test the orchestration logic with fakes for pg_dump and age.
-- evidence:
+- evidence: (code and tests done, pytest 12 passed) BLOCKED only on the workflow change: PAT lacks `workflow` scope, push rejected. Apply with `git apply docs/runs/T-063-backups-workflow.diff`. `pytest -q tests/unit/test_backups.py` -> 12 passed; ops/check_workflows.py OK; make static and make test pass
 
 ### T-064 Eleven-stage CI pipeline
 - status: todo
@@ -898,7 +898,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-071 Migration runner
-- status: todo
+- status: done
 - spec: REQ-RUN-002
 - owner: database-engineer
 - depends: T-018
@@ -907,7 +907,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_migrate.py`
 - note: ordered application, one transaction per file, `public.schema_migration` with checksum, refusal on changed checksums, idempotent re-run, and a `--dry-run` listing. Test with a fake connection. The runner applies the migration added by T-093 and its own SQL is covered by `tests/unit/test_sql_consistency.py`.
-- evidence:
+- evidence: `pytest -q tests/unit/test_migrate.py tests/unit/test_sql_consistency.py` -> 31 passed; make static and make test pass
 
 ### T-072 Demo seed
 - status: todo
@@ -922,7 +922,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-073 Compose, images, and health probes
-- status: todo
+- status: done
 - spec: REQ-DEP-001, REQ-ARC-001, REQ-STR-002
 - owner: devops-engineer
 - depends: T-050, T-056, T-071, T-015
@@ -931,7 +931,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/unit/test_compose.py`, plus `make compose-config` when the Docker CLI exists
 - note: services exactly as SPEC section 3.1 (no analytics); one-shot `migrate` service with `service_completed_successfully`; workers for core relay and consumers, ingest processor and poller, pulse consumer, ml consumer, brief worker; a real Streamlit container with health `/_stcore/health`; healthchecks for every API; `env_file: .env`; services read only their own database role. The test parses the compose file and asserts topology, dependencies, and the absence of credentials in the gateway.
-- evidence:
+- evidence: `pytest -q tests/unit/test_compose.py` -> 39 passed; `docker compose config` exit 0; make static and make test pass. Omitted: ingest poller (runs in API lifespan) and brief worker (no entrypoint exists). Coordinator added BOOTSTRAP_PASSWORD_* to .env.example.
 
 ### T-074 The make invent-tracker command
 - status: todo

@@ -12,8 +12,10 @@ COPY pyproject.toml README.md ./
 COPY libs ./libs
 COPY services ./services
 COPY datagen ./datagen
+COPY ops ./ops
+COPY migrations ./migrations
 
-RUN pip install --no-cache-dir .
+RUN pip install --no-cache-dir ".[streamlit]"
 
 EXPOSE 8000
 
