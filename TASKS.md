@@ -1214,7 +1214,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/integration --collect-only` 14 collected; skip without DB/Redis URLs; real-service run unverified (owner)
 
 ### T-079 Go-live runbook
-- status: todo
+- status: done
 - spec: REQ-DOC-001
 - owner: architecture-reviewer
 - depends: T-076
@@ -1223,7 +1223,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: S
 - acceptance: `pytest -q tests/unit/test_runbook.py`
 - note: step-by-step English runbook: credentials, enabling sources, webhook tunnel or polling fallback, mapping adjustments (including `unverified` mappings), `make doctor`, `make verify-live`, how data reaches `/api/v1`, how to point the frontend at the gateway with the local profile, and a troubleshooting table.
-- evidence:
+- evidence: `pytest -q tests/unit/test_runbook.py` 5 passed; make static/test green
 
 ### T-080 Run 1 review pack
 - status: todo
