@@ -8,6 +8,8 @@ that loses the lock receives the previous score marked stale. It relates to
 from triggering concurrent regenerations of one score (REQ-ML-001).
 """
 
+import json
+import logging
 from typing import Any, Protocol
 from uuid import UUID, uuid4
 
@@ -16,6 +18,8 @@ from libs.contracts.events import EventType
 from libs.domain.scoring import RULE_VERSION, ScoreWeights, calculate_rule_score, is_stale
 
 STREAM_NAME = "invent.events"
+EVENT_VERSION = 1
+_log = logging.getLogger(__name__)
 RELEASE_LOCK_SCRIPT = (
     "if redis.call('get', KEYS[1]) == ARGV[1] "
     "then return redis.call('del', KEYS[1]) else return 0 end"
@@ -46,6 +50,39 @@ class ScoreRedis(Protocol):
     async def xadd(self, name: str, fields: dict[str, str]) -> Any: ...
 
 
+def score_event_fields(
+    *, company_id: UUID, tenant_id: UUID | None, score: int, is_hot: bool, source_version: str
+) -> dict[str, str]:
+    """Build the stream entry of ``lead.score_updated`` in the core relay envelope.
+
+    Same fields as ``services/core/app/dead_letter.stream_fields`` (``tenant_id``, ``payload``,
+    ``version`` and the aggregate keys). ``score``, ``is_hot`` and ``source_version`` stay as
+    top-level fields because the core qualification worker reads them there. Without a tenant
+    the ``tenant_id`` field is omitted and consumers skip the entry.
+    """
+    fields = {
+        "event_id": str(uuid4()),
+        "event_type": EventType.LEAD_SCORE_UPDATED.value,
+        "aggregate_type": "company",
+        "aggregate_id": str(company_id),
+        "version": str(EVENT_VERSION),
+        "payload": json.dumps(
+            {
+                "company_id": str(company_id),
+                "score": score,
+                "is_hot": is_hot,
+                "source_version": source_version,
+            }
+        ),
+        "score": str(score),
+        "is_hot": str(is_hot).lower(),
+        "source_version": source_version,
+    }
+    if tenant_id is not None:
+        fields["tenant_id"] = str(tenant_id)
+    return fields
+
+
 class ScoringService:
     def __init__(self, store: ScoreStore, redis: ScoreRedis, *, lock_ttl_seconds: int) -> None:
         self._store = store
@@ -53,7 +90,10 @@ class ScoringService:
         self._lock_ttl_ms = lock_ttl_seconds * 1000
 
     async def regenerate(
-        self, features: ScoreFeatures, weights: ScoreWeights | None = None
+        self,
+        features: ScoreFeatures,
+        weights: ScoreWeights | None = None,
+        tenant_id: UUID | None = None,
     ) -> ScoreResponse:
         """Compute and persist the score, or return the stale previous one."""
         lock_key = f"lock:score:{features.company_id}"
@@ -83,17 +123,17 @@ class ScoringService:
                 source_version=features.source_version,
                 score_version=score_version,
             )
+            if tenant_id is None:
+                _log.warning("score event for company %s has no tenant", features.company_id)
             await self._redis.xadd(
                 STREAM_NAME,
-                {
-                    "event_id": str(uuid4()),
-                    "event_type": EventType.LEAD_SCORE_UPDATED.value,
-                    "aggregate_type": "company",
-                    "aggregate_id": str(features.company_id),
-                    "score": str(breakdown.score),
-                    "is_hot": str(breakdown.is_hot).lower(),
-                    "source_version": features.source_version,
-                },
+                score_event_fields(
+                    company_id=features.company_id,
+                    tenant_id=tenant_id,
+                    score=breakdown.score,
+                    is_hot=breakdown.is_hot,
+                    source_version=features.source_version,
+                ),
             )
             return ScoreResponse(
                 company_id=features.company_id,

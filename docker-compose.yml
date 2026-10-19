@@ -96,6 +96,30 @@ services:
         condition: service_healthy
     restart: "no"
 
+  bootstrap-roles:
+    # One-shot: creates/updates the <schema>_owner and <schema>_app roles and
+    # grants after migrate (idempotent). It must run after migrate because the
+    # grants cover the tables migrate creates. For the same reason migrate
+    # cannot use a dedicated migrator role created here (circular), so it keeps
+    # the postgres superuser; this service re-grants on every start.
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.python
+    command: ["python", "ops/bootstrap_roles.py"]
+    environment:
+      BOOTSTRAP_DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-invent_market_tracker}"
+      BOOTSTRAP_PASSWORD_INGEST: ${BOOTSTRAP_PASSWORD_INGEST:-CHANGE_ME_INGEST}
+      BOOTSTRAP_PASSWORD_CORE: ${BOOTSTRAP_PASSWORD_CORE:-CHANGE_ME_CORE}
+      BOOTSTRAP_PASSWORD_ML: ${BOOTSTRAP_PASSWORD_ML:-CHANGE_ME_ML}
+      BOOTSTRAP_PASSWORD_PULSE: ${BOOTSTRAP_PASSWORD_PULSE:-CHANGE_ME_PULSE}
+      BOOTSTRAP_PASSWORD_BRIEF: ${BOOTSTRAP_PASSWORD_BRIEF:-CHANGE_ME_BRIEF}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
   gateway:
     build:
       context: .
@@ -181,6 +205,8 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
+      bootstrap-roles:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:
@@ -205,6 +231,8 @@ services:
       start_period: 10s
     depends_on:
       migrate:
+        condition: service_completed_successfully
+      bootstrap-roles:
         condition: service_completed_successfully
       postgres:
         condition: service_healthy
@@ -231,6 +259,8 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
+      bootstrap-roles:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:
@@ -256,6 +286,8 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
+      bootstrap-roles:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:
@@ -280,6 +312,8 @@ services:
       start_period: 10s
     depends_on:
       migrate:
+        condition: service_completed_successfully
+      bootstrap-roles:
         condition: service_completed_successfully
       postgres:
         condition: service_healthy
@@ -353,6 +387,8 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
+      bootstrap-roles:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:
@@ -372,6 +408,8 @@ services:
       DATABASE_URL: "postgresql+asyncpg://core_app:${BOOTSTRAP_PASSWORD_CORE:-CHANGE_ME_CORE}@postgres:5432/${POSTGRES_DB:-invent_market_tracker}"
     depends_on:
       migrate:
+        condition: service_completed_successfully
+      bootstrap-roles:
         condition: service_completed_successfully
       postgres:
         condition: service_healthy
@@ -393,6 +431,8 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
+      bootstrap-roles:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:
@@ -413,6 +453,8 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
+      bootstrap-roles:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:
@@ -432,6 +474,8 @@ services:
       DATABASE_URL: "postgresql+asyncpg://ml_app:${BOOTSTRAP_PASSWORD_ML:-CHANGE_ME_ML}@postgres:5432/${POSTGRES_DB:-invent_market_tracker}"
     depends_on:
       migrate:
+        condition: service_completed_successfully
+      bootstrap-roles:
         condition: service_completed_successfully
       postgres:
         condition: service_healthy

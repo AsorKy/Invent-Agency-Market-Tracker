@@ -80,7 +80,7 @@ async def regenerate_score(
     )
     try:
         weights = await repository.load_weights(x_tenant_id) if x_tenant_id else None
-        return await service.regenerate(features, weights)
+        return await service.regenerate(features, weights, x_tenant_id)
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 

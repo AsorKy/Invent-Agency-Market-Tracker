@@ -10,6 +10,7 @@ receive events derived from committed changes.
 import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime
 from typing import Annotated
 from uuid import UUID
 
@@ -203,6 +204,25 @@ async def leads(
     return {"data": data, "next_cursor": next_cursor}
 
 
+@app.get(
+    "/internal/core/companies/{company_id}/brief-facts",
+    dependencies=[Depends(require_internal_token)],
+)
+async def company_brief_facts(
+    company_id: UUID,
+    request: Request,
+    x_tenant_id: Annotated[UUID | None, Header()] = None,
+) -> dict[str, object]:
+    try:
+        repository: CoreRepository = request.app.state.repository
+        facts = await repository.brief_facts(company_id, x_tenant_id)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    if facts is None:
+        raise HTTPException(status_code=404, detail="company_not_found")
+    return facts
+
+
 @app.post("/internal/core/leads", dependencies=[Depends(require_internal_token)])
 async def create_lead_route(
     payload: LeadCreate,
@@ -287,7 +307,7 @@ async def pipeline_kanban(
         leads_data, _next_cursor = await repository.list_leads(200, tenant_id=x_tenant_id)
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
-    return {"as_of": None, "columns": group_by_stage(leads_data)}
+    return {"as_of": datetime.now(UTC).isoformat(), "columns": group_by_stage(leads_data)}
 
 
 @app.post(
