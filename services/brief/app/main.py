@@ -31,9 +31,11 @@ from services.brief.app.core_source import (
     HttpCoreSource,
 )
 from services.brief.app.models import BriefResponse
-from services.brief.app.repository import BriefStore, create_repository
+from services.brief.app.repository import BriefStore, TenantRequired, create_repository
+from services.brief.app.rule_based import Summarizer
 from services.brief.app.service import BriefService
 from services.brief.app.single_flight import SingleFlightLock
+from services.brief.app.summarizer import build_summarizer
 
 settings = get_settings()
 configure_logging(settings.log_level)
@@ -47,6 +49,7 @@ class BriefState:
         repository: BriefStore,
         redis: Redis,
         core: CoreSource,
+        summarizer: Summarizer | None = None,
     ) -> None:
         self.repository = repository
         self.redis = redis
@@ -55,6 +58,7 @@ class BriefState:
             repository=repository,
             lock=SingleFlightLock(redis, ttl_ms=30_000),
             core=core,
+            summarizer=summarizer,
         )
 
 
@@ -63,9 +67,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Create and close the repository, Redis, and core client resources."""
     redis = create_redis(settings.redis_url)
     core = HttpCoreSource(settings.core_url, settings.internal_service_token)
-    state = BriefState(create_repository(settings.database_url), redis, core)
+    summarizer = build_summarizer()
+    state = BriefState(create_repository(settings.database_url), redis, core, summarizer)
     app.state.brief = state
     yield
+    if summarizer is not None:
+        await summarizer.close()
     await core.close()
     await state.repository.close()
     await state.redis.aclose()
@@ -96,6 +103,8 @@ async def _digest_response(
         raise HTTPException(status_code=503, detail="db_unavailable") from exc
     except CoreNotFound as exc:
         raise HTTPException(status_code=404, detail="not_found") from exc
+    except TenantRequired as exc:
+        raise HTTPException(status_code=400, detail="tenant_required") from exc
     if pending is not None:
         background_tasks.add_task(pending.run)
     payload = BriefResponse(
@@ -160,11 +169,18 @@ async def lead_digest(
     background_tasks: BackgroundTasks,
     x_tenant_id: Annotated[UUID | None, Header()] = None,
 ) -> JSONResponse:
-    """Return a lead digest through the company-oriented Brief model."""
+    """Return a lead digest by resolving the lead to its company through core."""
+    state: BriefState = request.app.state.brief
+    try:
+        company_id = await state.core.get_lead_company(lead_id, x_tenant_id)
+    except CoreUnavailable as exc:
+        raise HTTPException(status_code=503, detail="db_unavailable") from exc
+    except CoreNotFound as exc:
+        raise HTTPException(status_code=404, detail="not_found") from exc
     return await _digest_response(
         request,
         background_tasks,
-        company_id=lead_id,
+        company_id=company_id,
         lead_id=lead_id,
         tenant_id=x_tenant_id,
     )
