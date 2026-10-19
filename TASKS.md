@@ -1011,7 +1011,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-126 Coverage lift A (tests only)
-- status: todo
+- status: done
 - spec: REQ-QA-003
 - owner: qa-reviewer
 - depends: T-065
@@ -1020,10 +1020,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_cov_infra.py` and `make coverage`
 - note: raise to at least 80% line coverage: `libs/common/db.py`, `libs/common/rate_limiter.py`, `libs/common/redis_client.py`, `services/core/app/worker.py`, `services/core/app/repository.py` (SQL paths through fake connections), `services/brief/app/core_source.py`. Production code is not edited; report defects instead.
-- evidence:
+- evidence: `pytest -q tests/unit/test_cov_infra.py` 46 passed; db, rate_limiter, redis_client, repository, core_source 100%, worker 98%; make static/test/coverage pass
 
 ### T-127 Coverage lift B (tests only)
-- status: todo
+- status: done
 - spec: REQ-QA-003
 - owner: qa-reviewer
 - depends: T-065
@@ -1032,7 +1032,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_cov_services.py` and `make coverage`
 - note: raise to at least 80% line coverage: `services/ingest/app/processor.py`, `services/ingest/app/repository.py`, `services/ingest/app/main.py`, `services/ml/app/repository.py`, `services/ml/app/main.py`, `services/ml/app/segmentation.py`, `services/pulse/app/rollup_close.py`, `services/core/app/dead_letter.py`, `services/core/app/republish.py`. Production code is not edited; report defects instead.
-- evidence:
+- evidence: `pytest -q tests/unit/test_cov_services.py` 42 passed; all nine modules 96% or higher; make static/test/coverage pass
 ### T-060 Zero trust between services
 - status: done
 - spec: REQ-SEC-005
