@@ -43,3 +43,4 @@ test-sql:
 
 coverage:
 	python -m pytest -q -m "not integration" --cov=libs --cov=services --cov-report=term-missing
+	python -m coverage report --include='libs/domain/*' --fail-under=90

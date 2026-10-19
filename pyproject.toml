@@ -96,3 +96,11 @@ pythonpath = ["."]
 markers = [
   "integration: needs real services (Postgres, Redis); run with make test-integration",
 ]
+
+[tool.coverage.run]
+source = ["libs", "services"]
+
+[tool.coverage.report]
+# Gate for libs and services combined; libs/domain has its own 90 percent gate in the Makefile.
+fail_under = 80
+show_missing = true
