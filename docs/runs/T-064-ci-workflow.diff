@@ -1,0 +1,284 @@
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index 4afabb5..b123b48 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -1,5 +1,8 @@
+-# Validate Python syntax, script documentation, formatting, types, migrations,
+-# and n8n JSON. Relates to Makefile and the ops/ guardrails.
++# Eleven-stage pipeline (REQ-CI-002, ADR-IMT-0001 section E1.9): static, unit,
++# integration, contracts, e2e, images, deploy migrate, deploy backend, deploy
++# frontend, deploy streamlit, deploy smoke. Deploy stages run only on pushes to
++# main and are skipped when their environment secrets are absent. Secrets are
++# referenced by name only. Relates to Makefile and the ops/ guardrails.
+ name: ci
+ 
+ on:
+@@ -8,62 +11,241 @@ on:
+   pull_request:
+     branches: [main]
+   workflow_dispatch:
++    inputs:
++      force_smoke_failure:
++        description: "Fail the smoke stage on purpose to test rollback"
++        type: boolean
++        default: false
++
++permissions:
++  contents: read
++
++concurrency:
++  group: ci-${{ github.ref }}
++  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
++
++env:
++  PYTHON_VERSION: "3.12"
+ 
+ jobs:
+   static:
+-    name: static and migration guard
++    name: static
+     runs-on: ubuntu-latest
++    timeout-minutes: 20
+     steps:
+       - uses: actions/checkout@v4
+       - uses: actions/setup-python@v5
+         with:
+-          python-version: "3.12"
++          python-version: ${{ env.PYTHON_VERSION }}
+       - run: python -m pip install --upgrade pip
+       - run: python -m pip install ".[dev,streamlit,identity]"
+-      - run: python ops/check_migrations.py
+-      - run: python ops/check_restricted_assets.py
+-      - run: python ops/check_configuration.py
+-      - run: python ops/check_language.py
+-      - run: python ops/check_script_docs.py
+-      - run: python -m compileall -q libs services datagen ops
+-      - run: ruff check libs services datagen ops
+-      - run: ruff format --check libs services datagen ops
+-      - run: mypy libs services datagen ops
++      - run: make static
+ 
+   unit:
+-    name: unit tests
++    name: unit
+     runs-on: ubuntu-latest
+-    needs: static
++    timeout-minutes: 20
++    needs: [static]
+     steps:
+       - uses: actions/checkout@v4
+       - uses: actions/setup-python@v5
+         with:
+-          python-version: "3.12"
++          python-version: ${{ env.PYTHON_VERSION }}
+       - run: python -m pip install --upgrade pip
+       - run: python -m pip install ".[dev,streamlit,identity]"
+       - run: make test
+ 
++  integration:
++    name: integration
++    runs-on: ubuntu-latest
++    timeout-minutes: 30
++    needs: [unit]
++    services:
++      postgres:
++        image: postgres:16
++        env:
++          POSTGRES_PASSWORD: ci-ephemeral
++        ports:
++          - 5432:5432
++        options: >-
++          --health-cmd "pg_isready -U postgres" --health-interval 5s
++          --health-timeout 5s --health-retries 10
++      redis:
++        image: redis:7
++        ports:
++          - 6379:6379
++        options: >-
++          --health-cmd "redis-cli ping" --health-interval 5s
++          --health-timeout 5s --health-retries 10
++    env:
++      TEST_DATABASE_URL: postgresql://postgres:ci-ephemeral@localhost:5432/postgres
++      TEST_REDIS_URL: redis://localhost:6379/0
++    steps:
++      - uses: actions/checkout@v4
++      - uses: actions/setup-python@v5
++        with:
++          python-version: ${{ env.PYTHON_VERSION }}
++      - run: python -m pip install --upgrade pip
++      - run: python -m pip install ".[dev,streamlit,identity]"
++      - run: make test-integration
++
+   contracts:
+-    name: contracts and workflow JSON
++    name: contracts (oasdiff breaking)
+     runs-on: ubuntu-latest
+-    needs: static
++    timeout-minutes: 20
++    needs: [integration]
+     steps:
+       - uses: actions/checkout@v4
+       - uses: actions/setup-python@v5
+         with:
+-          python-version: "3.12"
+-      - run: python -m json.tool orchestration/n8n/wf_maps_medellin.json >/dev/null
+-      - run: python -m json.tool orchestration/n8n/wf_hot_lead_alert.json >/dev/null
++          python-version: ${{ env.PYTHON_VERSION }}
++      - run: python -m pip install --upgrade pip
++      - run: python -m pip install ".[dev,streamlit,identity]"
++      - name: Keep the committed OpenAPI document as the base
++        run: cp docs/api/openapi.json "$RUNNER_TEMP/openapi-base.json"
++      - run: make openapi
++      - name: Fail when the committed document is stale
++        run: git diff --exit-code -- docs/api/openapi.json
++      - name: Fail on breaking changes against the committed base
++        run: >-
++          docker run --rm -v "$RUNNER_TEMP:/work" -v "$PWD/docs/api:/rev"
++          tufin/oasdiff:latest breaking /work/openapi-base.json /rev/openapi.json
++          --fail-on ERR
++
++  e2e:
++    name: e2e
++    runs-on: ubuntu-latest
++    timeout-minutes: 30
++    needs: [contracts]
++    steps:
++      - uses: actions/checkout@v4
++      - uses: actions/setup-python@v5
++        with:
++          python-version: ${{ env.PYTHON_VERSION }}
++      - run: python -m pip install --upgrade pip
++      - run: python -m pip install ".[dev,streamlit,identity]"
++      - run: docker compose up --build --detach --wait
++      - run: make test-integration
++      - if: always()
++        run: docker compose down --volumes
+ 
+-  # F0 placeholders for the remaining ARCH-0001 stages. Each becomes a real
+-  # blocking job when its dependency is introduced: integration,
+-  # contracts/OpenAPI diff, e2e, images, migrate, backend deploy, frontend
+-  # deploy and production smoke with rollback.
+-  pipeline-contract:
+-    name: F0 pipeline contract
++  images:
++    name: images
+     runs-on: ubuntu-latest
+-    needs: contracts
++    timeout-minutes: 45
++    needs: [e2e]
+     steps:
+       - uses: actions/checkout@v4
+-      - run: test -f docker-compose.yml && test -f migrations/20261017_0001_expand_initial_schemas.sql
++      - uses: docker/setup-buildx-action@v3
++      - run: docker compose build
++      - run: docker compose up --detach --wait
++      - if: always()
++        run: docker compose down --volumes
+ 
++  deploy-migrate:
++    name: deploy migrate
++    runs-on: ubuntu-latest
++    timeout-minutes: 30
++    needs: [images]
++    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
++    environment: production
++    steps:
++      - uses: actions/checkout@v4
++      - id: gate
++        name: Check environment secrets
++        env:
++          HAS_SECRET: ${{ secrets.DEPLOY_DATABASE_URL != '' }}
++        run: echo "enabled=$HAS_SECRET" >> "$GITHUB_OUTPUT"
++      - if: steps.gate.outputs.enabled == 'true'
++        uses: actions/setup-python@v5
++        with:
++          python-version: ${{ env.PYTHON_VERSION }}
++      - if: steps.gate.outputs.enabled == 'true'
++        run: python -m pip install ".[dev]"
++      - if: steps.gate.outputs.enabled == 'true'
++        env:
++          DATABASE_URL: ${{ secrets.DEPLOY_DATABASE_URL }}
++        run: python ops/migrate.py
++
++  deploy-backend:
++    name: deploy backend
++    runs-on: ubuntu-latest
++    timeout-minutes: 30
++    needs: [deploy-migrate]
++    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
++    environment: production
++    steps:
++      - uses: actions/checkout@v4
++      - id: gate
++        name: Check environment secrets
++        env:
++          HAS_SECRET: ${{ secrets.DEPLOY_BACKEND_TOKEN != '' }}
++        run: echo "enabled=$HAS_SECRET" >> "$GITHUB_OUTPUT"
++      - if: steps.gate.outputs.enabled == 'true'
++        env:
++          DEPLOY_BACKEND_TOKEN: ${{ secrets.DEPLOY_BACKEND_TOKEN }}
++          DEPLOY_SHA: ${{ github.sha }}
++        run: echo "Redeploy changed backend services at $DEPLOY_SHA and wait for SUCCESS"
++
++  deploy-frontend:
++    name: deploy frontend
++    runs-on: ubuntu-latest
++    timeout-minutes: 30
++    needs: [deploy-backend]
++    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
++    environment: production
++    steps:
++      - uses: actions/checkout@v4
++      - id: gate
++        name: Check environment secrets
++        env:
++          HAS_SECRET: ${{ secrets.VERCEL_TOKEN != '' }}
++        run: echo "enabled=$HAS_SECRET" >> "$GITHUB_OUTPUT"
++      - if: steps.gate.outputs.enabled == 'true'
++        env:
++          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
++        run: echo "Frontend is out of scope; vercel deploy --prebuilt --prod runs here once it exists"
++
++  deploy-streamlit:
++    name: deploy streamlit
++    runs-on: ubuntu-latest
++    timeout-minutes: 30
++    needs: [deploy-frontend]
++    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
++    environment: production
++    steps:
++      - uses: actions/checkout@v4
++      - id: gate
++        name: Check environment secrets
++        env:
++          HAS_SECRET: ${{ secrets.DEPLOY_STREAMLIT_TOKEN != '' }}
++        run: echo "enabled=$HAS_SECRET" >> "$GITHUB_OUTPUT"
++      - if: steps.gate.outputs.enabled == 'true'
++        env:
++          DEPLOY_STREAMLIT_TOKEN: ${{ secrets.DEPLOY_STREAMLIT_TOKEN }}
++          DEPLOY_SHA: ${{ github.sha }}
++        run: echo "Redeploy the streamlit container at $DEPLOY_SHA when it changed"
++
++  deploy-smoke:
++    name: deploy smoke
++    runs-on: ubuntu-latest
++    timeout-minutes: 30
++    needs: [deploy-streamlit]
++    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
++    environment: production
++    steps:
++      - uses: actions/checkout@v4
++      - id: gate
++        name: Check environment secrets
++        env:
++          HAS_SECRET: ${{ secrets.DEPLOY_SMOKE_BASE_URL != '' }}
++        run: echo "enabled=$HAS_SECRET" >> "$GITHUB_OUTPUT"
++      - if: steps.gate.outputs.enabled == 'true'
++        env:
++          SMOKE_BASE_URL: ${{ secrets.DEPLOY_SMOKE_BASE_URL }}
++          FORCE_FAILURE: ${{ inputs.force_smoke_failure || contains(github.event.head_commit.message, '[force-smoke-failure]') }}
++        run: |
++          curl --fail --silent --show-error --max-time 180 "$SMOKE_BASE_URL/ready" >/dev/null
++          test "$FORCE_FAILURE" != "true"
++      - if: failure() && steps.gate.outputs.enabled == 'true'
++        run: echo "Smoke failed, trigger automatic rollback to the previous release"

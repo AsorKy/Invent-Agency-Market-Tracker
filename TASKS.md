@@ -1082,7 +1082,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: (code and tests done, pytest 12 passed) BLOCKED only on the workflow change: PAT lacks `workflow` scope, push rejected. Apply with `git apply docs/runs/T-063-backups-workflow.diff`. `pytest -q tests/unit/test_backups.py` -> 12 passed; ops/check_workflows.py OK; make static and make test pass
 
 ### T-064 Eleven-stage CI pipeline
-- status: todo
+- status: blocked
 - spec: REQ-CI-002
 - owner: devops-engineer
 - depends: T-007, T-063, T-070
@@ -1091,7 +1091,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_ci_workflow.py`
 - note: stages static, unit, integration, contracts (oasdiff against the committed `docs/api/openapi.json`), e2e, images, deploy migrate, deploy backend, deploy frontend, deploy streamlit, deploy smoke, in order. Deploy stages are skipped without environment secrets. No secret values in the file.
-- evidence:
+- evidence: ci.yml push rejected (no workflow scope); patch docs/runs/T-064-ci-workflow.diff (apply with git apply), its test saved as docs/runs/T-064-test_ci_workflow.py.txt (move to tests/unit/test_ci_workflow.py after applying; 6 passed when applied)
 
 ### T-065 Coverage gate
 - status: done
@@ -1154,7 +1154,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_compose.py` -> 39 passed; `docker compose config` exit 0; make static and make test pass. Omitted: ingest poller (runs in API lifespan) and brief worker (no entrypoint exists). Coordinator added BOOTSTRAP_PASSWORD_* to .env.example.
 
 ### T-074 The make invent-tracker command
-- status: todo
+- status: done
 - spec: REQ-RUN-001
 - owner: devops-engineer
 - depends: T-073, T-072, T-070
@@ -1163,10 +1163,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `make -n invent-tracker` and `pytest -q tests/unit/test_make_targets.py tests/unit/test_bootstrap_env.py`
 - note: targets `invent-tracker`, `invent-tracker-down`, `invent-tracker-reset` (asks for confirmation), `seed`, `seed-clear`, `openapi`, and `test-integration`. `ops/bootstrap_env.py` copies `.env.example` to `.env` only when missing and fills local secrets (service token, edge secret, database and Redis passwords, dev user passwords) from `secrets` without printing them. After start it waits for the gateway `/ready` and prints URLs for the gateway, Streamlit, and n8n.
-- evidence:
+- evidence: `make -n invent-tracker`; pytest test_make_targets+test_bootstrap_env 17 passed; make static/test green
 
 ### T-075 Doctor command
-- status: todo
+- status: done
 - spec: REQ-RUN-005
 - owner: devops-engineer
 - depends: T-074, T-043
@@ -1175,10 +1175,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_doctor.py`
 - note: variable-name-only report of set and missing settings, active sources and modes, service health through the gateway, and webhook reachability when configured. The test plants a sentinel secret and asserts it never appears.
-- evidence:
+- evidence: `pytest -q tests/unit/test_doctor.py` 7 passed; make static/test green
 
 ### T-076 Live verification command
-- status: todo
+- status: done
 - spec: REQ-RUN-006
 - owner: second-backend-engineer
 - depends: T-043, T-075, T-096
@@ -1187,7 +1187,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_verify_live.py`
 - note: bounded collection (5 records) for one source, per-hop pass or fail report (trigger, snapshot, normalize, resolve, signal, score, API read), refusal in mock mode, and clear next steps on failure. Tested with fakes. After a successful hop sequence it runs `ops/verify_mappings.py --capture` (T-096) and prints the mapping coverage per source.
-- evidence:
+- evidence: `pytest -q tests/unit/test_verify_live.py` 10 passed; make static/test green
 
 ### T-077 Offline end-to-end pipeline test
 - status: done
@@ -1202,7 +1202,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_pipeline_flow.py` 7 passed, 4 strict xfail (defects D-1..D-4 in run report); make test green
 
 ### T-078 Integration test tier
-- status: todo
+- status: done
 - spec: REQ-QA-005
 - owner: qa-reviewer
 - depends: T-071, T-077
@@ -1211,10 +1211,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/integration --collect-only` (the tests run only with database and Redis URLs set, by the owner)
 - note: tests for migrations on an empty database, role isolation between schemas, the outbox relay against real Redis Streams, and the REQ-QA-004 flow producing rows in every expected schema. Marked `integration`; skipped when no database URL is set.
-- evidence:
+- evidence: `pytest -q tests/integration --collect-only` 14 collected; skip without DB/Redis URLs; real-service run unverified (owner)
 
 ### T-079 Go-live runbook
-- status: todo
+- status: done
 - spec: REQ-DOC-001
 - owner: architecture-reviewer
 - depends: T-076
@@ -1223,7 +1223,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: S
 - acceptance: `pytest -q tests/unit/test_runbook.py`
 - note: step-by-step English runbook: credentials, enabling sources, webhook tunnel or polling fallback, mapping adjustments (including `unverified` mappings), `make doctor`, `make verify-live`, how data reaches `/api/v1`, how to point the frontend at the gateway with the local profile, and a troubleshooting table.
-- evidence:
+- evidence: `pytest -q tests/unit/test_runbook.py` 5 passed; make static/test green
 
 ### T-080 Run 1 review pack
 - status: todo

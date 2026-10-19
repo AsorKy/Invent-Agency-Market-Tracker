@@ -1,7 +1,8 @@
 # Reproducible development commands, static guardrails, and Compose
 # configuration. Relates to ops/check_*.py, pyproject.toml, and
 # docker-compose.yml.
-.PHONY: up down datagen openapi static compose-config test test-integration test-sql coverage
+.PHONY: up down datagen openapi static compose-config test test-integration test-sql coverage \
+	invent-tracker invent-tracker-down invent-tracker-reset seed seed-clear doctor verify-live
 
 up:
 	docker compose up --build
@@ -14,6 +15,35 @@ datagen:
 
 openapi:
 	python -m ops.export_openapi
+
+# REQ-RUN-001: one command starts everything; safe to run again. The marker
+# .env.seeded (ignored by git through .env.*) records that demo data was loaded.
+invent-tracker:
+	python ops/bootstrap_env.py
+	docker compose up -d --wait postgres redis
+	set -a && . ./.env && set +a && python ops/bootstrap_roles.py | docker compose exec -T postgres sh -c 'psql -v ON_ERROR_STOP=1 -q -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"'
+	docker compose up -d --build --remove-orphans
+	python ops/bootstrap_env.py --wait
+	test -f .env.seeded || { $(MAKE) seed && touch .env.seeded; }
+
+invent-tracker-down:
+	docker compose down
+
+invent-tracker-reset:
+	@printf 'This removes all containers and data volumes. Type yes to continue: '; read answer; \
+	if [ "$$answer" = "yes" ]; then docker compose down -v && rm -f .env.seeded; else echo "Aborted"; exit 1; fi
+
+seed:
+	docker compose exec -T gateway python -m ops.seed load
+
+seed-clear:
+	docker compose exec -T gateway python -m ops.seed clear
+
+doctor:
+	python ops/doctor.py
+
+verify-live:
+	python ops/verify_live.py --source "$(SOURCE)" $(if $(INPUTS),--inputs "$(INPUTS)")
 
 static:
 	python ops/check_migrations.py
