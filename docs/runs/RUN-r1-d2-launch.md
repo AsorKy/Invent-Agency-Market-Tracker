@@ -1,37 +1,36 @@
 # Run report r1-d2-launch
 
-Branch: `agent/r1-d2-launch`
+Branch: `agent/r1-d2-launch`. An earlier session had pushed a report claiming all tasks were blocked on unmerged dependencies; it was based on an older commit. This run merged current `main` (where the dependencies are done) and replaces that report.
 
-## Outcome
+## Tasks
 
-No task was implemented. T-074, T-075, T-076, T-078, T-079 and T-064 are blocked on unmet dependencies.
-
-## Reason
-
-The run protocol only starts a task whose `depends` entries are all `done`. On `main` they are not:
-
-| Task | Unmet dependency on main | Where the dependency exists |
+| Task | Status | Evidence |
 | --- | --- | --- |
-| T-074 | T-073, T-072, T-070 (todo) | done only on unmerged `agent/r1-d-ops` (T-073), `agent/r1-d-e2e` (T-072), `agent/r1-d-hardening` (T-070) |
-| T-075 | T-074 | blocked in this run |
-| T-076 | T-075 | blocked in this run |
-| T-078 | T-071, T-077 (todo) | done only on unmerged `agent/r1-d-ops` (T-071), `agent/r1-d-e2e` (T-077) |
-| T-079 | T-076 | blocked in this run |
-| T-064 | T-063 (blocked), T-070 (todo) | T-063's workflow patch is saved in `agent/r1-d-ops`; T-070 only on `agent/r1-d-hardening` |
+| T-074 make invent-tracker | done | 17 tests pass, `make -n invent-tracker` expands |
+| T-075 doctor | done | 7 tests pass |
+| T-076 verify-live | done | 10 tests pass (fakes only) |
+| T-078 integration tier | done | 14 tests collected, skipped without DB/Redis URLs |
+| T-079 go-live runbook | done | 5 tests pass |
+| T-064 eleven-stage CI | blocked | push of `.github/workflows/ci.yml` rejected (token lacks `workflow` scope) |
 
-T-074 would need `ops/seed`, `ops/export_openapi.py` and the compose file for its targets. I did not merge or cherry-pick other sessions' unreviewed branches into this one, because that would mix their work into this PR and risk conflicts in `Makefile` and `TASKS.md`.
+## T-064 note
 
-## Commands executed
+The new workflow is saved as `docs/runs/T-064-ci-workflow.diff` (apply with `git apply`). Its test is saved as `docs/runs/T-064-test_ci_workflow.py.txt`; after applying the diff, move it to `tests/unit/test_ci_workflow.py` (6 tests passed against the new workflow). It is not in `tests/` because it would fail without the workflow change.
 
-- `python3.12 -m venv /tmp/venv`, `pip install '.[dev,streamlit,identity]'`: succeeded (PyPI reachable).
-- Inspected `TASKS.md` statuses on `main` and on remote `agent/*` branches.
-- `make static` and `make test` were not run: only `TASKS.md` and this report changed.
+## Commands
+
+- venv python3.12 and `pip install '.[dev,streamlit,identity]'`: ok.
+- Before each commit: `make static` ok, `make test` ok (final: see PR), `tests/unit/test_sql_consistency.py` 24 passed (no SQL added).
+- `pytest -q tests/integration --collect-only`: 14 collected.
+
+## Assumptions and risks
+
+- Integration tests (T-078) never ran against real Postgres/Redis; they use `TEST_DATABASE_URL` and `TEST_REDIS_URL` (the Makefile target does not set them). Use a dedicated Redis DB.
+- T-074: no Redis password is generated (compose Redis has no auth). `bootstrap_roles` extensions (vector, postgis, pg_cron) may not exist in `postgres:16-alpine`; owner must confirm with one Docker run. `ops/seed/README.md` still says make targets belong to T-074 (outside scope).
+- T-075: live mode requires `BRIGHT_DATA_WEBHOOK_SECRET`, possibly stricter than settings.
+- T-076: ingest/core ports are not published by compose; use `VERIFY_LIVE_INGEST_URL`/`VERIFY_LIVE_CORE_URL`. Signal and score hops match by time window; the 5-record bound caps inputs, not records per input; signal source label match unverified live.
+- T-064 CI content: deploy steps for backend/frontend/streamlit are placeholders; `integration` job passes the TEST_* variables; e2e/images/contracts jobs untested.
 
 ## Changed files
 
-- `TASKS.md` (status and blocker lines for the six tasks above)
-- `docs/runs/RUN-r1-d2-launch.md`
-
-## Next step
-
-Merge the PRs for `agent/r1-d-ops`, `agent/r1-d-e2e` and `agent/r1-d-hardening` into `main`, then rerun this task list. The `.github/workflows/ci.yml` change for T-064 may still be rejected for lack of workflow scope and would then go in as a patch under `docs/runs/`.
+Makefile, TASKS.md, ops/bootstrap_env.py, ops/doctor.py, ops/verify_live.py, tests/unit/test_{make_targets,bootstrap_env,doctor,verify_live,runbook}.py, tests/integration/*, docs/runbooks/go-live.md, docs/runs/T-064-*.
