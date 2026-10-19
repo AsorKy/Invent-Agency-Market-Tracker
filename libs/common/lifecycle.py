@@ -186,13 +186,19 @@ def graceful_lifespan(inner: Lifespan | None = None) -> Lifespan:
         state = getattr(app.state, "service_state", None)
         if state is not None:
             state.draining = False
-        if inner is None:
-            yield
-            await _drain(app)
-            return
-        async with inner(app):
-            yield
-            await _drain(app)
+        try:
+            if inner is None:
+                yield
+                await _drain(app)
+            else:
+                async with inner(app):
+                    yield
+                    await _drain(app)
+        finally:
+            # The process is done serving; clear the gate so an app object that is reused
+            # in-process (tests, reloads) does not answer 503 forever.
+            if state is not None:
+                state.draining = False
 
     return lifespan
 
