@@ -1202,7 +1202,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_pipeline_flow.py` 7 passed, 4 strict xfail (defects D-1..D-4 in run report); make test green
 
 ### T-078 Integration test tier
-- status: todo
+- status: done
 - spec: REQ-QA-005
 - owner: qa-reviewer
 - depends: T-071, T-077
@@ -1211,7 +1211,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/integration --collect-only` (the tests run only with database and Redis URLs set, by the owner)
 - note: tests for migrations on an empty database, role isolation between schemas, the outbox relay against real Redis Streams, and the REQ-QA-004 flow producing rows in every expected schema. Marked `integration`; skipped when no database URL is set.
-- evidence:
+- evidence: `pytest -q tests/integration --collect-only` 14 collected; skip without DB/Redis URLs; real-service run unverified (owner)
 
 ### T-079 Go-live runbook
 - status: todo
