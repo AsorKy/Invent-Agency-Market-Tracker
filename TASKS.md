@@ -1,6 +1,6 @@
 # Invent Market Tracker - Tasks
 
-Status: ACTIVE v4 (2026-10-18). Generated from `SPEC.md` v3.1 for run 1 (layer L1, ADR-IMT-0001). Task IDs are never reused. v4 adds the hardening tasks T-090 to T-097 (event tenant, single relay, SQL consistency tests, unique indexes, mapping verification, dbt mart naming) and regroups the remaining work into parallel sessions (see Waves in run r1-c).
+Status: ACTIVE v6 (2026-10-19). Generated from `SPEC.md` v3.1 for run 1 (layer L1, ADR-IMT-0001). Task IDs are never reused. v4 adds the hardening tasks T-090 to T-097 (event tenant, single relay, SQL consistency tests, unique indexes, mapping verification, dbt mart naming) and regroups the remaining work into parallel sessions (see Waves in run r1-c). v6 adds the follow-up tasks T-081 to T-089, T-098, and T-120 to T-127 found in the r1-c and r1-d run reports, and plans run r1-d2 (see Waves in run r1-d2).
 
 Each task cites the requirements in `SPEC.md` that it satisfies. The run protocol (branch, commit, push, evidence, blocked handling) is defined in `AGENTS.md`. Only L1 work is listed; L2 and L3 tasks are generated when their runs open.
 
@@ -40,10 +40,12 @@ Size is a rough token cost guide: S under 1 USD, M 1 to 3 USD, L 3 to 8 USD. Tes
 | r1-a | Foundation: T-001 to T-018 (single agent, one role per task) | 18 tasks | about 38 USD |
 | r1-b | Services: T-020 to T-059 (coordinator plus up to three lanes) | 34 tasks | about 107 USD |
 | r1-c | Hardening T-090 to T-097 plus the second half of the services: T-030 to T-035, T-045, T-046, T-048, T-049, T-058 (five parallel sessions) | 19 tasks | about 58 USD |
-| r1-d | Cross-cutting, launch and review: T-060 to T-065, T-070 to T-080 | 17 tasks | about 37 USD |
+| r1-d | Platform, three sessions (done): T-060 to T-063, T-065, T-070 to T-073, T-077 | 11 tasks | about 24 USD |
+| r1-d2 | Follow-ups and launch tooling, seven parallel sessions: T-064, T-074 to T-076, T-078, T-079, T-081, T-083 to T-089, T-098, T-120 to T-122, T-124 to T-127 (T-082 is reserved for the row level security decision) | 22 tasks | about 62 USD |
+| r1-e | Security migration and review: T-123, T-080 | 2 tasks | about 6 USD |
 | r2 | Continuation with ADR-0002: T-100 to T-112, only if budget remains after T-080 | 13 tasks | about 38 USD |
 
-Total estimate for run 1 (smoke to r1-d): about 197 USD (183 USD of the v3 plan plus about 14 USD for T-090 to T-097), plus about 38 USD for the optional ADR-0002 continuation, to be corrected after the smoke run shows real cost per task. Blocked tasks do not consume budget. Set the session budget of each run to about 1.5 times its estimate.
+Total estimate for run 1 (smoke to r1-d): about 197 USD (183 USD of the v3 plan plus about 14 USD for T-090 to T-097 and about 30 USD for the v6 follow-ups), plus about 38 USD for the optional ADR-0002 continuation, to be corrected after the smoke run shows real cost per task. Blocked tasks do not consume budget. Set the session budget of each run to about 1.5 times its estimate.
 
 ### Lanes in run r1-b
 
@@ -70,6 +72,20 @@ Five sessions run in parallel, each with its own coordinator and branch `agent/<
 | r1-c-ingest | T-045, T-046, T-048, T-096 | services/ingest, libs/domain/source_mappings, ops/verify_mappings.py, tests/fixtures | 20 USD |
 
 Rules: SQL written by any session must pass `tests/unit/test_sql_consistency.py` once T-094 is on `main`; the owner merges r1-c-data first, re-runs the other branches' CI, and any SQL finding becomes a short fix session. Decisions behind T-090 to T-097 are D-16 to D-19 in `SPEC.md`.
+
+### Waves in run r1-d2
+
+Seven sessions run in parallel after the r1-d pull requests are merged (the r1-d sessions r1-d-core2, r1-d-data2, and r1-d-ingest2 found no tasks because v5 was not merged yet; their work is replanned here). Write sets are disjoint; merge `r1-d2-mlpulse` after `r1-d2-core`, because both touch `services/core/app/`.
+
+| Session | Tasks (in order) | Writes | Cap |
+| --- | --- | --- | --- |
+| r1-d2-core | T-084, T-085 | libs/common/settings.py, .env.example, services/core | 12 USD |
+| r1-d2-data | T-083, T-086, T-087, T-122, T-081 | migrations, services/brief, tests/unit/support_sql.py | 26 USD |
+| r1-d2-ingest | T-120, T-089, T-098 | services/ingest, services/mocks | 20 USD |
+| r1-d2-mlpulse | T-121, T-088, T-124 | services/ml, services/pulse, services/core/app (events) | 22 USD |
+| r1-d2-ops | T-125 | docker-compose.yml, deploy | 10 USD |
+| r1-d2-qa | T-126, T-127 | new test files only | 20 USD |
+| r1-d2-launch | T-074, T-075, T-076, T-078, T-079, T-064 | Makefile, ops, tests/integration, docs/runbooks, ci.yml (patch) | 30 USD |
 
 ## If the budget is not exhausted: continue with ADR-0002
 
@@ -813,8 +829,212 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - note: decision D-19. Tables in `pulse` have four kinds, each with its own name component: projections written by the pulse consumer keep `fact_*` (created by migrations, tenant scoped, row level security); rollups keep `*_rollup`; dbt staging views are `stg_<source>__<entity>`; dbt marts get the component `mart`: `mart_dim_<name>` and `mart_fact_<name>`. Rename the seven dimensions and five facts in the model files, every `ref()`, `schema.yml`, `semantic.yml`, `export_parquet.py`, and the README (Parquet files take the new names); keep `metricflow_time_spine` because MetricFlow expects it. Fix the outdated comment in `macros/generate_schema_name.sql`. Search `services/` for readers of the old dbt names and report them instead of editing outside `transform/`. The test checks that every model in `transform/models/marts/` starts with `mart_` (except the time spine) and that no dbt model name equals a table created by `migrations/`.
 - evidence: `dbt parse` OK; `pytest -q tests/unit/test_dbt_naming.py` 2 passed; make static/test pass
 
-### T-060 Zero trust between services
+### T-081 SQL collector follows buffered statements
 - status: todo
+- spec: REQ-QA-002, REQ-DAT-001
+- owner: qa-reviewer
+- depends: T-094, T-045
+- write_scope: tests/unit/support_sql.py, tests/unit/test_sql_consistency.py
+- context: tests/unit/support_sql.py, tests/unit/test_sql_consistency.py, services/ingest/app/to_core.py
+- size: M
+- acceptance: `pytest -q tests/unit/test_sql_consistency.py`
+- note: teach `collect_statements()` to follow SQL literals that are appended or stored as `(sql, params)` tuples in the same class and later passed to `text()`, then remove the `UNRESOLVED_SQL` entry for `services/ingest/app/to_core.py`. Every new finding is reported in the run report and recorded in `KNOWN_FINDINGS` with a reason; do not edit production code.
+- evidence:
+
+### T-083 Identity tables as an SQL migration
+- status: todo
+- spec: REQ-IDN-001, REQ-DAT-001
+- owner: database-engineer
+- depends: T-030, T-031, T-093
+- write_scope: migrations/ (one new file), tests/unit/test_identity_schema.py
+- context: services/identity/iam/migrations/, services/identity/iam/models.py, migrations/README.md
+- size: M
+- acceptance: `python ops/check_migrations.py` and `pytest -q tests/unit/test_identity_schema.py`
+- note: express `identity.credential` and `identity.auth_session` (from Django migration `iam.0001`) as an expand SQL migration with `IF NOT EXISTS`, grants for the identity role, and row level security where the table has `tenant_id`. The test checks parity between the SQL columns and the fields of the Django models (read the model fields with the SQLite test settings). Report, do not change, anything in `services/identity/`.
+- evidence:
+
+### T-084 Settings and environment cleanup
+- status: todo
+- spec: REQ-SEC-004, REQ-RUN-004
+- owner: coordinator
+- depends: T-032, T-035, T-049
+- write_scope: libs/common/settings.py, tests/unit/snapshots/settings_fields.json, .env.example
+- context: libs/common/settings.py, tests/unit/snapshots/settings_fields.json, .env.example, ops/check_configuration.py
+- size: S
+- acceptance: `python ops/check_configuration.py` and `pytest -q tests/unit/test_settings.py` (or the settings test that reads the snapshot)
+- note: remove `analytics_url` from the settings and from the snapshot in the same commit. Add `RUES_DELTA_URL`, `OPS_ALERT_FROM`, `OPS_ALERT_TO`, `APP_PROFILE`, `FRONTEND_ORIGIN`, and `IDENTITY_VALIDATION_ENABLED` with safe local defaults to the settings and to `.env.example`. No secrets in defaults.
+- evidence:
+
+### T-085 Core brief-facts endpoint and kanban as_of
+- status: todo
+- spec: REQ-BRF-001, REQ-COR-001
+- owner: lead-backend-engineer
+- depends: T-033, T-024
+- write_scope: services/core/app/ (a new module and the route in main.py), tests/unit/test_brief_facts.py
+- context: services/brief/app/core_source.py, services/core/app/main.py, services/core/app/leads.py
+- size: M
+- acceptance: `pytest -q tests/unit/test_brief_facts.py`
+- note: add `GET /internal/core/companies/{id}/brief-facts` returning exactly the facts that `services/brief/app/core_source.py` expects, tenant scoped from the service-token headers (404 across tenants), and make the kanban endpoint return a real `as_of` instead of null. A contract test validates the response against the brief's expected model.
+- evidence:
+
+### T-086 Brief schema additions
+- status: todo
+- spec: REQ-BRF-001, REQ-DAT-001
+- owner: database-engineer
+- depends: T-033, T-093
+- write_scope: migrations/ (one new file), tests/unit/test_brief_schema.py
+- context: migrations/, services/brief/app/models.py, services/brief/app/service.py
+- size: M
+- acceptance: `python ops/check_migrations.py` and `pytest -q tests/unit/test_brief_schema.py`
+- note: expand migration with the next free number: add `config_version` to `brief.record_digest` and any table the brief repository needs for cache entries and rule versions (derive the columns from the in-memory repository). Row level security on every new table with `tenant_id`.
+- evidence:
+
+### T-087 Brief Postgres repository
+- status: todo
+- spec: REQ-BRF-001, REQ-BRF-002
+- owner: lead-backend-engineer
+- depends: T-086, T-033
+- write_scope: services/brief/, tests/unit/test_brief_repository.py
+- context: services/brief/app/service.py, services/brief/app/models.py, libs/common/db.py
+- size: M
+- acceptance: `pytest -q tests/unit/test_brief_repository.py tests/unit/test_sql_consistency.py`
+- note: a SQL repository behind the existing repository interface, using the tenant context helper, with fakes in the unit tests. Keep the in-memory repository for tests and local mode.
+- evidence:
+
+### T-088 Event payload dimensions for pulse rollups
+- status: todo
+- spec: REQ-PUL-002, REQ-EVT-005
+- owner: lead-backend-engineer
+- depends: T-090, T-052
+- write_scope: services/core/app/, services/pulse/app/, tests/unit/test_event_dimensions.py
+- context: services/core/app/companies.py, services/core/app/leads.py, services/pulse/app/rollups.py, services/pulse/app/consumer.py
+- size: M
+- acceptance: `pytest -q tests/unit/test_event_dimensions.py tests/unit/test_rollups.py tests/unit/test_pulse_consumer.py`
+- note: signal events carry `city` and `service_line`, and lead events carry `hot`, as additive payload fields; pulse reads them so rollups stop landing under `unknown`. Add a test showing a signal rolls up into the right city and service line bucket.
+- evidence:
+
+### T-089 Ingest core calls outside the transaction and RUES queue worker
+- status: todo
+- spec: REQ-ING-009, REQ-ING-003
+- owner: second-backend-engineer
+- depends: T-045
+- write_scope: services/ingest/, tests/unit/test_ingest_outside_tx.py, tests/unit/test_rues_queue.py
+- context: services/ingest/app/to_core.py, services/ingest/app/processor.py, services/ingest/app/repository.py
+- size: M
+- acceptance: `pytest -q tests/unit/test_ingest_outside_tx.py tests/unit/test_rues_queue.py tests/unit/test_ingest_to_core.py`
+- note: the processor must not hold a database connection while it calls core: commit the ingest writes first, then call core with an idempotency key, then record the result. Add a worker that retries `ingest.rues_lookup_queue` with backoff through the injectable lookup (mock) and sends resolved candidates through `to_core`.
+- evidence:
+
+### T-098 Source-specific mock records
+- status: todo
+- spec: REQ-ING-007, REQ-ING-004
+- owner: qa-reviewer
+- depends: T-048, T-096
+- write_scope: services/mocks/, tests/unit/test_mocks_sources.py
+- context: services/mocks/app/, tests/fixtures/brightdata/synthetic/, libs/domain/source_mappings/
+- size: M
+- acceptance: `pytest -q tests/unit/test_mocks_sources.py`
+- note: the Bright Data mock emits records for linkedin_companies, linkedin_jobs, and instagram with the field shapes of the synthetic fixtures, so the offline pipeline and the mapping verifier exercise every source.
+- evidence:
+
+
+### T-120 Ingest sends tenant_id on company upsert
+- status: todo
+- spec: REQ-ING-009, REQ-EVT-005
+- owner: second-backend-engineer
+- depends: T-045
+- write_scope: services/ingest/app/, tests/unit/test_ingest_to_core.py, tests/unit/test_pipeline_flow.py (only to remove the xfail marker and the tenant shim of defect D-1)
+- context: services/ingest/app/to_core.py, tests/unit/test_pipeline_flow.py, docs/runs/RUN-r1-d-e2e.md
+- size: S
+- acceptance: `pytest -q tests/unit/test_ingest_to_core.py tests/unit/test_pipeline_flow.py`
+- note: defect D-1 of the end-to-end test: `SnapshotFlow._deliver` sends no `tenant_id` on the company upsert, so events get a null tenant and the relay dead-letters them. Send the tenant on every upsert and signal call, taken from the ingest tenant configuration and never from the payload, then remove the shim and the strict xfail in the pipeline test.
+- evidence:
+
+### T-121 ML score events carry payload and tenant; pulse never sticks on a bad entry
+- status: todo
+- spec: REQ-EVT-005, REQ-EVT-002
+- owner: second-backend-engineer
+- depends: T-053, T-090
+- write_scope: services/ml/app/, services/pulse/app/consumer.py, tests/unit/test_score_event.py, tests/unit/test_pipeline_flow.py (only to remove the strict xfail of defect D-4)
+- context: services/ml/app/, services/pulse/app/consumer.py, services/core/app/dead_letter.py, docs/runs/RUN-r1-d-e2e.md
+- size: M
+- acceptance: `pytest -q tests/unit/test_score_event.py tests/unit/test_pulse_consumer.py tests/unit/test_pipeline_flow.py`
+- note: defect D-4: ML publishes `lead.score_updated` with no `payload` or `tenant_id`, pulse raises KeyError, and its worker sticks on that entry. ML must publish the same envelope as the core relay (`stream_fields` shape, `payload`, `tenant_id`). Pulse must treat a malformed entry as poison: log it, acknowledge it, and move it to a dead letter stream without raising. Test both sides.
+- evidence:
+
+### T-122 Brief lead route and production summarizer wiring
+- status: todo
+- spec: REQ-BRF-001, REQ-BRF-002
+- owner: lead-backend-engineer
+- depends: T-033
+- write_scope: services/brief/app/main.py, services/brief/app/, tests/unit/test_brief_routes.py, tests/unit/test_pipeline_flow.py (only to remove the strict xfail of defect D-2)
+- context: services/brief/app/main.py, services/brief/app/core_source.py, docs/runs/RUN-r1-d-e2e.md, docs/runs/RUN-r1-d-hardening.md
+- size: M
+- acceptance: `pytest -q tests/unit/test_brief_routes.py tests/unit/test_pipeline_flow.py`
+- note: defect D-2: `lead_digest` passes `lead_id` as `company_id`, so `GET /api/v1/leads/{id}/brief` always returns 404; resolve the lead to its company through the core source. Also wire an optional summarizer behind a setting so `degraded` can be true in production when a configured summarizer fails or times out (today none is built, so `degraded` is never true).
+- evidence:
+
+### T-123 Service tokens everywhere
+- status: todo
+- spec: REQ-SEC-005
+- owner: lead-backend-engineer
+- depends: T-060, T-122, T-089, T-120
+- write_scope: libs/common/internal_auth.py, services/*/app/ (service clients and auth dependencies only), tests/unit/test_internal_auth.py, tests/unit/test_service_clients.py
+- context: libs/common/internal_auth.py, docs/runs/RUN-r1-d-hardening.md
+- size: M
+- acceptance: `pytest -q tests/unit/test_internal_auth.py tests/unit/test_service_clients.py` and `python ops/check_configuration.py`
+- note: runs alone, after the r1-d2 pull requests are merged, because it edits clients in several services. Gateway, brief, ingest, and identity senders switch to `sign_service_token`; then remove the legacy raw shared secret from `require_internal_token`. Core requires the gateway token for tenant headers where only the gateway calls, with an explicit per-service allow list where brief and ingest also call core. Record, for the coordinator, the `_app` role per service in settings and the Redis ACL users `edge` and `data` in compose configuration checks.
+- evidence:
+
+### T-124 Resilience gaps from the failure matrix
+- status: todo
+- spec: REQ-OBS-001, REQ-EVT-007
+- owner: lead-backend-engineer
+- depends: T-062, T-061
+- write_scope: services/pulse/app/, services/core/app/dead_letter.py, services/ml/app/, .env.example, tests/unit/test_resilience_gaps.py
+- context: docs/runs/RUN-r1-d-hardening.md, libs/common/lifecycle.py, services/pulse/app/main.py
+- size: M
+- acceptance: `pytest -q tests/unit/test_resilience_gaps.py` and `python ops/check_configuration.py`
+- note: Pulse metric endpoints other than market and territory, and `ops/health`, return 503 instead of 500 on database errors. The relay, pulse, and ml workers register shutdown hooks (relay flush, batch acknowledge) with `register_shutdown_hook`. `request_id` travels in stream entries and consumers bind it to their logs. Add `SHUTDOWN_GRACE_SECONDS` to `.env.example`.
+- evidence:
+
+### T-125 Compose role bootstrap and worker entries
+- status: todo
+- spec: REQ-RUN-001, REQ-DAT-005
+- owner: devops-engineer
+- depends: T-073, T-071
+- write_scope: docker-compose.yml, deploy/, tests/unit/test_compose.py
+- context: docker-compose.yml, ops/bootstrap_roles.py, docs/runs/RUN-r1-d-ops.md
+- size: M
+- acceptance: `pytest -q tests/unit/test_compose.py` and `python ops/check_configuration.py`
+- note: add a one-shot `bootstrap-roles` service that runs after `migrate` and calls `ops/bootstrap_roles.py` to create the `<schema>_app` roles with passwords from `BOOTSTRAP_PASSWORD_*`, and make the service containers depend on it. Prefer a dedicated migrator role over the postgres superuser for the migrate service where the bootstrap allows it. Add the ingest poller and the brief worker to compose only if an entrypoint exists; otherwise record them as follow-ups.
+- evidence:
+
+### T-126 Coverage lift A (tests only)
+- status: todo
+- spec: REQ-QA-003
+- owner: qa-reviewer
+- depends: T-065
+- write_scope: tests/unit/test_cov_infra.py, tests/unit/support_cov.py
+- context: docs/runs/RUN-r1-d-e2e.md (modules below 80%), tests/unit/support_outbox.py
+- size: M
+- acceptance: `pytest -q tests/unit/test_cov_infra.py` and `make coverage`
+- note: raise to at least 80% line coverage: `libs/common/db.py`, `libs/common/rate_limiter.py`, `libs/common/redis_client.py`, `services/core/app/worker.py`, `services/core/app/repository.py` (SQL paths through fake connections), `services/brief/app/core_source.py`. Production code is not edited; report defects instead.
+- evidence:
+
+### T-127 Coverage lift B (tests only)
+- status: todo
+- spec: REQ-QA-003
+- owner: qa-reviewer
+- depends: T-065
+- write_scope: tests/unit/test_cov_services.py, tests/unit/support_cov_services.py
+- context: docs/runs/RUN-r1-d-e2e.md (modules below 80%)
+- size: M
+- acceptance: `pytest -q tests/unit/test_cov_services.py` and `make coverage`
+- note: raise to at least 80% line coverage: `services/ingest/app/processor.py`, `services/ingest/app/repository.py`, `services/ingest/app/main.py`, `services/ml/app/repository.py`, `services/ml/app/main.py`, `services/ml/app/segmentation.py`, `services/pulse/app/rollup_close.py`, `services/core/app/dead_letter.py`, `services/core/app/republish.py`. Production code is not edited; report defects instead.
+- evidence:
+### T-060 Zero trust between services
+- status: done
 - spec: REQ-SEC-005
 - owner: lead-backend-engineer
 - depends: T-032, T-050
@@ -823,10 +1043,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_internal_auth.py` and `python ops/check_configuration.py`
 - note: signed service tokens with expiry for service-to-service calls, `_app` role per service in settings, Redis ACL users `edge` and `data` documented in compose configuration checks, and `/internal/*` never routed by the gateway (test). Core must accept tenant headers only from a request carrying a valid gateway service token; add a test where a direct call with `X-Tenant-ID` and no token is refused.
-- evidence:
+- evidence: `pytest -q tests/unit/test_internal_auth.py` 12 passed; `ops/check_configuration.py` OK; make static/test pass. Gaps (see run report): `_app` roles and Redis ACL users not done (outside write_scope); legacy shared secret still accepted; core tenant header requires any valid service token, not gateway-only
 
 ### T-061 Failure matrix tests
-- status: todo
+- status: done
 - spec: REQ-RES-002
 - owner: qa-reviewer
 - depends: T-033, T-051, T-053, T-032
@@ -835,10 +1055,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_failure_matrix.py`
 - note: fault injection with fakes for ml, pulse, brief, and Redis as described in REQ-RES-002. Report production defects instead of changing production code.
-- evidence:
+- evidence: `pytest -q tests/unit/test_failure_matrix.py` 16 passed; make static/test pass; production defects listed in run report
 
 ### T-062 Graceful shutdown, structured logs, and metrics
-- status: todo
+- status: done
 - spec: REQ-EVT-007, REQ-OBS-001
 - owner: lead-backend-engineer
 - depends: T-060, T-061
@@ -847,10 +1067,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_lifespan.py tests/unit/test_logging.py`
 - note: one shared lifespan helper (stop accepting, wait 25 s, flush the relay, ack the batch, close pools), one-line JSON logs with `request_id`, and Prometheus metrics at `/internal/metrics` for every service.
-- evidence:
+- evidence: `pytest -q tests/unit/test_lifespan.py tests/unit/test_logging.py` 15 passed; make static/test pass. Gaps: no shutdown hooks registered by workers yet; request_id not propagated to consumers
 
 ### T-063 Verified encrypted backups
-- status: todo
+- status: done
 - spec: REQ-BAK-001
 - owner: devops-engineer
 - depends: T-018
@@ -859,7 +1079,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_backups.py`
 - note: per-schema dump with the owner role, sha256, restore into an ephemeral database and check migration versions and table counts, `age` encryption, retention 7 and 28 days, and RPO and RTO in `ops/backups/README.md`. Test the orchestration logic with fakes for pg_dump and age.
-- evidence:
+- evidence: (code and tests done, pytest 12 passed) BLOCKED only on the workflow change: PAT lacks `workflow` scope, push rejected. Apply with `git apply docs/runs/T-063-backups-workflow.diff`. `pytest -q tests/unit/test_backups.py` -> 12 passed; ops/check_workflows.py OK; make static and make test pass
 
 ### T-064 Eleven-stage CI pipeline
 - status: blocked
@@ -874,7 +1094,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-065 Coverage gate
-- status: todo
+- status: done
 - spec: REQ-QA-003
 - owner: qa-reviewer
 - depends: T-077
@@ -883,10 +1103,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: S
 - acceptance: `make coverage` reports at least 80 percent for `libs` and `services` and at least 90 percent for `libs/domain`
 - note: add missing unit tests for any module below the threshold in `libs/domain`; list modules below 80 percent elsewhere in the run report with the reason.
-- evidence:
+- evidence: `make coverage` total 86.6%, libs/domain 99%; gates enforced
 
 ### T-070 OpenAPI export
-- status: todo
+- status: done
 - spec: REQ-API-001
 - owner: lead-backend-engineer
 - depends: T-032, T-051, T-022, T-026
@@ -895,10 +1115,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_openapi.py` and `make openapi` leaves `git diff --exit-code docs/api/openapi.json` clean
 - note: the gateway proxies by prefix, so build the document from an explicit route registry (path, method, request and response models, errors, headers) shared with the route table of T-032. The test fails for a route missing from the document or a stale committed file. The frozen `libs/contracts/api.py` disagrees with the Pulse response models on nullability: the coordinator reconciles them (the contract change is a coordinator edit) and records the choice in the run report.
-- evidence:
+- evidence: `pytest -q tests/unit/test_openapi.py` 10 passed; `make openapi` then `git diff --exit-code docs/api/openapi.json` clean after commit; make static/test pass
 
 ### T-071 Migration runner
-- status: todo
+- status: done
 - spec: REQ-RUN-002
 - owner: database-engineer
 - depends: T-018
@@ -907,10 +1127,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_migrate.py`
 - note: ordered application, one transaction per file, `public.schema_migration` with checksum, refusal on changed checksums, idempotent re-run, and a `--dry-run` listing. Test with a fake connection. The runner applies the migration added by T-093 and its own SQL is covered by `tests/unit/test_sql_consistency.py`.
-- evidence:
+- evidence: `pytest -q tests/unit/test_migrate.py tests/unit/test_sql_consistency.py` -> 31 passed; make static and make test pass
 
 ### T-072 Demo seed
-- status: todo
+- status: done
 - spec: REQ-RUN-003
 - owner: second-backend-engineer
 - depends: T-045, T-053, T-052, T-013
@@ -919,10 +1139,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_seed.py`
 - note: `python -m ops.seed load|clear` feeds the datagen snapshots through the ingest code path (mock mode) so every downstream table fills; idempotent; rows tagged `source=demo`; `clear` removes only those rows through service APIs.
-- evidence:
+- evidence: `pytest -q tests/unit/test_seed.py` 5 passed; make static clean
 
 ### T-073 Compose, images, and health probes
-- status: todo
+- status: done
 - spec: REQ-DEP-001, REQ-ARC-001, REQ-STR-002
 - owner: devops-engineer
 - depends: T-050, T-056, T-071, T-015
@@ -931,7 +1151,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/unit/test_compose.py`, plus `make compose-config` when the Docker CLI exists
 - note: services exactly as SPEC section 3.1 (no analytics); one-shot `migrate` service with `service_completed_successfully`; workers for core relay and consumers, ingest processor and poller, pulse consumer, ml consumer, brief worker; a real Streamlit container with health `/_stcore/health`; healthchecks for every API; `env_file: .env`; services read only their own database role. The test parses the compose file and asserts topology, dependencies, and the absence of credentials in the gateway.
-- evidence:
+- evidence: `pytest -q tests/unit/test_compose.py` -> 39 passed; `docker compose config` exit 0; make static and make test pass. Omitted: ingest poller (runs in API lifespan) and brief worker (no entrypoint exists). Coordinator added BOOTSTRAP_PASSWORD_* to .env.example.
 
 ### T-074 The make invent-tracker command
 - status: blocked
@@ -970,7 +1190,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-077 Offline end-to-end pipeline test
-- status: todo
+- status: done
 - spec: REQ-QA-004
 - owner: qa-reviewer
 - depends: T-045, T-053, T-052, T-033, T-024, T-032
@@ -979,7 +1199,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/unit/test_pipeline_flow.py` and `make test`
 - note: wire in-memory fake repositories and fake Redis Streams so one mock snapshot travels the whole path of REQ-QA-004 and the final `/api/v1/leads`, `/api/v1/leads/{id}/brief`, and `/api/v1/pulse/*` payloads are asserted through the gateway ASGI app. Report production defects you find; fix only test code.
-- evidence:
+- evidence: `pytest -q tests/unit/test_pipeline_flow.py` 7 passed, 4 strict xfail (defects D-1..D-4 in run report); make test green
 
 ### T-078 Integration test tier
 - status: blocked
@@ -1009,7 +1229,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - status: todo
 - spec: REQ-QA-001, REQ-TRC-001
 - owner: architecture-reviewer
-- depends: T-064, T-065, T-077, T-078, T-079, T-092, T-093, T-094, T-095, T-096, T-097
+- depends: T-064, T-065, T-077, T-078, T-079, T-092, T-093, T-094, T-095, T-096, T-097, T-081, T-083, T-084, T-085, T-086, T-087, T-088, T-089, T-098, T-120, T-121, T-122, T-123, T-124, T-125, T-126, T-127
 - write_scope: docs/runs/
 - context: SPEC.md (sections 3 and 6), docs/adr/ADR-IMT-0001-ARCH.md section E2.5, TASKS.md
 - size: M

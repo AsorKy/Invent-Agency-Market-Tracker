@@ -317,9 +317,17 @@
     "description": "Return active lead volume and the current team capacity estimate.",
     "properties": {
       "active": {
-        "minimum": 0,
-        "title": "Active",
-        "type": "integer"
+        "anyOf": [
+          {
+            "minimum": 0,
+            "type": "integer"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Active"
       },
       "as_of": {
         "minimum": 0,
@@ -327,21 +335,51 @@
         "type": "integer"
       },
       "capacity_estimate": {
-        "minimum": 0,
-        "title": "Capacity Estimate",
-        "type": "integer"
+        "anyOf": [
+          {
+            "minimum": 0,
+            "type": "integer"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Capacity Estimate"
       },
       "hot": {
-        "minimum": 0,
-        "title": "Hot",
-        "type": "integer"
+        "anyOf": [
+          {
+            "minimum": 0,
+            "type": "integer"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Hot"
+      },
+      "method_version": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Method Version"
+      },
+      "stale": {
+        "title": "Stale",
+        "type": "boolean"
       }
     },
     "required": [
-      "active",
-      "hot",
-      "capacity_estimate",
-      "as_of"
+      "as_of",
+      "stale"
     ],
     "title": "PipelineBacklogResponse",
     "type": "object"
@@ -612,7 +650,8 @@
       "roas": {
         "anyOf": [
           {
-            "type": "string"
+            "minimum": 0,
+            "type": "number"
           },
           {
             "type": "null"
@@ -677,7 +716,8 @@
           "roas": {
             "anyOf": [
               {
-                "type": "string"
+                "minimum": 0,
+                "type": "number"
               },
               {
                 "type": "null"
@@ -704,17 +744,34 @@
         "title": "As Of",
         "type": "integer"
       },
+      "method_version": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Method Version"
+      },
       "sources": {
         "items": {
           "$ref": "#/$defs/SourceEfficiency"
         },
         "title": "Sources",
         "type": "array"
+      },
+      "stale": {
+        "title": "Stale",
+        "type": "boolean"
       }
     },
     "required": [
       "sources",
-      "as_of"
+      "as_of",
+      "stale"
     ],
     "title": "SourceEfficiencyResponse",
     "type": "object"
@@ -788,11 +845,28 @@
         },
         "title": "Groups",
         "type": "array"
+      },
+      "method_version": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Method Version"
+      },
+      "stale": {
+        "title": "Stale",
+        "type": "boolean"
       }
     },
     "required": [
       "groups",
-      "as_of"
+      "as_of",
+      "stale"
     ],
     "title": "TimeInPipelineResponse",
     "type": "object"
@@ -878,17 +952,34 @@
         "title": "As Of",
         "type": "integer"
       },
+      "method_version": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Method Version"
+      },
       "ranking": {
         "items": {
           "$ref": "#/$defs/TopSource"
         },
         "title": "Ranking",
         "type": "array"
+      },
+      "stale": {
+        "title": "Stale",
+        "type": "boolean"
       }
     },
     "required": [
       "ranking",
-      "as_of"
+      "as_of",
+      "stale"
     ],
     "title": "TopSourcesResponse",
     "type": "object"
@@ -945,6 +1036,18 @@
         "title": "As Of",
         "type": "integer"
       },
+      "method_version": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Method Version"
+      },
       "points": {
         "items": {
           "$ref": "#/$defs/PulsePoint"
@@ -953,14 +1056,14 @@
         "type": "array"
       },
       "stale": {
-        "default": false,
         "title": "Stale",
         "type": "boolean"
       }
     },
     "required": [
       "points",
-      "as_of"
+      "as_of",
+      "stale"
     ],
     "title": "UnprocessedSignalsResponse",
     "type": "object"

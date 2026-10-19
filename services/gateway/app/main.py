@@ -23,6 +23,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, Response
 from redis.exceptions import RedisError
 
+from libs.common.lifecycle import graceful_lifespan, instrument_app
 from libs.common.log_redaction import redact_headers, redact_text
 from libs.common.logging import configure_logging
 from libs.common.rate_limiter import RedisSlidingWindowRateLimiter
@@ -124,9 +125,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(
     title="Invent Market Tracker Gateway",
     version=settings.app_version,
-    lifespan=lifespan,
+    lifespan=graceful_lifespan(lifespan),
 )
 app.add_middleware(RequestIdMiddleware)
+instrument_app(app, "gateway")
 
 _CORS_METHODS = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
 _CORS_HEADERS = "Content-Type, X-CSRF-Token, X-Request-ID"
