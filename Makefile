@@ -2,7 +2,7 @@
 # configuration. Relates to ops/check_*.py, pyproject.toml, and
 # docker-compose.yml.
 .PHONY: up down datagen openapi static compose-config test test-integration test-sql coverage \
-	invent-tracker invent-tracker-down invent-tracker-reset seed seed-clear doctor
+	invent-tracker invent-tracker-down invent-tracker-reset seed seed-clear doctor verify-live
 
 up:
 	docker compose up --build
@@ -41,6 +41,9 @@ seed-clear:
 
 doctor:
 	python ops/doctor.py
+
+verify-live:
+	python ops/verify_live.py --source "$(SOURCE)" $(if $(INPUTS),--inputs "$(INPUTS)")
 
 static:
 	python ops/check_migrations.py

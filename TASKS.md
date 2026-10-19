@@ -1178,7 +1178,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_doctor.py` 7 passed; make static/test green
 
 ### T-076 Live verification command
-- status: todo
+- status: done
 - spec: REQ-RUN-006
 - owner: second-backend-engineer
 - depends: T-043, T-075, T-096
@@ -1187,7 +1187,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_verify_live.py`
 - note: bounded collection (5 records) for one source, per-hop pass or fail report (trigger, snapshot, normalize, resolve, signal, score, API read), refusal in mock mode, and clear next steps on failure. Tested with fakes. After a successful hop sequence it runs `ops/verify_mappings.py --capture` (T-096) and prints the mapping coverage per source.
-- evidence:
+- evidence: `pytest -q tests/unit/test_verify_live.py` 10 passed; make static/test green
 
 ### T-077 Offline end-to-end pipeline test
 - status: done
