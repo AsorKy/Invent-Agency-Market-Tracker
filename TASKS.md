@@ -987,7 +987,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-124 Resilience gaps from the failure matrix
-- status: todo
+- status: done
 - spec: REQ-OBS-001, REQ-EVT-007
 - owner: lead-backend-engineer
 - depends: T-062, T-061
@@ -996,7 +996,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_resilience_gaps.py` and `python ops/check_configuration.py`
 - note: Pulse metric endpoints other than market and territory, and `ops/health`, return 503 instead of 500 on database errors. The relay, pulse, and ml workers register shutdown hooks (relay flush, batch acknowledge) with `register_shutdown_hook`. `request_id` travels in stream entries and consumers bind it to their logs. Add `SHUTDOWN_GRACE_SECONDS` to `.env.example`.
-- evidence:
+- evidence: `pytest -q tests/unit/test_resilience_gaps.py` -> 11 passed; `python ops/check_configuration.py` OK; make static and make test pass (918 passed)
 
 ### T-125 Compose role bootstrap and worker entries
 - status: todo
