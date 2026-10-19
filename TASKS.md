@@ -878,7 +878,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-086 Brief schema additions
-- status: todo
+- status: done
 - spec: REQ-BRF-001, REQ-DAT-001
 - owner: database-engineer
 - depends: T-033, T-093
@@ -887,7 +887,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `python ops/check_migrations.py` and `pytest -q tests/unit/test_brief_schema.py`
 - note: expand migration with the next free number: add `config_version` to `brief.record_digest` and any table the brief repository needs for cache entries and rule versions (derive the columns from the in-memory repository). Row level security on every new table with `tenant_id`.
-- evidence:
+- evidence: `check_migrations.py` OK; `pytest -q tests/unit/test_brief_schema.py` passed; make static/test pass
 
 ### T-087 Brief Postgres repository
 - status: todo

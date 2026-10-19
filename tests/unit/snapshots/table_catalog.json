@@ -72,6 +72,7 @@
     ],
     "brief.record_digest": [
       "company_id",
+      "config_version",
       "content",
       "degraded",
       "generated_at",
