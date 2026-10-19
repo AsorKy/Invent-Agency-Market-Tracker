@@ -1166,7 +1166,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `make -n invent-tracker`; pytest test_make_targets+test_bootstrap_env 17 passed; make static/test green
 
 ### T-075 Doctor command
-- status: todo
+- status: done
 - spec: REQ-RUN-005
 - owner: devops-engineer
 - depends: T-074, T-043
@@ -1175,7 +1175,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_doctor.py`
 - note: variable-name-only report of set and missing settings, active sources and modes, service health through the gateway, and webhook reachability when configured. The test plants a sentinel secret and asserts it never appears.
-- evidence:
+- evidence: `pytest -q tests/unit/test_doctor.py` 7 passed; make static/test green
 
 ### T-076 Live verification command
 - status: todo
