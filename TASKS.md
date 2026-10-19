@@ -951,7 +951,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-121 ML score events carry payload and tenant; pulse never sticks on a bad entry
-- status: todo
+- status: done
 - spec: REQ-EVT-005, REQ-EVT-002
 - owner: second-backend-engineer
 - depends: T-053, T-090
@@ -960,7 +960,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_score_event.py tests/unit/test_pulse_consumer.py tests/unit/test_pipeline_flow.py`
 - note: defect D-4: ML publishes `lead.score_updated` with no `payload` or `tenant_id`, pulse raises KeyError, and its worker sticks on that entry. ML must publish the same envelope as the core relay (`stream_fields` shape, `payload`, `tenant_id`). Pulse must treat a malformed entry as poison: log it, acknowledge it, and move it to a dead letter stream without raising. Test both sides.
-- evidence:
+- evidence: `pytest -q tests/unit/test_score_event.py tests/unit/test_pulse_consumer.py tests/unit/test_pipeline_flow.py` -> 21 passed, 3 xfailed; make static and make test pass (899 passed)
 
 ### T-122 Brief lead route and production summarizer wiring
 - status: todo
