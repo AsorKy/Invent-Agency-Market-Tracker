@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 from libs.common.db import create_engine
 from libs.common.pagination import decode_cursor, encode_cursor
 from libs.contracts.api import SignalCreate
+from services.core.app.event_dimensions import clean
 
 
 class SqlCompanyTransaction:
@@ -234,7 +235,7 @@ class SqlLeadTransaction:
         result = await self.connection.execute(
             text(
                 """
-                SELECT id, tenant_id, company_id, service_line, stage, version
+                SELECT id, tenant_id, company_id, service_line, city, stage, version
                 FROM core.lead
                 WHERE id = :id AND (CAST(:tenant_id AS uuid) IS NULL OR tenant_id = :tenant_id)
                 FOR UPDATE
@@ -1149,7 +1150,17 @@ class CoreRepository:
                          (SELECT c.tenant_id FROM core.company c WHERE c.id = :company_id
                           ORDER BY c.version DESC LIMIT 1),
                          'signal', :aggregate_id, 'signal.created', 1,
-                         CAST(:payload AS jsonb))
+                         CAST(:payload AS jsonb) || jsonb_strip_nulls(jsonb_build_object(
+                             'city',
+                             (SELECT NULLIF(btrim(c.city), '') FROM core.company c
+                              WHERE c.id = :company_id ORDER BY c.version DESC LIMIT 1),
+                             'service_line',
+                             COALESCE(
+                                 CAST(:service_line AS text),
+                                 (SELECT l.service_line FROM core.lead l
+                                  WHERE l.company_id = :company_id
+                                  ORDER BY l.created_at DESC, l.id DESC LIMIT 1))))
+                        )
                     """
                 ),
                 {
@@ -1157,6 +1168,7 @@ class CoreRepository:
                     "company_id": signal.company_id,
                     "aggregate_id": signal_id,
                     "payload": json.dumps(payload | {"request_id": request_id}),
+                    "service_line": clean(signal.payload.get("service_line")),
                 },
             )
         return inserted_signal_id, event_id

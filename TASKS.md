@@ -902,7 +902,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-088 Event payload dimensions for pulse rollups
-- status: todo
+- status: done
 - spec: REQ-PUL-002, REQ-EVT-005
 - owner: lead-backend-engineer
 - depends: T-090, T-052
@@ -911,7 +911,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_event_dimensions.py tests/unit/test_rollups.py tests/unit/test_pulse_consumer.py`
 - note: signal events carry `city` and `service_line`, and lead events carry `hot`, as additive payload fields; pulse reads them so rollups stop landing under `unknown`. Add a test showing a signal rolls up into the right city and service line bucket.
-- evidence:
+- evidence: `pytest -q tests/unit/test_event_dimensions.py tests/unit/test_rollups.py tests/unit/test_pulse_consumer.py tests/unit/test_sql_consistency.py` -> 46 passed; make static and make test pass (907 passed)
 
 ### T-089 Ingest core calls outside the transaction and RUES queue worker
 - status: todo

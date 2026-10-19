@@ -24,6 +24,7 @@ from libs.domain.pipeline import (
     VersionConflictError,
     validate_transition,
 )
+from services.core.app.event_dimensions import lead_dimensions
 from services.core.app.hot_alert import HotAlert, HotCallback, fire
 
 IDEMPOTENCY_TTL = timedelta(hours=24)
@@ -168,7 +169,7 @@ async def create_lead(
             payload={
                 "lead_id": str(row["id"]),
                 "company_id": str(payload.company_id),
-                "service_line": payload.service_line,
+                **lead_dimensions(row),
                 "stage": row["stage"],
                 "origin": "manual",
                 "request_id": request_id,
