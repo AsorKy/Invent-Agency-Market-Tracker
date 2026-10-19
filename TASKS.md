@@ -1083,7 +1083,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 
 ### T-064 Eleven-stage CI pipeline
 - status: blocked
-- blocker: depends T-063 and T-070 are not done on main (T-063 blocked, T-070 only on agent/r1-d-hardening); ci.yml push would also need workflow scope- spec: REQ-CI-002
+- spec: REQ-CI-002
 - owner: devops-engineer
 - depends: T-007, T-063, T-070
 - write_scope: `.github/workflows/ci.yml`, tests/unit/test_ci_workflow.py
@@ -1091,7 +1091,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_ci_workflow.py`
 - note: stages static, unit, integration, contracts (oasdiff against the committed `docs/api/openapi.json`), e2e, images, deploy migrate, deploy backend, deploy frontend, deploy streamlit, deploy smoke, in order. Deploy stages are skipped without environment secrets. No secret values in the file.
-- evidence:
+- evidence: ci.yml push rejected (no workflow scope); patch docs/runs/T-064-ci-workflow.diff (apply with git apply), its test saved as docs/runs/T-064-test_ci_workflow.py.txt (move to tests/unit/test_ci_workflow.py after applying; 6 passed when applied)
 
 ### T-065 Coverage gate
 - status: done
@@ -1154,8 +1154,8 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_compose.py` -> 39 passed; `docker compose config` exit 0; make static and make test pass. Omitted: ingest poller (runs in API lifespan) and brief worker (no entrypoint exists). Coordinator added BOOTSTRAP_PASSWORD_* to .env.example.
 
 ### T-074 The make invent-tracker command
-- status: blocked
-- blocker: depends T-073, T-072, T-070 are todo on main (done only on unmerged branches agent/r1-d-ops, agent/r1-d-e2e, agent/r1-d-hardening)- spec: REQ-RUN-001
+- status: done
+- spec: REQ-RUN-001
 - owner: devops-engineer
 - depends: T-073, T-072, T-070
 - write_scope: Makefile, ops/bootstrap_env.py, tests/unit/test_make_targets.py, tests/unit/test_bootstrap_env.py
@@ -1163,11 +1163,11 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `make -n invent-tracker` and `pytest -q tests/unit/test_make_targets.py tests/unit/test_bootstrap_env.py`
 - note: targets `invent-tracker`, `invent-tracker-down`, `invent-tracker-reset` (asks for confirmation), `seed`, `seed-clear`, `openapi`, and `test-integration`. `ops/bootstrap_env.py` copies `.env.example` to `.env` only when missing and fills local secrets (service token, edge secret, database and Redis passwords, dev user passwords) from `secrets` without printing them. After start it waits for the gateway `/ready` and prints URLs for the gateway, Streamlit, and n8n.
-- evidence:
+- evidence: `make -n invent-tracker`; pytest test_make_targets+test_bootstrap_env 17 passed; make static/test green
 
 ### T-075 Doctor command
-- status: blocked
-- blocker: depends T-074 is blocked- spec: REQ-RUN-005
+- status: todo
+- spec: REQ-RUN-005
 - owner: devops-engineer
 - depends: T-074, T-043
 - write_scope: ops/doctor.py, Makefile (`doctor` target only), tests/unit/test_doctor.py
@@ -1178,8 +1178,8 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-076 Live verification command
-- status: blocked
-- blocker: depends T-075 is blocked- spec: REQ-RUN-006
+- status: todo
+- spec: REQ-RUN-006
 - owner: second-backend-engineer
 - depends: T-043, T-075, T-096
 - write_scope: ops/verify_live.py, Makefile (`verify-live` target only), tests/unit/test_verify_live.py
@@ -1202,8 +1202,8 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_pipeline_flow.py` 7 passed, 4 strict xfail (defects D-1..D-4 in run report); make test green
 
 ### T-078 Integration test tier
-- status: blocked
-- blocker: depends T-071 and T-077 are todo on main (done only on unmerged branches agent/r1-d-ops, agent/r1-d-e2e)- spec: REQ-QA-005
+- status: todo
+- spec: REQ-QA-005
 - owner: qa-reviewer
 - depends: T-071, T-077
 - write_scope: tests/integration/
@@ -1214,8 +1214,8 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-079 Go-live runbook
-- status: blocked
-- blocker: depends T-076 is blocked- spec: REQ-DOC-001
+- status: todo
+- spec: REQ-DOC-001
 - owner: architecture-reviewer
 - depends: T-076
 - write_scope: docs/runbooks/go-live.md, tests/unit/test_runbook.py
