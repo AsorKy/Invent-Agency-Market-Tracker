@@ -13,12 +13,23 @@ policies, so they are skipped and acknowledged.
 
 import asyncio
 import json
+import logging
+import signal
+from typing import Any
 from uuid import UUID
 
+import structlog
+from fastapi import FastAPI
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from libs.common.db import create_engine
+from libs.common.lifecycle import (
+    ServiceState,
+    drain_and_run_hooks,
+    instrument_app,
+    register_shutdown_hook,
+)
 from libs.common.redis_client import create_redis
 from libs.common.redis_streams import ensure_consumer_group, read_consumer_batch
 from libs.common.retry import retry_with_backoff
@@ -29,6 +40,26 @@ from services.pulse.app.rollups import apply_outcome, apply_signal
 STREAM_NAME = "invent.events"
 GROUP_NAME = "pulse"
 CONSUMER_NAME = "pulse-worker"
+DEAD_LETTER_STREAM = "invent.events.dead"
+
+_log = logging.getLogger(__name__)
+
+
+class MalformedEventError(ValueError):
+    """A stream entry cannot be parsed; retrying it never helps (poison)."""
+
+
+def parse_event(event: dict[str, str]) -> tuple[UUID, str, dict[str, object], UUID | None]:
+    """Return ``(event_id, event_type, payload, tenant_id)`` or raise ``MalformedEventError``."""
+    try:
+        event_id = UUID(event["event_id"])
+        event_type = event["event_type"]
+        payload = json.loads(event["payload"])
+        if not isinstance(payload, dict):
+            raise TypeError("payload is not an object")
+        return event_id, event_type, payload, _tenant_id(event, payload)
+    except (KeyError, ValueError, TypeError, AttributeError) as exc:
+        raise MalformedEventError(f"{type(exc).__name__}: {exc}"[:300]) from exc
 
 
 def _tenant_id(event: dict[str, str], payload: dict[str, object]) -> UUID | None:
@@ -39,9 +70,7 @@ def _tenant_id(event: dict[str, str], payload: dict[str, object]) -> UUID | None
 
 async def process_event(connection: AsyncConnection, event: dict[str, str]) -> None:
     """Apply one stream message once; a repeated ``event_id`` is a no-op."""
-    event_id = UUID(event["event_id"])
-    payload = json.loads(event["payload"])
-    tenant_id = _tenant_id(event, payload)
+    event_id, event_type, payload, tenant_id = parse_event(event)
     if tenant_id is None:
         return
     await set_tenant_context(connection, tenant_id)
@@ -57,17 +86,79 @@ async def process_event(connection: AsyncConnection, event: dict[str, str]) -> N
         {
             "event_id": event_id,
             "tenant_id": tenant_id,
-            "event_type": event["event_type"],
+            "event_type": event_type,
             "replay": event.get("replay", "false") == "true",
         },
     )
     if inserted.scalar_one_or_none() is None:
         return
 
-    if event["event_type"] == "signal.created":
+    if event_type == "signal.created":
         await apply_signal(connection, tenant_id, payload)
-    elif event["event_type"] == "lead.outcome_recorded":
+    elif event_type == "lead.outcome_recorded":
         await apply_outcome(connection, tenant_id, payload)
+
+
+async def _dead_letter(redis: Any, message_id: str, fields: dict[str, str], error: str) -> None:
+    """Move a poison entry to the dead letter stream, then ack it; never raises."""
+    _log.error("ALERT pulse poison entry id=%s error=%s", message_id, error)
+    try:
+        entry = {**fields, "source_message_id": str(message_id), "error": error}
+        await redis.xadd(DEAD_LETTER_STREAM, entry)
+        await redis.xack(STREAM_NAME, GROUP_NAME, message_id)
+    except Exception:
+        _log.exception("pulse could not dead-letter entry id=%s", message_id)
+
+
+class BatchShutdown:
+    """Shutdown state of a stream worker: a stop flag and ids processed but not yet acknowledged.
+
+    The hook registered with ``register_shutdown_hook`` (REQ-EVT-007) acknowledges those ids so a
+    committed message is not redelivered after a restart.
+    """
+
+    def __init__(self, redis: Any, stream: str, group: str) -> None:
+        self.redis = redis
+        self.stream = stream
+        self.group = group
+        self.stop = asyncio.Event()
+        self.unacked: list[str] = []
+
+    async def ack(self, message_id: str) -> None:
+        """Acknowledge one committed message; keep the id queued if Redis fails."""
+        self.unacked.append(message_id)
+        await self.redis.xack(self.stream, self.group, message_id)
+        self.unacked.remove(message_id)
+
+    async def hook(self) -> None:
+        """Stop reading and acknowledge every committed message still queued."""
+        self.stop.set()
+        pending, self.unacked = self.unacked, []
+        if pending:
+            await self.redis.xack(self.stream, self.group, *pending)
+
+
+def bind_request_id(fields: dict[str, str]) -> None:
+    """Bind the ``request_id`` carried by a stream entry to the worker logs, or clear it."""
+    structlog.contextvars.clear_contextvars()
+    request_id = fields.get("request_id")
+    if not request_id:
+        try:
+            body = json.loads(fields.get("payload", "{}"))
+            request_id = body.get("request_id") if isinstance(body, dict) else None
+        except ValueError:
+            request_id = None
+    if request_id:
+        structlog.contextvars.bind_contextvars(request_id=str(request_id))
+
+
+def register_worker_shutdown(name: str, shutdown: BatchShutdown) -> ServiceState:
+    """Create the worker lifecycle state, register the hook, and stop on SIGTERM."""
+    worker = FastAPI()
+    state = instrument_app(worker, name)
+    register_shutdown_hook(worker, shutdown.hook)
+    asyncio.get_running_loop().add_signal_handler(signal.SIGTERM, shutdown.stop.set)
+    return state
 
 
 async def main() -> None:
@@ -76,9 +167,12 @@ async def main() -> None:
     if engine is None:
         raise RuntimeError("DATABASE_URL is required for pulse consumer")
     redis = create_redis(settings.redis_url)
+    lifecycle: ServiceState | None = None
     try:
         await ensure_consumer_group(redis, STREAM_NAME, GROUP_NAME)
-        while True:
+        shutdown = BatchShutdown(redis, STREAM_NAME, GROUP_NAME)
+        lifecycle = register_worker_shutdown("pulse", shutdown)
+        while not shutdown.stop.is_set():
             messages = await read_consumer_batch(
                 redis,
                 stream=STREAM_NAME,
@@ -89,8 +183,16 @@ async def main() -> None:
             )
             for _stream, entries in messages:
                 for message_id, payload in entries:
+                    if shutdown.stop.is_set():
+                        break
+                    message_payload = dict(payload)
+                    bind_request_id(message_payload)
                     try:
-                        message_payload = dict(payload)
+                        parse_event(message_payload)
+                    except MalformedEventError as exc:
+                        await _dead_letter(redis, message_id, message_payload, str(exc))
+                        continue
+                    try:
 
                         async def process(
                             message_payload: dict[str, str] = message_payload,
@@ -111,8 +213,10 @@ async def main() -> None:
                         # only after the warehouse write commits.
                         await asyncio.sleep(settings.worker_failure_sleep_seconds)
                         continue
-                    await redis.xack(STREAM_NAME, GROUP_NAME, message_id)
+                    await shutdown.ack(message_id)
     finally:
+        if lifecycle is not None:
+            await drain_and_run_hooks(lifecycle)
         await redis.aclose()
         await engine.dispose()
 

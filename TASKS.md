@@ -902,7 +902,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_brief_repository.py tests/unit/test_sql_consistency.py` 30 passed; make static/test pass
 
 ### T-088 Event payload dimensions for pulse rollups
-- status: todo
+- status: done
 - spec: REQ-PUL-002, REQ-EVT-005
 - owner: lead-backend-engineer
 - depends: T-090, T-052
@@ -911,7 +911,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_event_dimensions.py tests/unit/test_rollups.py tests/unit/test_pulse_consumer.py`
 - note: signal events carry `city` and `service_line`, and lead events carry `hot`, as additive payload fields; pulse reads them so rollups stop landing under `unknown`. Add a test showing a signal rolls up into the right city and service line bucket.
-- evidence:
+- evidence: `pytest -q tests/unit/test_event_dimensions.py tests/unit/test_rollups.py tests/unit/test_pulse_consumer.py tests/unit/test_sql_consistency.py` -> 46 passed; make static and make test pass (907 passed)
 
 ### T-089 Ingest core calls outside the transaction and RUES queue worker
 - status: todo
@@ -951,7 +951,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-121 ML score events carry payload and tenant; pulse never sticks on a bad entry
-- status: todo
+- status: done
 - spec: REQ-EVT-005, REQ-EVT-002
 - owner: second-backend-engineer
 - depends: T-053, T-090
@@ -960,7 +960,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_score_event.py tests/unit/test_pulse_consumer.py tests/unit/test_pipeline_flow.py`
 - note: defect D-4: ML publishes `lead.score_updated` with no `payload` or `tenant_id`, pulse raises KeyError, and its worker sticks on that entry. ML must publish the same envelope as the core relay (`stream_fields` shape, `payload`, `tenant_id`). Pulse must treat a malformed entry as poison: log it, acknowledge it, and move it to a dead letter stream without raising. Test both sides.
-- evidence:
+- evidence: `pytest -q tests/unit/test_score_event.py tests/unit/test_pulse_consumer.py tests/unit/test_pipeline_flow.py` -> 21 passed, 3 xfailed; make static and make test pass (899 passed)
 
 ### T-122 Brief lead route and production summarizer wiring
 - status: done
@@ -987,7 +987,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-124 Resilience gaps from the failure matrix
-- status: todo
+- status: done
 - spec: REQ-OBS-001, REQ-EVT-007
 - owner: lead-backend-engineer
 - depends: T-062, T-061
@@ -996,7 +996,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_resilience_gaps.py` and `python ops/check_configuration.py`
 - note: Pulse metric endpoints other than market and territory, and `ops/health`, return 503 instead of 500 on database errors. The relay, pulse, and ml workers register shutdown hooks (relay flush, batch acknowledge) with `register_shutdown_hook`. `request_id` travels in stream entries and consumers bind it to their logs. Add `SHUTDOWN_GRACE_SECONDS` to `.env.example`.
-- evidence:
+- evidence: `pytest -q tests/unit/test_resilience_gaps.py` -> 11 passed; `python ops/check_configuration.py` OK; make static and make test pass (918 passed)
 
 ### T-125 Compose role bootstrap and worker entries
 - status: todo
