@@ -890,7 +890,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `check_migrations.py` OK; `pytest -q tests/unit/test_brief_schema.py` passed; make static/test pass
 
 ### T-087 Brief Postgres repository
-- status: todo
+- status: done
 - spec: REQ-BRF-001, REQ-BRF-002
 - owner: lead-backend-engineer
 - depends: T-086, T-033
@@ -899,7 +899,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_brief_repository.py tests/unit/test_sql_consistency.py`
 - note: a SQL repository behind the existing repository interface, using the tenant context helper, with fakes in the unit tests. Keep the in-memory repository for tests and local mode.
-- evidence:
+- evidence: `pytest -q tests/unit/test_brief_repository.py tests/unit/test_sql_consistency.py` 30 passed; make static/test pass
 
 ### T-088 Event payload dimensions for pulse rollups
 - status: todo

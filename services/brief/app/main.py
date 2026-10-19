@@ -31,7 +31,7 @@ from services.brief.app.core_source import (
     HttpCoreSource,
 )
 from services.brief.app.models import BriefResponse
-from services.brief.app.repository import BriefRepository
+from services.brief.app.repository import BriefStore, create_repository
 from services.brief.app.service import BriefService
 from services.brief.app.single_flight import SingleFlightLock
 
@@ -44,7 +44,7 @@ class BriefState:
 
     def __init__(
         self,
-        repository: BriefRepository,
+        repository: BriefStore,
         redis: Redis,
         core: CoreSource,
     ) -> None:
@@ -63,7 +63,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Create and close the repository, Redis, and core client resources."""
     redis = create_redis(settings.redis_url)
     core = HttpCoreSource(settings.core_url, settings.internal_service_token)
-    state = BriefState(BriefRepository(settings.database_url), redis, core)
+    state = BriefState(create_repository(settings.database_url), redis, core)
     app.state.brief = state
     yield
     await core.close()
