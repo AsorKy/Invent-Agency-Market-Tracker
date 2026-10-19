@@ -999,7 +999,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_resilience_gaps.py` -> 11 passed; `python ops/check_configuration.py` OK; make static and make test pass (918 passed)
 
 ### T-125 Compose role bootstrap and worker entries
-- status: todo
+- status: done
 - spec: REQ-RUN-001, REQ-DAT-005
 - owner: devops-engineer
 - depends: T-073, T-071
@@ -1008,7 +1008,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_compose.py` and `python ops/check_configuration.py`
 - note: add a one-shot `bootstrap-roles` service that runs after `migrate` and calls `ops/bootstrap_roles.py` to create the `<schema>_app` roles with passwords from `BOOTSTRAP_PASSWORD_*`, and make the service containers depend on it. Prefer a dedicated migrator role over the postgres superuser for the migrate service where the bootstrap allows it. Add the ingest poller and the brief worker to compose only if an entrypoint exists; otherwise record them as follow-ups.
-- evidence:
+- evidence: `pytest -q tests/unit/test_compose.py` 41 passed; `python ops/check_configuration.py`, `make static` pass. Follow-ups: ingest poller has no entrypoint (poll.py run_forever only), no brief worker module, psycopg[binary] should move into pyproject runtime deps.
 
 ### T-126 Coverage lift A (tests only)
 - status: todo

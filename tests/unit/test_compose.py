@@ -22,7 +22,7 @@ WORKERS = {
     "ml-consumer": ("ml", "services.ml.app.consumer"),
 }
 DB_APIS = {"ingest": "ingest", "core": "core", "pulse": "pulse", "brief": "brief", "ml": "ml"}
-EXPECTED = {"postgres", "redis", "migrate", "streamlit", "mocks", "n8n"} | set(APIS) | set(WORKERS)
+EXPECTED = {"postgres", "redis", "migrate", "bootstrap-roles", "streamlit", "mocks", "n8n"} | set(APIS) | set(WORKERS)
 
 
 @pytest.fixture(scope="module")
@@ -54,6 +54,26 @@ def test_migrate_is_one_shot_runner(services: dict[str, Any]) -> None:
     assert _depends(migrate) == {"postgres": "service_healthy"}
 
 
+def test_bootstrap_roles_is_one_shot_after_migrate(services: dict[str, Any]) -> None:
+    boot = services["bootstrap-roles"]
+    assert boot["build"] == services["migrate"]["build"]
+    assert boot["command"] == ["python", "ops/bootstrap_roles.py"]
+    assert boot["restart"] == "no"
+    assert _depends(boot) == {
+        "migrate": "service_completed_successfully",
+        "postgres": "service_healthy",
+    }
+    env = _env(boot)
+    assert env["BOOTSTRAP_DATABASE_URL"].startswith("postgresql://")
+    for schema in DB_APIS.values():
+        assert env[f"BOOTSTRAP_PASSWORD_{schema.upper()}"].endswith(f":-CHANGE_ME_{schema.upper()}}}")
+
+
+def test_dockerfile_installs_psycopg_for_bootstrap() -> None:
+    dockerfile = COMPOSE.parent / "deploy" / "Dockerfile.python"
+    assert "psycopg" in dockerfile.read_text(encoding="utf-8")
+
+
 def test_postgres_does_not_apply_migrations(services: dict[str, Any]) -> None:
     mounts = services["postgres"]["volumes"]
     assert not any("initdb" in str(m) or "migrations" in str(m) for m in mounts)
@@ -63,6 +83,7 @@ def test_postgres_does_not_apply_migrations(services: dict[str, Any]) -> None:
 def test_database_services_wait_for_migrate(services: dict[str, Any], name: str) -> None:
     deps = _depends(services[name])
     assert deps["migrate"] == "service_completed_successfully"
+    assert deps["bootstrap-roles"] == "service_completed_successfully"
     assert deps["postgres"] == "service_healthy"
     assert deps["redis"] == "service_healthy"
 
