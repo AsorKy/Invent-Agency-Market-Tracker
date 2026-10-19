@@ -43,13 +43,7 @@ DYNAMIC_SQL: dict[tuple[str, str], str] = {
 
 # Names passed to text(...) that no static rule resolves to a string. Key:
 # (file, variable name). Empty: every variable is resolved or checked by fallback.
-UNRESOLVED_SQL: dict[tuple[str, str], str] = {
-    ("services/ingest/app/to_core.py", "statement"): (
-        "flush() runs statements buffered as (sql, params) tuples whose SQL is a literal "
-        "inside the same class; the collector does not follow tuples yet, so those "
-        "statements are not analyzed. Follow-up: teach the collector tuple literals."
-    ),
-}
+UNRESOLVED_SQL: dict[tuple[str, str], str] = {}
 
 # Constructs the analyzer cannot judge. Key: (file, problem message).
 UNSUPPORTED: dict[tuple[str, str], str] = {}
@@ -114,6 +108,13 @@ def test_unresolved_names_are_listed(statements):
     unresolved = {(s.file, s.detail) for s in statements if s.kind == "unresolved"}
     assert unresolved == set(UNRESOLVED_SQL), f"unresolved SQL variables: {sorted(unresolved)}"
     assert all(reason.strip() for reason in UNRESOLVED_SQL.values())
+
+
+def test_buffered_statements_are_followed(statements):
+    buffered = [s for s in statements if s.kind == "buffered"]
+    assert {s.file for s in buffered} == {"services/ingest/app/to_core.py"}
+    assert len(buffered) == 5
+    assert any("ingest.rues_lookup_queue" in (s.sql or "") for s in buffered)
 
 
 def test_dynamic_sql_is_listed_with_a_reason_line_by_line(statements):
