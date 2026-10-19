@@ -3,27 +3,19 @@
 Branch: `agent/r1-d2-core`
 
 ## Outcome
+- T-084: done (coordinator). Removed `analytics_url` from settings, snapshot and `.env.example`; added `RUES_DELTA_URL`, `OPS_ALERT_FROM`, `OPS_ALERT_TO` (APP_PROFILE, FRONTEND_ORIGIN, IDENTITY_VALIDATION_ENABLED already existed).
+- T-085: done (lead-backend-engineer). New `services/core/app/brief_facts.py`, route `GET /internal/core/companies/{id}/brief-facts`, kanban `as_of` now current UTC time, contract test in `tests/unit/test_brief_facts.py`.
 
-No task was executed. Both requested tasks are blocked: T-084 and T-085.
+This report replaces an earlier stale one on this branch that said the tasks were missing from TASKS.md; they exist now.
 
-## Reason
+## Commands
+`make static` and `make test` pass before each commit; `test_sql_consistency.py` passes.
 
-`TASKS.md` has no task with these IDs. Its `### T-NNN` headings run T-000 to T-080, T-090 to T-097 and T-100 to T-112. `git grep` for T-084 and T-085 on `origin/main`, `origin/chore/r1-d-fix` and `origin/chore/tasks-v4` found nothing. The run protocol makes `TASKS.md` the source of truth for write_scope, acceptance commands and owner, so I did not invent scopes from the PR title (settings cleanup, core brief-facts endpoint). This is recorded as a conflict between the request and the sources of truth. The same happened in run r1-d-data2.
-
-## Commands executed
-
-- `python3.12 -m venv /tmp/venv && pip install '.[dev,streamlit,identity]'`: succeeded, PyPI is reachable.
-- `git fetch origin`, `git grep` for T-084/T-085 on remote branches: no matches.
-- `make static` and `make test` were not run. Only this report changed.
-
-## Assumptions
-
-- The IDs are mistyped or the tasks are not yet merged into `TASKS.md`.
+## Assumptions and risks
+- Migrations lack RUES status, quarantine, certificate and enrichment columns, so those brief facts are read from company `source_flags` JSON (nothing writes those keys yet); `rues_status` defaults to matched/pending from `nit`. `overdue_tasks` is always 0.
+- `as_of` is "now"; the spec does not define it more precisely.
+- `tests/unit/test_openapi.py` got one NOT_PUBLIC line (outside write_scope, needed for the route).
+- n8n `wf_socioeco_refresh.json` and its README still reference `$env.ANALYTICS_URL`, now absent from `.env.example`; follow-up needed.
 
 ## Changed files
-
-- `docs/runs/RUN-r1-d2-core.md`
-
-## Unresolved risks
-
-- The owner must add T-084 and T-085 to `TASKS.md` or give the correct IDs before this run can be redone.
+libs/common/settings.py, .env.example, tests/unit/snapshots/settings_fields.json, services/core/app/{brief_facts,repository,main}.py, tests/unit/test_brief_facts.py, tests/unit/test_openapi.py, TASKS.md, this report.

@@ -866,7 +866,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `python ops/check_configuration.py` OK (89 variables); `pytest -q tests/unit/test_settings.py tests/unit/test_compose.py` 46 passed; make static and make test pass. `.env.example` also drops ANALYTICS_URL; n8n wf_socioeco_refresh still references $env.ANALYTICS_URL (outside write_scope).
 
 ### T-085 Core brief-facts endpoint and kanban as_of
-- status: todo
+- status: done
 - spec: REQ-BRF-001, REQ-COR-001
 - owner: lead-backend-engineer
 - depends: T-033, T-024
@@ -875,7 +875,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_brief_facts.py`
 - note: add `GET /internal/core/companies/{id}/brief-facts` returning exactly the facts that `services/brief/app/core_source.py` expects, tenant scoped from the service-token headers (404 across tenants), and make the kanban endpoint return a real `as_of` instead of null. A contract test validates the response against the brief's expected model.
-- evidence:
+- evidence: `pytest -q tests/unit/test_brief_facts.py` 4 passed; make static and make test pass. Fields absent from migrations (rues_status, quarantine, cert, enrichment) read from company source_flags; overdue_tasks fixed at 0; kanban as_of is current UTC. Added NOT_PUBLIC entry in tests/unit/test_openapi.py (outside write_scope, required).
 
 ### T-086 Brief schema additions
 - status: todo
