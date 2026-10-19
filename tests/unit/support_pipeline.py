@@ -529,6 +529,13 @@ class FakeCoreSource:
             days_since_contact=None,
         )
 
+    async def get_lead_company(self, lead_id: UUID, tenant_id: UUID | None) -> UUID:
+        lead = self.store.leads.get(lead_id)
+        if lead is None:
+            raise CoreNotFound(str(lead_id))
+        company_id: UUID = lead["company_id"]
+        return company_id
+
     async def get_rules(self, tenant_id: UUID | None) -> tuple[BriefRules, int]:
         return BriefRules(), 0
 
