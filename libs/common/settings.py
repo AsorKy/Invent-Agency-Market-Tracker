@@ -40,7 +40,6 @@ class Settings(BaseSettings):
     internal_service_token: str = "local-development-token"
     ingest_url: str = "http://localhost:8001"
     core_url: str = "http://localhost:8002"
-    analytics_url: str = "http://localhost:8003"
     ml_url: str = "http://localhost:8004"
     identity_url: str = "http://localhost:8005"
     pulse_url: str = "http://localhost:8006"
@@ -100,6 +99,9 @@ class Settings(BaseSettings):
     socio_data_dir: str = "data/socio"
     app_profile: Literal["local", "production"] = "local"
     frontend_origin: str = "http://localhost:3000"
+    rues_delta_url: str = "http://localhost:8000/mocks/rues/delta"
+    ops_alert_from: str = "ops@localhost"
+    ops_alert_to: str = "ops@localhost"
     dev_user_password_admin: str | None = None
     dev_user_password_strategist: str | None = None
     dev_user_password_intake: str | None = None

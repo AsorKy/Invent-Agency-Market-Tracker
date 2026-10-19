@@ -854,7 +854,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-084 Settings and environment cleanup
-- status: todo
+- status: done
 - spec: REQ-SEC-004, REQ-RUN-004
 - owner: coordinator
 - depends: T-032, T-035, T-049
@@ -863,7 +863,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: S
 - acceptance: `python ops/check_configuration.py` and `pytest -q tests/unit/test_settings.py` (or the settings test that reads the snapshot)
 - note: remove `analytics_url` from the settings and from the snapshot in the same commit. Add `RUES_DELTA_URL`, `OPS_ALERT_FROM`, `OPS_ALERT_TO`, `APP_PROFILE`, `FRONTEND_ORIGIN`, and `IDENTITY_VALIDATION_ENABLED` with safe local defaults to the settings and to `.env.example`. No secrets in defaults.
-- evidence:
+- evidence: `python ops/check_configuration.py` OK (89 variables); `pytest -q tests/unit/test_settings.py tests/unit/test_compose.py` 46 passed; make static and make test pass. `.env.example` also drops ANALYTICS_URL; n8n wf_socioeco_refresh still references $env.ANALYTICS_URL (outside write_scope).
 
 ### T-085 Core brief-facts endpoint and kanban as_of
 - status: todo
