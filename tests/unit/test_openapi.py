@@ -26,6 +26,7 @@ NOT_PUBLIC = {
     ("GET", "/internal/brief/companies/{company_id}"): "company briefs are not public yet",
     ("GET", "/internal/brief/companies/{company_id}/digest"): "company briefs are not public yet",
     ("GET", "/internal/brief/leads/{lead_id}/digest"): "alias of the lead brief",
+    ("GET", "/internal/core/companies/{company_id}/brief-facts"): "brief service only, never public",
     ("POST", "/internal/core/compliance/opt-out"): "n8n and ops only, never public",
     ("POST", "/internal/core/compliance/purge"): "n8n and ops only, never public",
 }

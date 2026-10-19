@@ -11,6 +11,7 @@ aggregate stay in order: after one fails, its later events wait in the same pass
 import asyncio
 import json
 import logging
+import signal
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 from types import TracebackType
@@ -78,6 +79,11 @@ def stream_fields(
         "version": str(row["version"]),
         "payload": json.dumps(row["payload"]),
     }
+    request_id = row.get("request_id") or (
+        row["payload"].get("request_id") if isinstance(row["payload"], dict) else None
+    )
+    if request_id:
+        fields["request_id"] = str(request_id)
     if replay:
         fields["replay"] = "true"
     if target:
@@ -140,7 +146,14 @@ async def relay_due_events(
 
 
 async def main() -> None:
-    """Relay loop with the retry schedule and dead letter queue."""
+    """Relay loop with the retry schedule and dead letter queue.
+
+    A shutdown hook (REQ-EVT-007) stops the loop and flushes one last pass so due events leave
+    the outbox before the pools close.
+    """
+    from fastapi import FastAPI
+
+    from libs.common.lifecycle import drain_and_run_hooks, instrument_app, register_shutdown_hook
     from libs.common.redis_client import create_redis
     from libs.common.settings import get_settings
     from services.core.app.outbox_relay import STREAM_NAME
@@ -149,19 +162,33 @@ async def main() -> None:
     settings = get_settings()
     repository = CoreRepository(settings.database_url)
     redis = create_redis(settings.redis_url)
+    stop = asyncio.Event()
 
     async def publish(row: dict[str, Any]) -> None:
         fields = stream_fields(row, replay=bool(row.get("replay")))
         await redis.xadd(STREAM_NAME, fields)  # type: ignore[arg-type]
 
+    async def flush() -> None:
+        stop.set()
+        await relay_due_events(repository.outbox_unit_of_work(), publish)
+
+    worker = FastAPI()
+    state = instrument_app(worker, "relay")
+    register_shutdown_hook(worker, flush)
+    asyncio.get_running_loop().add_signal_handler(signal.SIGTERM, stop.set)
+
     try:
-        while True:
+        while not stop.is_set():
             try:
                 await relay_due_events(repository.outbox_unit_of_work(), publish)
             except Exception:
                 _log.exception("outbox relay pass failed")
-            await asyncio.sleep(settings.outbox_poll_interval_seconds)
+            try:
+                await asyncio.wait_for(stop.wait(), timeout=settings.outbox_poll_interval_seconds)
+            except TimeoutError:
+                pass
     finally:
+        await drain_and_run_hooks(state)
         await redis.aclose()
         await repository.close()
 

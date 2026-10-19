@@ -28,6 +28,10 @@ class CoreSource(Protocol):
 
     async def get_facts(self, company_id: UUID, tenant_id: UUID | None) -> CompanyFacts: ...
 
+    async def get_lead_company(self, lead_id: UUID, tenant_id: UUID | None) -> UUID:
+        """Return the company id of a lead; raise ``CoreNotFound`` when unknown."""
+        ...
+
     async def get_rules(self, tenant_id: UUID | None) -> tuple[BriefRules, int]:
         """Return the tenant ``brief_rules`` and the config version (0 for defaults)."""
         ...
@@ -62,6 +66,10 @@ class HttpCoreSource:
     async def get_facts(self, company_id: UUID, tenant_id: UUID | None) -> CompanyFacts:
         response = await self._get(f"/internal/core/companies/{company_id}/brief-facts", tenant_id)
         return CompanyFacts(company_id=company_id, **response.json())
+
+    async def get_lead_company(self, lead_id: UUID, tenant_id: UUID | None) -> UUID:
+        response = await self._get(f"/internal/core/leads/{lead_id}", tenant_id)
+        return UUID(str(response.json()["company_id"]))
 
     async def get_rules(self, tenant_id: UUID | None) -> tuple[BriefRules, int]:
         if tenant_id is None:
