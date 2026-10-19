@@ -874,7 +874,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-065 Coverage gate
-- status: todo
+- status: done
 - spec: REQ-QA-003
 - owner: qa-reviewer
 - depends: T-077
@@ -883,7 +883,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: S
 - acceptance: `make coverage` reports at least 80 percent for `libs` and `services` and at least 90 percent for `libs/domain`
 - note: add missing unit tests for any module below the threshold in `libs/domain`; list modules below 80 percent elsewhere in the run report with the reason.
-- evidence:
+- evidence: `make coverage` total 86.6%, libs/domain 99%; gates enforced
 
 ### T-070 OpenAPI export
 - status: todo
@@ -910,7 +910,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_migrate.py tests/unit/test_sql_consistency.py` -> 31 passed; make static and make test pass
 
 ### T-072 Demo seed
-- status: todo
+- status: done
 - spec: REQ-RUN-003
 - owner: second-backend-engineer
 - depends: T-045, T-053, T-052, T-013
@@ -919,7 +919,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_seed.py`
 - note: `python -m ops.seed load|clear` feeds the datagen snapshots through the ingest code path (mock mode) so every downstream table fills; idempotent; rows tagged `source=demo`; `clear` removes only those rows through service APIs.
-- evidence:
+- evidence: `pytest -q tests/unit/test_seed.py` 5 passed; make static clean
 
 ### T-073 Compose, images, and health probes
 - status: done
@@ -970,7 +970,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-077 Offline end-to-end pipeline test
-- status: todo
+- status: done
 - spec: REQ-QA-004
 - owner: qa-reviewer
 - depends: T-045, T-053, T-052, T-033, T-024, T-032
@@ -979,7 +979,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/unit/test_pipeline_flow.py` and `make test`
 - note: wire in-memory fake repositories and fake Redis Streams so one mock snapshot travels the whole path of REQ-QA-004 and the final `/api/v1/leads`, `/api/v1/leads/{id}/brief`, and `/api/v1/pulse/*` payloads are asserted through the gateway ASGI app. Report production defects you find; fix only test code.
-- evidence:
+- evidence: `pytest -q tests/unit/test_pipeline_flow.py` 7 passed, 4 strict xfail (defects D-1..D-4 in run report); make test green
 
 ### T-078 Integration test tier
 - status: todo
