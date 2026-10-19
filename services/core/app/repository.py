@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 from libs.common.db import create_engine
 from libs.common.pagination import decode_cursor, encode_cursor
 from libs.contracts.api import SignalCreate
+from services.core.app.brief_facts import read_brief_facts
 from services.core.app.event_dimensions import clean
 
 
@@ -1292,6 +1293,13 @@ class CoreRepository:
                 raise RuntimeError("database returned invalid lead cursor fields")
             next_cursor = encode_cursor(updated_at, item_id)
         return rows, next_cursor
+
+    async def brief_facts(
+        self, company_id: UUID, tenant_id: UUID | None = None
+    ) -> dict[str, object] | None:
+        if self.engine is None:
+            raise RuntimeError("DATABASE_URL is required for core reads")
+        return await read_brief_facts(self.engine, company_id, tenant_id)
 
     async def get_lead(
         self, lead_id: UUID, tenant_id: UUID | None = None
