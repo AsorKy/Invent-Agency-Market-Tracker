@@ -842,7 +842,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-083 Identity tables as an SQL migration
-- status: todo
+- status: done
 - spec: REQ-IDN-001, REQ-DAT-001
 - owner: database-engineer
 - depends: T-030, T-031, T-093
@@ -851,7 +851,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `python ops/check_migrations.py` and `pytest -q tests/unit/test_identity_schema.py`
 - note: express `identity.credential` and `identity.auth_session` (from Django migration `iam.0001`) as an expand SQL migration with `IF NOT EXISTS`, grants for the identity role, and row level security where the table has `tenant_id`. The test checks parity between the SQL columns and the fields of the Django models (read the model fields with the SQLite test settings). Report, do not change, anything in `services/identity/`.
-- evidence:
+- evidence: `check_migrations.py` OK; `pytest -q tests/unit/test_identity_schema.py` passed; make static/test pass (table_catalog snapshot updated)
 
 ### T-084 Settings and environment cleanup
 - status: todo

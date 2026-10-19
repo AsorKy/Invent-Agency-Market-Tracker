@@ -349,6 +349,20 @@
       "tenant_id",
       "upload_id"
     ],
+    "identity.auth_session": [
+      "created_at",
+      "csrf_token",
+      "key_hash",
+      "last_seen_at",
+      "revoked_at",
+      "tenant_id",
+      "user_id"
+    ],
+    "identity.credential": [
+      "password_hash",
+      "updated_at",
+      "user_id"
+    ],
     "identity.membership_scope": [
       "city",
       "created_at",
