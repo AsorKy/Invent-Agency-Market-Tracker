@@ -17,6 +17,7 @@ from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import JSONResponse, Response
 
 from libs.common.internal_auth import require_internal_token
+from libs.common.lifecycle import graceful_lifespan, instrument_app
 from libs.common.logging import configure_logging
 from libs.common.request_id import RequestIdMiddleware
 from libs.common.settings import get_settings
@@ -34,9 +35,10 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(
     title="Invent Market Tracker Identity Bootstrap",
     version=settings.app_version,
-    lifespan=lifespan,
+    lifespan=graceful_lifespan(lifespan),
 )
 app.add_middleware(RequestIdMiddleware)
+instrument_app(app, "identity")
 
 
 @app.get("/health")

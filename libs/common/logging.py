@@ -15,6 +15,8 @@ from libs.common.log_redaction import redact_log_record
 
 
 def configure_logging(level: str = "INFO") -> None:
+    """Configure one-line JSON logs; ``request_id`` comes from bound contextvars."""
+
     logging.basicConfig(format="%(message)s", level=getattr(logging, level.upper(), logging.INFO))
     structlog.configure(
         processors=[

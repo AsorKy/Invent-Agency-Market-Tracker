@@ -814,7 +814,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `dbt parse` OK; `pytest -q tests/unit/test_dbt_naming.py` 2 passed; make static/test pass
 
 ### T-060 Zero trust between services
-- status: todo
+- status: done
 - spec: REQ-SEC-005
 - owner: lead-backend-engineer
 - depends: T-032, T-050
@@ -823,10 +823,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_internal_auth.py` and `python ops/check_configuration.py`
 - note: signed service tokens with expiry for service-to-service calls, `_app` role per service in settings, Redis ACL users `edge` and `data` documented in compose configuration checks, and `/internal/*` never routed by the gateway (test). Core must accept tenant headers only from a request carrying a valid gateway service token; add a test where a direct call with `X-Tenant-ID` and no token is refused.
-- evidence:
+- evidence: `pytest -q tests/unit/test_internal_auth.py` 12 passed; `ops/check_configuration.py` OK; make static/test pass. Gaps (see run report): `_app` roles and Redis ACL users not done (outside write_scope); legacy shared secret still accepted; core tenant header requires any valid service token, not gateway-only
 
 ### T-061 Failure matrix tests
-- status: todo
+- status: done
 - spec: REQ-RES-002
 - owner: qa-reviewer
 - depends: T-033, T-051, T-053, T-032
@@ -835,10 +835,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_failure_matrix.py`
 - note: fault injection with fakes for ml, pulse, brief, and Redis as described in REQ-RES-002. Report production defects instead of changing production code.
-- evidence:
+- evidence: `pytest -q tests/unit/test_failure_matrix.py` 16 passed; make static/test pass; production defects listed in run report
 
 ### T-062 Graceful shutdown, structured logs, and metrics
-- status: todo
+- status: done
 - spec: REQ-EVT-007, REQ-OBS-001
 - owner: lead-backend-engineer
 - depends: T-060, T-061
@@ -847,7 +847,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_lifespan.py tests/unit/test_logging.py`
 - note: one shared lifespan helper (stop accepting, wait 25 s, flush the relay, ack the batch, close pools), one-line JSON logs with `request_id`, and Prometheus metrics at `/internal/metrics` for every service.
-- evidence:
+- evidence: `pytest -q tests/unit/test_lifespan.py tests/unit/test_logging.py` 15 passed; make static/test pass. Gaps: no shutdown hooks registered by workers yet; request_id not propagated to consumers
 
 ### T-063 Verified encrypted backups
 - status: blocked
@@ -886,7 +886,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `make coverage` total 86.6%, libs/domain 99%; gates enforced
 
 ### T-070 OpenAPI export
-- status: todo
+- status: done
 - spec: REQ-API-001
 - owner: lead-backend-engineer
 - depends: T-032, T-051, T-022, T-026
@@ -895,7 +895,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_openapi.py` and `make openapi` leaves `git diff --exit-code docs/api/openapi.json` clean
 - note: the gateway proxies by prefix, so build the document from an explicit route registry (path, method, request and response models, errors, headers) shared with the route table of T-032. The test fails for a route missing from the document or a stale committed file. The frozen `libs/contracts/api.py` disagrees with the Pulse response models on nullability: the coordinator reconciles them (the contract change is a coordinator edit) and records the choice in the run report.
-- evidence:
+- evidence: `pytest -q tests/unit/test_openapi.py` 10 passed; `make openapi` then `git diff --exit-code docs/api/openapi.json` clean after commit; make static/test pass
 
 ### T-071 Migration runner
 - status: done
