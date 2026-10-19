@@ -11,8 +11,16 @@ to ``ingest.failed_record`` through a ``FailureSink`` and never stops the rest
 of the batch. ``SqlResolutionStore`` buffers the writes of the synchronous
 ``ResolutionStore`` port and flushes them inside the caller's transaction.
 It relates to ``repository.py`` and ``processor.py``.
+
+The flow is split in two phases so that no database connection is open while core
+is called: ``prepare_record`` maps, registers, and resolves (database writes only),
+and ``deliver_prepared`` calls core with a deterministic ``Idempotency-Key`` and
+records a failure in its own short transaction. ``deliver_company`` sends a
+candidate that the RUES queue worker resolved later.
 """
 
+import hashlib
+import inspect
 import json
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
@@ -46,6 +54,9 @@ class CoreClient(Protocol):
     async def upsert_company(self, body: dict[str, Any]) -> dict[str, Any]: ...
 
     async def create_signal(self, body: dict[str, Any]) -> dict[str, Any]: ...
+
+    # Real clients also accept an ``idempotency_key`` keyword argument; the flow
+    # passes it only to clients that declare it (see ``SnapshotFlow._call``).
 
 
 class FailureSink(Protocol):
@@ -91,17 +102,26 @@ class HttpCoreClient:
         )
         self._headers = {"X-Service-Token": service_token}
 
-    async def _post(self, path: str, body: dict[str, Any]) -> dict[str, Any]:
-        response = await self._client.post(path, json=body, headers=self._headers)
+    async def _post(
+        self, path: str, body: dict[str, Any], idempotency_key: str | None = None
+    ) -> dict[str, Any]:
+        headers = dict(self._headers)
+        if idempotency_key:
+            headers["Idempotency-Key"] = idempotency_key
+        response = await self._client.post(path, json=body, headers=headers)
         response.raise_for_status()
         data = response.json()
         return data if isinstance(data, dict) else {}
 
-    async def upsert_company(self, body: dict[str, Any]) -> dict[str, Any]:
-        return await self._post("/internal/core/companies/upsert", body)
+    async def upsert_company(
+        self, body: dict[str, Any], *, idempotency_key: str | None = None
+    ) -> dict[str, Any]:
+        return await self._post("/internal/core/companies/upsert", body, idempotency_key)
 
-    async def create_signal(self, body: dict[str, Any]) -> dict[str, Any]:
-        return await self._post("/internal/core/signals", body)
+    async def create_signal(
+        self, body: dict[str, Any], *, idempotency_key: str | None = None
+    ) -> dict[str, Any]:
+        return await self._post("/internal/core/signals", body, idempotency_key)
 
     async def aclose(self) -> None:
         await self._client.aclose()
@@ -222,6 +242,20 @@ class SqlResolutionStore:
 
 
 @dataclass(frozen=True)
+class PreparedDelivery:
+    """A resolved record that is ready for core; holds no database state."""
+
+    source: str
+    snapshot_id: str
+    record: dict[str, Any]
+    ref: str | None
+    normalized: NormalizedRecord
+    name: str
+    resolution: Resolution
+    observed_at: datetime
+
+
+@dataclass(frozen=True)
 class RecordOutcome:
     """Result of one record: ``delivered``, ``skipped``, ``pending`` or ``failed``."""
 
@@ -305,6 +339,27 @@ class SnapshotFlow:
         observed_at: datetime | None = None,
     ) -> RecordOutcome:
         """Run one record through mapping, resolution, and core delivery."""
+        prepared = await self.prepare_record(
+            source=source,
+            snapshot_id=snapshot_id,
+            record=record,
+            register=register,
+            observed_at=observed_at,
+        )
+        if isinstance(prepared, RecordOutcome):
+            return prepared
+        return await self.deliver_prepared(prepared)
+
+    async def prepare_record(
+        self,
+        *,
+        source: str,
+        snapshot_id: str,
+        record: Any,
+        register: Register,
+        observed_at: datetime | None = None,
+    ) -> PreparedDelivery | RecordOutcome:
+        """Map, register, and resolve one record; no core call happens here."""
         ref: str | None = None
         try:
             if not isinstance(record, dict):
@@ -339,19 +394,54 @@ class SnapshotFlow:
                 )
             if resolution.decision not in DELIVER_DECISIONS:
                 return RecordOutcome("pending", resolution.decision)
-            await self._deliver(normalized, name, resolution, observed_at or datetime.now(UTC))
-            return RecordOutcome("delivered")
+            return PreparedDelivery(
+                source=source,
+                snapshot_id=snapshot_id,
+                record=record,
+                ref=ref,
+                normalized=normalized,
+                name=name,
+                resolution=resolution,
+                observed_at=observed_at or datetime.now(UTC),
+            )
         except MappingError as exc:
             return await self._fail(source, snapshot_id, record, f"mapping: {exc}", ref)
-        except httpx.HTTPStatusError as exc:
-            reason = f"core rejected request: HTTP {exc.response.status_code}"
-            return await self._fail(source, snapshot_id, record, reason, ref)
-        except httpx.HTTPError as exc:
-            reason = f"core unreachable: {type(exc).__name__}"
-            return await self._fail(source, snapshot_id, record, reason, ref)
         except (KeyError, ValueError, TypeError) as exc:
             reason = f"unexpected core answer or record: {type(exc).__name__}"
             return await self._fail(source, snapshot_id, record, reason, ref)
+
+    async def deliver_prepared(self, prepared: PreparedDelivery) -> RecordOutcome:
+        """Call core for a prepared record; a failure is stored in its own transaction."""
+        try:
+            await self._deliver(
+                prepared.normalized, prepared.name, prepared.resolution, prepared.observed_at
+            )
+            return RecordOutcome("delivered")
+        except httpx.HTTPStatusError as exc:
+            reason = f"core rejected request: HTTP {exc.response.status_code}"
+        except httpx.HTTPError as exc:
+            reason = f"core unreachable: {type(exc).__name__}"
+        except (KeyError, ValueError, TypeError) as exc:
+            reason = f"unexpected core answer or record: {type(exc).__name__}"
+        return await self._fail(
+            prepared.source, prepared.snapshot_id, prepared.record, reason, prepared.ref
+        )
+
+    async def deliver_company(
+        self, *, candidate_id: str, name: str, city: str | None, rues_nit: str | None
+    ) -> None:
+        """Send a candidate resolved by the RUES queue worker; raises on core errors."""
+        body: dict[str, Any] = {"legal_name": name, "tenant_id": str(self.tenant_id)}
+        if rues_nit:
+            body["nit"] = rues_nit
+        if city:
+            body["city"] = city
+        key = self._idempotency_key("rues-company", candidate_id, rues_nit or "")
+        await self._call(self.core.upsert_company, body, key)
+
+    def _idempotency_key(self, *parts: str) -> str:
+        material = "\x1f".join((str(self.tenant_id), *parts))
+        return hashlib.sha256(material.encode("utf-8")).hexdigest()
 
     async def _deliver(
         self,
@@ -372,7 +462,13 @@ class SnapshotFlow:
             if isinstance(website, str):
                 company_body["website"] = website
             company_body["source_ids"] = {normalized.source: normalized.external_id}
-        company = await self._call(self.core.upsert_company, company_body)
+        content = hashlib.sha256(
+            json.dumps(_json_safe(fields), sort_keys=True, default=str).encode("utf-8")
+        ).hexdigest()
+        base = (normalized.source, normalized.external_id, content)
+        company = await self._call(
+            self.core.upsert_company, company_body, self._idempotency_key("company", *base)
+        )
         signal_body = {
             "company_id": str(UUID(str(company["company_id"]))),
             "source": normalized.source,
@@ -382,12 +478,21 @@ class SnapshotFlow:
             "source_external_id": normalized.external_id,
             "tenant_id": str(self.tenant_id),
         }
-        await self._call(self.core.create_signal, signal_body)
+        await self._call(
+            self.core.create_signal, signal_body, self._idempotency_key("signal", *base)
+        )
 
     async def _call(
-        self, method: Callable[[dict[str, Any]], Awaitable[dict[str, Any]]], body: dict[str, Any]
+        self,
+        method: Callable[..., Awaitable[dict[str, Any]]],
+        body: dict[str, Any],
+        idempotency_key: str,
     ) -> dict[str, Any]:
+        keyed = "idempotency_key" in inspect.signature(method).parameters
+
         async def operation() -> dict[str, Any]:
+            if keyed:
+                return await method(body, idempotency_key=idempotency_key)
             return await method(body)
 
         return await retry_with_backoff(

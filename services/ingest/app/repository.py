@@ -20,7 +20,12 @@ from libs.common.db import create_engine
 from libs.common.redis_client import create_redis
 from libs.domain.entity_resolution import normalize_company_name
 from services.ingest.app.snapshot import changed_records
-from services.ingest.app.to_core import Registered, SnapshotFlow, SqlResolutionStore
+from services.ingest.app.to_core import (
+    RecordOutcome,
+    Registered,
+    SnapshotFlow,
+    SqlResolutionStore,
+)
 
 
 def candidate_key(normalized_name: str, city: str | None, nit: str | None) -> str:
@@ -228,46 +233,56 @@ class IngestRepository:
             return 0
         registered_count = 0
         for record in records:
+
+            async def register(name: str, city: str | None, nit: str | None) -> Registered:
+                # Own short transaction: the candidate row is committed at once.
+                async with engine.begin() as connection:
+                    return await self._register_candidate(
+                        connection, raw_snapshot_id, name, city, nit
+                    )
+
+            prepared = await flow.prepare_record(
+                source=source, snapshot_id=snapshot_id, record=record, register=register
+            )
+            # Commit the resolution writes before core is called; no connection is
+            # held while the network call runs (REQ-ING-009).
             async with engine.begin() as connection:
-
-                async def register(
-                    name: str,
-                    city: str | None,
-                    nit: str | None,
-                    connection: Any = connection,
-                ) -> Registered:
-                    normalized_name = normalize_company_name(name)
-                    result = await connection.execute(
-                        text(
-                            """
-                            INSERT INTO ingest.entity_candidate
-                                (raw_snapshot_id, candidate_key, name, city, candidate_nit,
-                                 normalized_name)
-                            VALUES (:raw_snapshot_id, :candidate_key, :name, :city,
-                                    :candidate_nit, :normalized_name)
-                            ON CONFLICT (raw_snapshot_id, candidate_key)
-                            DO UPDATE SET name = EXCLUDED.name
-                            RETURNING id, resolution_attempts, status
-                            """
-                        ),
-                        {
-                            "raw_snapshot_id": raw_snapshot_id,
-                            "candidate_key": candidate_key(normalized_name, city, nit),
-                            "name": name,
-                            "city": city,
-                            "candidate_nit": nit,
-                            "normalized_name": normalized_name,
-                        },
-                    )
-                    row = result.mappings().one()
-                    return Registered(
-                        str(row["id"]), int(row["resolution_attempts"]), row["status"]
-                    )
-
-                outcome = await flow.process_record(
-                    source=source, snapshot_id=snapshot_id, record=record, register=register
-                )
                 await store.flush(connection)
+            outcome = (
+                prepared
+                if isinstance(prepared, RecordOutcome)
+                else await flow.deliver_prepared(prepared)
+            )
             if outcome.status != "failed":
                 registered_count += 1
         return registered_count
+
+    @staticmethod
+    async def _register_candidate(
+        connection: Any, raw_snapshot_id: UUID, name: str, city: str | None, nit: str | None
+    ) -> Registered:
+        normalized_name = normalize_company_name(name)
+        result = await connection.execute(
+            text(
+                """
+                INSERT INTO ingest.entity_candidate
+                    (raw_snapshot_id, candidate_key, name, city, candidate_nit,
+                     normalized_name)
+                VALUES (:raw_snapshot_id, :candidate_key, :name, :city,
+                        :candidate_nit, :normalized_name)
+                ON CONFLICT (raw_snapshot_id, candidate_key)
+                DO UPDATE SET name = EXCLUDED.name
+                RETURNING id, resolution_attempts, status
+                """
+            ),
+            {
+                "raw_snapshot_id": raw_snapshot_id,
+                "candidate_key": candidate_key(normalized_name, city, nit),
+                "name": name,
+                "city": city,
+                "candidate_nit": nit,
+                "normalized_name": normalized_name,
+            },
+        )
+        row = result.mappings().one()
+        return Registered(str(row["id"]), int(row["resolution_attempts"]), row["status"])
