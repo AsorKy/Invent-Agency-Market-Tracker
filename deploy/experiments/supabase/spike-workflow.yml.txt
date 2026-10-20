@@ -1,0 +1,157 @@
+# T-128 experiment. Disposable: it lives only on branch chore/spike-supabase and must never reach main.
+# Question: can the local engine be the supabase/postgres image with Supabase Studio, running
+# ops.migrate and ops/bootstrap_roles.py as supabase_admin, and also as the non-superuser postgres
+# role that hosted Supabase gives us? Every step is allowed to fail so one run reports everything;
+# the RESULT lines at the end are the evidence. All passwords are throwaway values of this job.
+name: spike-supabase
+
+on:
+  push:
+    branches: [chore/spike-supabase]
+
+env:
+  PW: ci-ephemeral
+
+jobs:
+  spike:
+    name: spike (${{ matrix.tag }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        tag: ["17.11.0.006", "15.19.0.006"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install ".[dev,sqltest]"
+
+      - id: start
+        name: Start supabase/postgres (superuser case)
+        continue-on-error: true
+        run: |
+          docker network create imt
+          docker run -d --name pg --network imt -e POSTGRES_PASSWORD="$PW" -p 54329:5432 \
+            supabase/postgres:${{ matrix.tag }}
+          ready=0
+          for i in $(seq 1 60); do
+            if docker exec pg psql -U supabase_admin -d postgres -tAc "select 1" >/dev/null 2>&1; then
+              ready=$((ready + 1))
+              [ "$ready" -ge 3 ] && break
+            else
+              ready=0
+            fi
+            sleep 3
+          done
+          docker exec pg psql -U supabase_admin -d postgres -tAc "select 'ready ' || version()"
+
+      - id: inspect
+        name: Roles, extensions and preload libraries offered by the image
+        continue-on-error: true
+        run: |
+          docker exec pg psql -U supabase_admin -d postgres -c \
+            "select rolname, rolsuper, rolcreaterole, rolcreatedb from pg_roles where rolname in ('postgres','supabase_admin')"
+          docker exec pg psql -U supabase_admin -d postgres -c \
+            "select name, default_version from pg_available_extensions where name in ('vector','postgis','pg_cron','pg_trgm','pgcrypto') order by 1"
+          docker exec pg psql -U supabase_admin -d postgres -tAc "show shared_preload_libraries"
+          docker exec pg psql -U supabase_admin -d postgres -tAc "show cron.database_name"
+
+      - id: migrate_admin
+        name: ops.migrate as supabase_admin
+        continue-on-error: true
+        env:
+          MIGRATE_DATABASE_URL: postgresql://supabase_admin:ci-ephemeral@localhost:54329/postgres
+        run: python -m ops.migrate
+
+      - id: bootstrap_admin
+        name: ops/bootstrap_roles.py as supabase_admin
+        continue-on-error: true
+        run: python ops/bootstrap_roles.py --db-url "postgresql://supabase_admin:$PW@localhost:54329/postgres"
+
+      - id: verify_admin
+        name: What the engine ended up with
+        continue-on-error: true
+        run: |
+          docker exec pg psql -U supabase_admin -d postgres -tAc \
+            "select 'extensions: ' || string_agg(extname, ',' order by extname) from pg_extension"
+          docker exec pg psql -U supabase_admin -d postgres -tAc \
+            "select 'app roles: ' || count(*) from pg_roles where rolname like '%\_app'"
+          docker exec pg psql -U supabase_admin -d postgres -tAc \
+            "select 'schemas: ' || string_agg(nspname, ',' order by nspname) from pg_namespace where nspname in ('ingest','core','pulse','brief','ml','socio','identity','validation')"
+
+      - id: start_hosted
+        name: Start a second supabase/postgres for the non-superuser case
+        continue-on-error: true
+        run: |
+          docker run -d --name pg2 --network imt -e POSTGRES_PASSWORD="$PW" -p 54330:5432 \
+            supabase/postgres:${{ matrix.tag }}
+          ready=0
+          for i in $(seq 1 60); do
+            if docker exec pg2 psql -U postgres -d postgres -tAc "select 1" >/dev/null 2>&1; then
+              ready=$((ready + 1))
+              [ "$ready" -ge 3 ] && break
+            else
+              ready=0
+            fi
+            sleep 3
+          done
+          docker exec pg2 psql -U postgres -d postgres -tAc "select 'postgres superuser: ' || rolsuper from pg_roles where rolname = current_user"
+
+      - id: migrate_hosted
+        name: ops.migrate as postgres (no superuser)
+        continue-on-error: true
+        env:
+          MIGRATE_DATABASE_URL: postgresql://postgres:ci-ephemeral@localhost:54330/postgres
+        run: python -m ops.migrate
+
+      - id: bootstrap_hosted
+        name: ops/bootstrap_roles.py as postgres (no superuser)
+        continue-on-error: true
+        run: python ops/bootstrap_roles.py --db-url "postgresql://postgres:$PW@localhost:54330/postgres"
+
+      - id: studio
+        name: Supabase Studio on postgres-meta over the superuser database
+        continue-on-error: true
+        run: |
+          docker run -d --name meta --network imt -p 54332:8080 \
+            -e PG_META_PORT=8080 -e PG_META_DB_HOST=pg -e PG_META_DB_PORT=5432 \
+            -e PG_META_DB_NAME=postgres -e PG_META_DB_USER=supabase_admin -e PG_META_DB_PASSWORD="$PW" \
+            supabase/postgres-meta:v0.100.0
+          docker run -d --name studio --network imt -p 54331:3000 \
+            -e STUDIO_PG_META_URL=http://meta:8080 -e POSTGRES_PASSWORD="$PW" \
+            -e DEFAULT_ORGANIZATION_NAME=Invent -e DEFAULT_PROJECT_NAME=local \
+            -e SUPABASE_URL=http://localhost:8000 -e SUPABASE_PUBLIC_URL=http://localhost:8000 \
+            -e SUPABASE_ANON_KEY=not-a-real-key -e SUPABASE_SERVICE_KEY=not-a-real-key \
+            -e AUTH_JWT_SECRET=ci-ephemeral-jwt-secret-with-at-least-32-chars \
+            supabase/studio:2026.10.19-sha-b375769
+          for i in $(seq 1 40); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:54331/ || true)
+            [ "$code" = "200" ] && break
+            sleep 3
+          done
+          echo "RESULT: studio_home_http=$code"
+          echo "RESULT: meta_query=$(curl -sS -X POST http://localhost:54332/query -H 'Content-Type: application/json' \
+            -d '{"query":"select count(*) as n from pg_namespace"}' | head -c 200)"
+          echo "RESULT: studio_sql_proxy=$(curl -sS -w ' http=%{http_code}' -X POST \
+            http://localhost:54331/api/platform/pg-meta/default/query -H 'Content-Type: application/json' \
+            -d '{"query":"select count(*) as n from information_schema.schemata"}' | head -c 300)"
+
+      - name: Container logs when something failed
+        if: always()
+        run: |
+          for c in pg pg2 meta studio; do
+            echo "::group::$c"
+            docker logs --tail 25 "$c" 2>&1 | sed -E 's/(password|secret)[^ ]*/\1=<hidden>/Ig' || true
+            echo "::endgroup::"
+          done
+
+      - name: Result
+        if: always()
+        run: |
+          echo "RESULT: tag=${{ matrix.tag }}"
+          echo "RESULT: start=${{ steps.start.outcome }} inspect=${{ steps.inspect.outcome }}"
+          echo "RESULT: migrate_admin=${{ steps.migrate_admin.outcome }} bootstrap_admin=${{ steps.bootstrap_admin.outcome }} verify_admin=${{ steps.verify_admin.outcome }}"
+          echo "RESULT: start_hosted=${{ steps.start_hosted.outcome }} migrate_hosted=${{ steps.migrate_hosted.outcome }} bootstrap_hosted=${{ steps.bootstrap_hosted.outcome }}"
+          echo "RESULT: studio=${{ steps.studio.outcome }}"
