@@ -15,6 +15,8 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
+from sqlalchemy.engine import make_url
+
 REPO = Path(__file__).resolve().parents[2]
 _BIND = re.compile(r"'(?:[^']|'')*'|--[^\n]*|\"[^\"]*\"|::|:([A-Za-z_]\w*)")
 
@@ -33,11 +35,11 @@ def numbered_binds(sql: str) -> tuple[str, int]:
 
 
 def scratch_url(base_url: str, name: str) -> str:
-    """Return ``base_url`` with its database name replaced by ``name``."""
-    from psycopg.conninfo import conninfo_to_dict, make_conninfo
+    """Return ``base_url`` with its database name replaced by ``name``.
 
-    params = conninfo_to_dict(base_url)
-    return make_conninfo(**{**params, "dbname": name})
+    The result stays a URL: asyncpg rejects the ``key=value`` form that psycopg builds.
+    """
+    return make_url(base_url).set(database=name).render_as_string(hide_password=False)
 
 
 @contextmanager
