@@ -14,6 +14,12 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "unit"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from forbid_skips import (  # noqa: E402,F401  (pytest picks these hooks up by name)
+    pytest_runtest_logreport,
+    pytest_sessionfinish,
+    pytest_terminal_summary,
+)
+
 
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
     """Add the ``integration`` marker to tests collected under this directory."""
