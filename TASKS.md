@@ -1394,7 +1394,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-128 Spike: Supabase image as the local engine, with Studio
-- status: todo
+- status: done
 - spec: REQ-DAT-006
 - owner: coordinator
 - depends: T-064
@@ -1403,4 +1403,4 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `test -f docs/experiments/ops-supabase-engine.md` and `make static`
 - note: needs Docker, so a managed-agent sandbox cannot run it; the coordinator runs it in a CI job or the owner runs it locally. Question: can the local engine be the `supabase/postgres` image with Supabase Studio, running `ops.migrate` and `ops/bootstrap_roles.py` as `supabase_admin` (the real superuser) while the app roles stay `<schema>_app`? Record in the note: (1) both scripts succeed and the four extensions enable; (2) Studio SQL editor and table editor work on the data; (3) container count, memory and cold start next to `deploy/Dockerfile.postgres` plus pgAdmin; (4) verdict keep or replace. Keep experiment files under `deploy/experiments/`; do not change `docker-compose.yml` or the default stack. Replacing the default image needs the owner's decision. Also check the hosted-Supabase case: run migrate and bootstrap as a role with `CREATEROLE` and `CREATEDB` but no superuser.
-- evidence:
+- evidence: docs/experiments/ops-supabase-engine.md (run 39503437901): superuser flow ok on PG 15 and 17; bootstrap fails as a non-superuser role; Studio boots and reaches postgres-meta, SQL editor not verified in a browser
