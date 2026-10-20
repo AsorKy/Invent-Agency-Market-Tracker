@@ -24,6 +24,7 @@ DEFAULT_ENVIRONMENT = {
     "LOG_LEVEL": "WARNING",
     "INTERNAL_SERVICE_TOKEN": "test-internal-token",
     "REDIS_URL": "redis://localhost:6379/15",
+    "INGEST_TENANT_ID": "00000000-0000-4000-8000-0000000000a1",
 }
 
 for _name, _value in DEFAULT_ENVIRONMENT.items():

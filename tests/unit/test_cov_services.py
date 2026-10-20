@@ -32,6 +32,7 @@ from services.ingest.app import processor  # noqa: E402
 from services.ingest.app import repository as ingest_repository  # noqa: E402
 from services.ingest.app.budget import BudgetRepository  # noqa: E402
 from services.ingest.app.connectors import ConnectorError  # noqa: E402
+from services.ingest.app.to_core import RecordOutcome  # noqa: E402
 from services.ml.app import main as ml_main  # noqa: E402
 from services.ml.app import repository as ml_repository  # noqa: E402
 from services.ml.app import segmentation as seg  # noqa: E402
@@ -178,11 +179,22 @@ class _Flow:
     def source_for_dataset(self, dataset_id: str) -> str | None:
         return self.source
 
-    async def process_record(
-        self, *, source: str, snapshot_id: str, record: Any, register: Callable[..., Awaitable[Any]]
+    async def prepare_record(
+        self,
+        *,
+        source: str,
+        snapshot_id: str,
+        record: Any,
+        register: Callable[..., Awaitable[Any]],
+        observed_at: Any = None,
     ) -> Any:
         self.registered.append(await register(record["name"], "Cali", None))
-        return SimpleNamespace(status="failed" if record.get("bad") else self.status)
+        if record.get("bad"):
+            return RecordOutcome("failed", "bad record")
+        return record  # stands in for the prepared delivery
+
+    async def deliver_prepared(self, prepared: Any) -> RecordOutcome:
+        return RecordOutcome(self.status)
 
 
 class _Store:
