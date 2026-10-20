@@ -881,7 +881,11 @@ class _CoreRepoStub:
         self.passes += 1
         if self.passes == 1:
             raise RuntimeError("database down")
-        return AsyncExit(_Tx([_outbox_row(1), _outbox_row(2)], fail_publish_of=set()))
+        if self.passes == 2:
+            return AsyncExit(_Tx([_outbox_row(1), _outbox_row(2)], fail_publish_of=set()))
+        if self.passes == 3:
+            raise Stop()
+        return AsyncExit(_Tx([], fail_publish_of=set()))
 
     async def list_outbox_events_since(self, *_a: Any) -> list[dict[str, Any]]:
         return []
@@ -908,17 +912,10 @@ async def test_dead_letter_main_survives_a_failed_pass_and_publishes(
     inner = fakeredis.FakeAsyncRedis(decode_responses=True)
     redis = FakeRedisWrapper(inner)
     _patch_core_io(monkeypatch, redis)
-    sleeps: list[float] = []
-
-    async def fake_sleep(seconds: float) -> None:
-        sleeps.append(seconds)
-        if len(sleeps) == 2:
-            raise Stop()
-
-    monkeypatch.setattr(dead_letter.asyncio, "sleep", fake_sleep)
     with pytest.raises(Stop):
         await dead_letter.main()
-    assert len(sleeps) == 2
+    # pass 1 fails, pass 2 publishes, pass 3 stops the loop, pass 4 is the shutdown flush
+    assert _CoreRepoStub.instances[0].passes == 4
     assert redis.closed and _CoreRepoStub.instances[0].closed
     entries = await inner.xrange("invent.events")
     assert len(entries) == 2
