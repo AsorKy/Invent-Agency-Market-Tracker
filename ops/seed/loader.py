@@ -20,7 +20,7 @@ The core port is injectable (``SeedCore``) so tests run with an in-memory fake;
 """
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 from typing import Any, Protocol
 from uuid import NAMESPACE_URL, UUID, uuid5
@@ -150,6 +150,7 @@ class SeedResult:
     skipped: int = 0
     failed: int = 0
     removed: int = 0
+    reasons: dict[str, int] = field(default_factory=dict)
 
 
 async def _register(name: str, city: str | None, nit: str | None) -> Registered:
@@ -200,6 +201,9 @@ async def _run_flow(
                 result.failed += 1
             else:
                 result.skipped += 1
+    for row in failures.rows:
+        reason = str(row.get("reason") or "unknown")
+        result.reasons[reason] = result.reasons.get(reason, 0) + 1
     return result, failures
 
 

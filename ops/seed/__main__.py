@@ -39,6 +39,8 @@ async def run(argv: Sequence[str] | None = None, core: loader.SeedCore | None = 
                 f"seed load: delivered={result.delivered} skipped={result.skipped} "
                 f"failed={result.failed}"
             )
+            for reason, count in sorted(result.reasons.items(), key=lambda item: -item[1])[:5]:
+                print(f"seed failure: {reason} x{count}")
             return 0 if result.failed == 0 else 1
         cleared = await loader.clear(client, **params)
         print(f"seed clear: removed={cleared.removed}")
