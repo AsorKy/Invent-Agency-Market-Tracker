@@ -23,7 +23,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from typing import Any, Protocol
-from uuid import NAMESPACE_URL, uuid5
+from uuid import NAMESPACE_URL, UUID, uuid5
 
 from datagen.builder import build_dataset, build_snapshots
 from libs.domain.entity_resolution import EntityResolver, InMemoryResolutionStore, MockRuesLookup
@@ -31,6 +31,7 @@ from services.core.app.companies import CompanyUpsert, company_slug
 from services.ingest.app.to_core import HttpCoreClient, Registered, SnapshotFlow
 
 DEMO_SOURCE = "demo"
+DEMO_TENANT_ID = UUID("00000000-0000-4000-8000-0000000000a1")
 DEFAULT_SEED = 42
 DEFAULT_ORGS = 60
 DEFAULT_DAYS = 180
@@ -172,6 +173,7 @@ def _flow(core: Any, failures: NullFailures, now: datetime) -> SnapshotFlow:
         failures=failures,
         resolve=resolver.resolve,
         dataset_sources={},
+        tenant_id=DEMO_TENANT_ID,
         retry_attempts=2,
         retry_base_delay_seconds=0.1,
     )
