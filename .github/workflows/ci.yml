@@ -86,7 +86,7 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - run: python -m pip install --upgrade pip
-      - run: python -m pip install ".[dev,streamlit,identity]"
+      - run: python -m pip install ".[dev,streamlit,identity,sqltest]"
       - run: make test-integration
 
   contracts:
