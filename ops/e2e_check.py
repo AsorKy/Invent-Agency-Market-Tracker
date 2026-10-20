@@ -19,6 +19,10 @@ from dataclasses import dataclass
 PSQL = 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tA -v ON_ERROR_STOP=1 -c "$0"'
 PENDING_OUTBOX = "SELECT count(*) FROM core.outbox_event WHERE published_at IS NULL"
 DEAD_LETTERS = "SELECT count(*) FROM core.outbox_dead_letter"
+DEAD_LETTER_ERRORS = (
+    "SELECT left(error, 160) || ' x' || count(*) FROM core.outbox_dead_letter "
+    "GROUP BY error ORDER BY count(*) DESC LIMIT 5"
+)
 
 
 @dataclass(frozen=True)
@@ -41,10 +45,11 @@ TABLES = (
 )
 
 Query = Callable[[str], int]
+DeadLetterErrors = Callable[[], list[str]]
 
 
-def compose_query(sql: str) -> int:
-    """Run one scalar SQL query inside the postgres container and return the integer."""
+def compose_text(sql: str) -> str:
+    """Run one SQL query inside the postgres container and return its unaligned output."""
     result = subprocess.run(
         ["docker", "compose", "exec", "-T", "postgres", "sh", "-c", PSQL, sql],
         capture_output=True,
@@ -53,7 +58,17 @@ def compose_query(sql: str) -> int:
     )
     if result.returncode != 0:
         raise RuntimeError(f"psql failed: {result.stderr.strip()[:300]}")
-    return int(result.stdout.strip())
+    return result.stdout.strip()
+
+
+def compose_query(sql: str) -> int:
+    """Run one scalar SQL query inside the postgres container and return the integer."""
+    return int(compose_text(sql))
+
+
+def dead_letter_errors() -> list[str]:
+    """The most common dead letter errors with their counts (error texts hold no credentials)."""
+    return [line for line in compose_text(DEAD_LETTER_ERRORS).splitlines() if line]
 
 
 def collect(query: Query, tables: Sequence[Table]) -> dict[str, int]:
@@ -82,6 +97,7 @@ def run(
     argv: Sequence[str] | None = None,
     query: Query = compose_query,
     sleep: Callable[[float], None] = time.sleep,
+    errors: DeadLetterErrors = dead_letter_errors,
 ) -> int:
     """Poll until the requirements hold or the timeout passes; print the final counts."""
     parser = argparse.ArgumentParser(description="Check demo data in the running stack.")
@@ -103,6 +119,9 @@ def run(
         print(f"{table.name}: {counts[table.name]} ({needed})")
     print(f"outbox pending: {counts['outbox pending']}")
     print(f"outbox dead letters: {counts['outbox dead letters']}")
+    if counts["outbox dead letters"]:
+        for line in errors():
+            print(f"dead letter error: {line}")
     for problem in problems:
         print(f"FAIL: {problem}", file=sys.stderr)
     print("e2e data check: " + ("FAILED" if problems else "OK"))

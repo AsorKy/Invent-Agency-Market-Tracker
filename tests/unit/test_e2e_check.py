@@ -45,10 +45,17 @@ def test_fails_when_a_required_table_is_empty(capsys: pytest.CaptureFixture[str]
 
 def test_fails_on_pending_events_and_dead_letters(capsys: pytest.CaptureFixture[str]) -> None:
     counts = {**FILLED, "pending": 3, "dead": 1}
-    assert e2e_check.run(["--timeout", "0"], query=scripted(counts), sleep=lambda _s: None) == 1
-    err = capsys.readouterr().err
-    assert "3 outbox events are still unpublished" in err
-    assert "1 events went to the dead letter table" in err
+    code = e2e_check.run(
+        ["--timeout", "0"],
+        query=scripted(counts),
+        sleep=lambda _s: None,
+        errors=lambda: ["missing_tenant_id x1"],
+    )
+    assert code == 1
+    captured = capsys.readouterr()
+    assert "3 outbox events are still unpublished" in captured.err
+    assert "1 events went to the dead letter table" in captured.err
+    assert "dead letter error: missing_tenant_id x1" in captured.out
 
 
 def test_strict_requires_every_table() -> None:
