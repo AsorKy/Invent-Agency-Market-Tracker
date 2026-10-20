@@ -63,7 +63,14 @@ def test_seed_runs_inside_the_stack() -> None:
 
 
 def test_down_and_reset() -> None:
-    assert "docker compose down" in _dry_run("invent-tracker-down")
+    assert "docker compose --profile ui down" in _dry_run("invent-tracker-down")
     reset = _dry_run("invent-tracker-reset")
     assert "read answer" in reset
-    assert "down -v" in reset
+    assert "--profile ui down -v" in reset
+
+
+def test_db_ui_starts_only_the_optional_pgadmin_profile() -> None:
+    assert "db-ui" in _defined() and "db-ui" in _phony()
+    ui = _dry_run("db-ui")
+    assert "docker compose --profile ui up -d --wait pgadmin" in ui
+    assert "pgadmin" not in _dry_run("invent-tracker")
