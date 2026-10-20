@@ -5,6 +5,7 @@ service catalog (REQ-ARC-001), migrate gating (REQ-DEP-001), and that the
 gateway holds no database credentials (REQ-STR-002).
 """
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -22,7 +23,13 @@ WORKERS = {
     "ml-consumer": ("ml", "services.ml.app.consumer"),
 }
 DB_APIS = {"ingest": "ingest", "core": "core", "pulse": "pulse", "brief": "brief", "ml": "ml"}
-EXPECTED = {"postgres", "redis", "migrate", "bootstrap-roles", "streamlit", "mocks", "n8n"} | set(APIS) | set(WORKERS)
+DEV_TOOLS = {"pgadmin"}  # profile-gated helpers, outside the SPEC section 3.1 catalog
+EXPECTED = (
+    {"postgres", "redis", "migrate", "bootstrap-roles", "streamlit", "mocks", "n8n"}
+    | set(APIS)
+    | set(WORKERS)
+    | DEV_TOOLS
+)
 
 
 @pytest.fixture(scope="module")
@@ -66,12 +73,50 @@ def test_bootstrap_roles_is_one_shot_after_migrate(services: dict[str, Any]) -> 
     env = _env(boot)
     assert env["BOOTSTRAP_DATABASE_URL"].startswith("postgresql://")
     for schema in DB_APIS.values():
-        assert env[f"BOOTSTRAP_PASSWORD_{schema.upper()}"].endswith(f":-CHANGE_ME_{schema.upper()}}}")
+        assert env[f"BOOTSTRAP_PASSWORD_{schema.upper()}"].endswith(
+            f":-CHANGE_ME_{schema.upper()}}}"
+        )
 
 
 def test_dockerfile_installs_psycopg_for_bootstrap() -> None:
     dockerfile = COMPOSE.parent / "deploy" / "Dockerfile.python"
     assert "psycopg" in dockerfile.read_text(encoding="utf-8")
+
+
+def test_postgres_image_carries_every_bootstrap_extension(services: dict[str, Any]) -> None:
+    from ops.schemas import EXTENSIONS
+
+    postgres = services["postgres"]
+    assert postgres["build"] == {"context": "deploy", "dockerfile": "Dockerfile.postgres"}
+    dockerfile = (COMPOSE.parent / "deploy" / "Dockerfile.postgres").read_text(encoding="utf-8")
+    packages = {"vector": "pgvector", "postgis": "postgis", "pg_cron": "cron"}
+    builtin = {"pg_trgm", "pgcrypto"}  # contrib, shipped with the base image
+    assert set(EXTENSIONS) <= set(packages) | builtin
+    for extension in set(EXTENSIONS) - builtin:
+        assert f"postgresql-16-{packages[extension]}" in dockerfile
+    assert dockerfile.count("FROM postgres:16") == 1
+
+
+def test_postgres_preloads_pg_cron_on_the_application_database(services: dict[str, Any]) -> None:
+    command = services["postgres"]["command"]
+    assert command[0] == "postgres"
+    assert "shared_preload_libraries=pg_cron" in command
+    assert "cron.database_name=${POSTGRES_DB:-invent_market_tracker}" in command
+
+
+def test_pgadmin_is_an_optional_loopback_ui(services: dict[str, Any]) -> None:
+    pgadmin = services["pgadmin"]
+    assert pgadmin["profiles"] == ["ui"]
+    assert all(port.startswith("127.0.0.1:") for port in pgadmin["ports"])
+    assert _depends(pgadmin) == {"postgres": "service_healthy"}
+    assert "postgres" not in " ".join(_env(pgadmin)).lower()
+    servers = json.loads(
+        (COMPOSE.parent / "deploy" / "pgadmin" / "servers.json").read_text("utf-8")
+    )
+    server = servers["Servers"]["1"]
+    assert server["Host"] == "postgres" and server["Username"] == "postgres"
+    assert "Password" not in server and "PassFile" not in server
+    assert not any("pgadmin" in _depends(other) for other in services.values())
 
 
 def test_postgres_does_not_apply_migrations(services: dict[str, Any]) -> None:
