@@ -1082,7 +1082,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: (code and tests done, pytest 12 passed) BLOCKED only on the workflow change: PAT lacks `workflow` scope, push rejected. Apply with `git apply docs/runs/T-063-backups-workflow.diff`. `pytest -q tests/unit/test_backups.py` -> 12 passed; ops/check_workflows.py OK; make static and make test pass
 
 ### T-064 Eleven-stage CI pipeline
-- status: blocked
+- status: done
 - spec: REQ-CI-002
 - owner: devops-engineer
 - depends: T-007, T-063, T-070
