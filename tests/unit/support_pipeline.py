@@ -333,7 +333,7 @@ class FakeCoreRepository:
     async def close(self) -> None:
         return None
 
-    def company_unit_of_work(self) -> FakeUnitOfWork:
+    def company_unit_of_work(self, tenant_id: Any = None) -> FakeUnitOfWork:
         return FakeUnitOfWork(self.store, FakeCompanyTx(self.store))
 
     def qualification_unit_of_work(self) -> FakeUnitOfWork:

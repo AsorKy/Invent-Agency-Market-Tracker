@@ -220,7 +220,7 @@ def test_endpoint_requires_token_and_reports_status(monkeypatch: pytest.MonkeyPa
     store = FakeStore()
 
     class FakeRepository:
-        def company_unit_of_work(self) -> FakeUnitOfWork:
+        def company_unit_of_work(self, tenant_id: Any = None) -> FakeUnitOfWork:
             return store.unit_of_work()
 
     main.app.state.repository = FakeRepository()
