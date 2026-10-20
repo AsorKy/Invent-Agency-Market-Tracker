@@ -1,0 +1,13 @@
+# Local Postgres with the extensions that ops/bootstrap_roles.py enables (ops/schemas.py
+# EXTENSIONS: vector, postgis, pg_cron, pg_trgm). The stock postgres:16-alpine image has none
+# of pgvector, PostGIS, or pg_cron, so bootstrap-roles failed there. The Debian image keeps the
+# `postgres` superuser unchanged, ships pg_trgm and pgcrypto, and is multi-arch (Apple Silicon).
+# pg_cron also needs shared_preload_libraries, which docker-compose.yml sets on the command.
+FROM postgres:16-bookworm
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        postgresql-16-pgvector \
+        postgresql-16-postgis-3 \
+        postgresql-16-cron \
+    && rm -rf /var/lib/apt/lists/*

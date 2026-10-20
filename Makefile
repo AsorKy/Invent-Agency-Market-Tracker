@@ -2,7 +2,7 @@
 # configuration. Relates to ops/check_*.py, pyproject.toml, and
 # docker-compose.yml.
 .PHONY: up down datagen openapi static compose-config test test-integration test-sql coverage \
-	invent-tracker invent-tracker-down invent-tracker-reset seed seed-clear doctor verify-live
+	invent-tracker invent-tracker-down invent-tracker-reset db-ui seed seed-clear doctor verify-live
 
 up:
 	docker compose up --build
@@ -25,13 +25,20 @@ invent-tracker:
 	docker compose up -d --build --remove-orphans
 	python ops/bootstrap_env.py --wait
 	test -f .env.seeded || { $(MAKE) seed && touch .env.seeded; }
+	@echo "Data UI (SQL editor): make db-ui"
 
 invent-tracker-down:
-	docker compose down
+	docker compose --profile ui down
 
 invent-tracker-reset:
 	@printf 'This removes all containers and data volumes. Type yes to continue: '; read answer; \
-	if [ "$$answer" = "yes" ]; then docker compose down -v && rm -f .env.seeded; else echo "Aborted"; exit 1; fi
+	if [ "$$answer" = "yes" ]; then docker compose --profile ui down -v && rm -f .env.seeded; else echo "Aborted"; exit 1; fi
+
+# Optional data UI: pgAdmin on loopback with the local database pre-registered. Needs the stack
+# from `make invent-tracker`; the login password for the server is POSTGRES_PASSWORD in .env.
+db-ui:
+	docker compose --profile ui up -d --wait pgadmin
+	@echo "pgAdmin: http://localhost:$${PGADMIN_PORT:-5050}  (server 'Invent Market Tracker (local)', user postgres)"
 
 seed:
 	docker compose exec -T gateway python -m ops.seed load

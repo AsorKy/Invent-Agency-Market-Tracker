@@ -59,7 +59,18 @@ x-app-env: &app_env
 
 services:
   postgres:
-    image: postgres:16-alpine
+    # Built from deploy/Dockerfile.postgres: pgvector, PostGIS and pg_cron on top of
+    # postgres:16. pg_cron must be preloaded and pinned to the application database.
+    build:
+      context: deploy
+      dockerfile: Dockerfile.postgres
+    image: invent-market-tracker-postgres:16
+    command:
+      - postgres
+      - -c
+      - shared_preload_libraries=pg_cron
+      - -c
+      - cron.database_name=${POSTGRES_DB:-invent_market_tracker}
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-invent_market_tracker}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
@@ -512,7 +523,34 @@ services:
       mocks:
         condition: service_started
 
+  pgadmin:
+    # Optional data UI (SQL editor, table browser) on http://localhost:${PGADMIN_PORT}; start it
+    # with `make db-ui`. Desktop mode: no pgAdmin login, bound to loopback only. It connects as
+    # the `postgres` superuser, so it also sees rows that row level security hides from the apps.
+    # The database password is not stored here: pgAdmin asks for it on the first connection.
+    image: dpage/pgadmin4:8.14
+    profiles: ["ui"]
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@example.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-local-only}
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+    ports:
+      - "127.0.0.1:${PGADMIN_PORT:-5050}:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+      - ./deploy/pgadmin/servers.json:/pgadmin4/servers.json:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:80/misc/ping || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   postgres_data:
   n8n_data:
+  pgadmin_data:
 

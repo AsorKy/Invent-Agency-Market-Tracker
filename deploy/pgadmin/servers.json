@@ -1,0 +1,14 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "Invent Market Tracker (local)",
+      "Group": "Servers",
+      "Host": "postgres",
+      "Port": 5432,
+      "MaintenanceDB": "invent_market_tracker",
+      "Username": "postgres",
+      "SSLMode": "prefer",
+      "Comment": "Local Compose database. The password is POSTGRES_PASSWORD from .env."
+    }
+  }
+}
