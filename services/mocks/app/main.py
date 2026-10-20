@@ -49,42 +49,112 @@ def sign_webhook(body: bytes, secret: str, timestamp: str) -> str:
     return hmac.new(secret.encode("utf-8"), message, hashlib.sha256).hexdigest()
 
 
+def _source_for(dataset_id: str) -> str:
+    """Pick the source whose name appears in the dataset id (default: maps)."""
+    normalized = dataset_id.lower().replace("-", "_")
+    for source in ("linkedin_companies", "linkedin_jobs", "instagram", "computrabajo"):
+        if source in normalized:
+            return source
+    return "maps"
+
+
+def _computrabajo(index: int, key: str) -> dict[str, Any]:
+    return {
+        "job_id": f"ct-{key}",
+        "title": f"Software Developer {index}",
+        "company": f"Synthetic Company {index}",
+        "city": "Medellin",
+        "salary": "COP 6,000,000",
+        "description": "Synthetic job posting.",
+        "posted_at": "2026-10-01",
+        "url": f"https://co.computrabajo.example/job/{key}",
+        "contract_type": "full time",
+    }
+
+
+def _linkedin_company(index: int, key: str) -> dict[str, Any]:
+    return {
+        "company_id": f"lic-{key}",
+        "name": f"Synthetic Company {index}",
+        "headquarters": "Medellin",
+        "country_code": "CO",
+        "industries": "Software",
+        "company_size": "51-200 employees",
+        "employees_in_linkedin": 50 + index,
+        "followers": 1000 + index,
+        "website": f"https://synthetic-{index}.example",
+        "url": f"https://www.linkedin.com/company/synthetic-{key}",
+        "slogan": "Synthetic",
+    }
+
+
+def _linkedin_job(index: int, key: str) -> dict[str, Any]:
+    return {
+        "job_posting_id": f"lij-{key}",
+        "job_title": f"Data Engineer {index}",
+        "company_name": f"Synthetic Company {index}",
+        "job_location": "Medellin, Colombia",
+        "job_base_pay_range": "$3M-$5M",
+        "job_summary": "Synthetic summary.",
+        "job_seniority_level": "Mid-Senior level",
+        "job_employment_type": "Full-time",
+        "job_posted_date": "2026-10-03",
+        "url": f"https://www.linkedin.com/jobs/view/{key}",
+        "apply_link": f"https://synthetic-{index}.example/apply",
+        "job_function": "Engineering",
+    }
+
+
+def _instagram(index: int, key: str) -> dict[str, Any]:
+    account = f"synthetic_{index}"
+    return {
+        "id": f"ig-{key}",
+        "account": account,
+        "full_name": f"Synthetic Company {index}",
+        "business_category_name": "Coffee Shop",
+        "followers": 2000 + index,
+        "posts_count": 100 + index,
+        "biography": "Synthetic bio.",
+        "external_url": f"https://synthetic-{index}.example",
+        "profile_url": f"https://www.instagram.com/{account}",
+        "is_verified": False,
+    }
+
+
+def _maps(index: int, key: str) -> dict[str, Any]:
+    return {
+        "place_id": f"place-{key}",
+        "name": f"Synthetic Company {index}",
+        "category": "Restaurant",
+        "address": f"Calle {10 + index} # 5-20, Medellin",
+        "city": "Medellin",
+        "phone_number": f"+57 300 000 {index:04d}",
+        "open_website": f"https://synthetic-{index}.example",
+        "rating": 4.2,
+        "reviews_count": 10 + index,
+        "lat": 6.2442 + index / 1000,
+        "lon": -75.5812,
+        "photos_and_videos": 3,
+    }
+
+
+_BUILDERS: dict[str, Callable[[int, str], dict[str, Any]]] = {
+    "computrabajo": _computrabajo,
+    "linkedin_companies": _linkedin_company,
+    "linkedin_jobs": _linkedin_job,
+    "instagram": _instagram,
+    "maps": _maps,
+}
+
+
 def synthetic_records(dataset_id: str, snapshot_id: str, count: int) -> list[dict[str, Any]]:
-    """Build deterministic provider-shaped records for a snapshot."""
-    jobs = "computrabajo" in dataset_id
-    records: list[dict[str, Any]] = []
-    for index in range(count):
-        key = f"{snapshot_id}-{index}"
-        if jobs:
-            records.append(
-                {
-                    "job_id": f"ct-{key}",
-                    "title": f"Software Developer {index}",
-                    "company": f"Synthetic Company {index}",
-                    "city": "Medellin",
-                    "salary": "COP 6,000,000",
-                    "description": "Synthetic job posting.",
-                    "posted_at": "2026-10-01",
-                    "url": f"https://co.computrabajo.example/job/{key}",
-                }
-            )
-        else:
-            records.append(
-                {
-                    "place_id": f"place-{key}",
-                    "name": f"Synthetic Company {index}",
-                    "category": "Restaurant",
-                    "address": f"Calle {10 + index} # 5-20, Medellin",
-                    "city": "Medellin",
-                    "phone_number": f"+57 300 000 {index:04d}",
-                    "open_website": f"https://synthetic-{index}.example",
-                    "rating": 4.2,
-                    "reviews_count": 10 + index,
-                    "lat": 6.2442 + index / 1000,
-                    "lon": -75.5812,
-                }
-            )
-    return records
+    """Build deterministic provider-shaped records for a snapshot.
+
+    The source is chosen from the dataset id; field names match
+    ``tests/fixtures/brightdata/synthetic/`` without the ``_synthetic`` marker.
+    """
+    build = _BUILDERS[_source_for(dataset_id)]
+    return [build(index, f"{snapshot_id}-{index}") for index in range(count)]
 
 
 def _post_webhook(url: str, body: bytes, headers: dict[str, str]) -> int:

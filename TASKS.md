@@ -914,7 +914,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_event_dimensions.py tests/unit/test_rollups.py tests/unit/test_pulse_consumer.py tests/unit/test_sql_consistency.py` -> 46 passed; make static and make test pass (907 passed)
 
 ### T-089 Ingest core calls outside the transaction and RUES queue worker
-- status: todo
+- status: done
 - spec: REQ-ING-009, REQ-ING-003
 - owner: second-backend-engineer
 - depends: T-045
@@ -923,10 +923,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_ingest_outside_tx.py tests/unit/test_rues_queue.py tests/unit/test_ingest_to_core.py`
 - note: the processor must not hold a database connection while it calls core: commit the ingest writes first, then call core with an idempotency key, then record the result. Add a worker that retries `ingest.rues_lookup_queue` with backoff through the injectable lookup (mock) and sends resolved candidates through `to_core`.
-- evidence:
+- evidence: `pytest -q tests/unit/test_ingest_outside_tx.py tests/unit/test_rues_queue.py tests/unit/test_ingest_to_core.py` 19 passed; make static ok; make test 916 passed, 7 xfailed; test_sql_consistency passes.
 
 ### T-098 Source-specific mock records
-- status: todo
+- status: done
 - spec: REQ-ING-007, REQ-ING-004
 - owner: qa-reviewer
 - depends: T-048, T-096
@@ -935,11 +935,11 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_mocks_sources.py`
 - note: the Bright Data mock emits records for linkedin_companies, linkedin_jobs, and instagram with the field shapes of the synthetic fixtures, so the offline pipeline and the mapping verifier exercise every source.
-- evidence:
+- evidence: `pytest -q tests/unit/test_mocks_sources.py` 16 passed; make static passes.
 
 
 ### T-120 Ingest sends tenant_id on company upsert
-- status: todo
+- status: done
 - spec: REQ-ING-009, REQ-EVT-005
 - owner: second-backend-engineer
 - depends: T-045
@@ -948,7 +948,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: S
 - acceptance: `pytest -q tests/unit/test_ingest_to_core.py tests/unit/test_pipeline_flow.py`
 - note: defect D-1 of the end-to-end test: `SnapshotFlow._deliver` sends no `tenant_id` on the company upsert, so events get a null tenant and the relay dead-letters them. Send the tenant on every upsert and signal call, taken from the ingest tenant configuration and never from the payload, then remove the shim and the strict xfail in the pipeline test.
-- evidence:
+- evidence: `pytest -q tests/unit/test_ingest_to_core.py tests/unit/test_pipeline_flow.py` 20 passed, 3 xfailed (D-2, D-3, D-4 remain); make static and make test pass. Also touched ops/seed/loader.py (DEMO_TENANT_ID) and tests/unit/support_pipeline.py to remove the shim.
 
 ### T-121 ML score events carry payload and tenant; pulse never sticks on a bad entry
 - status: done

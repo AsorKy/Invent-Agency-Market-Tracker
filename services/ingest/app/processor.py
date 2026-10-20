@@ -17,6 +17,8 @@ from libs.common.retry import retry_with_backoff
 from libs.common.settings import get_settings
 from libs.domain.entity_resolution import EntityResolver, MockRuesLookup
 from services.ingest.app.repository import IngestRepository
+from services.ingest.app.rues_queue import RuesQueueWorker, run_forever
+from services.ingest.app.tenant import load_ingest_tenant_id
 from services.ingest.app.to_core import (
     HttpCoreClient,
     SnapshotFlow,
@@ -27,6 +29,7 @@ from services.ingest.app.to_core import (
 STREAM_NAME = "invent.ingest"
 GROUP_NAME = "ingest-processors"
 CONSUMER_NAME = "ingest-worker"
+RUES_QUEUE_INTERVAL_SECONDS = 60.0
 
 
 async def main() -> None:
@@ -42,10 +45,10 @@ async def main() -> None:
         settings.internal_service_token,
         timeout_seconds=settings.upstream_timeout_seconds,
     )
+    rues = MockRuesLookup([])
     if repository.engine is not None:
         store = SqlResolutionStore()
         # No live RUES client exists yet (REQ-ING-003 uses a mock lookup).
-        rues = MockRuesLookup([])
         repository.resolution_store = store
         repository.flow = SnapshotFlow(
             core=core,
@@ -58,9 +61,18 @@ async def main() -> None:
                 for source in settings.enabled_sources()
                 if (dataset_id := getattr(settings, f"source_{source}_dataset_id", None))
             },
+            tenant_id=load_ingest_tenant_id(),
             retry_attempts=settings.upstream_retry_attempts,
             retry_base_delay_seconds=settings.upstream_retry_base_delay_seconds,
             retry_max_delay_seconds=settings.upstream_retry_max_delay_seconds,
+        )
+    queue_task: asyncio.Task[None] | None = None
+    if repository.engine is not None and repository.flow is not None:
+        queue_task = asyncio.create_task(
+            run_forever(
+                RuesQueueWorker(engine=repository.engine, rues=rues, flow=repository.flow),
+                interval_seconds=RUES_QUEUE_INTERVAL_SECONDS,
+            )
         )
     try:
         await ensure_consumer_group(redis, STREAM_NAME, GROUP_NAME)
@@ -96,6 +108,8 @@ async def main() -> None:
                         continue
                     await redis.xack(STREAM_NAME, GROUP_NAME, message_id)
     finally:
+        if queue_task is not None:
+            queue_task.cancel()
         await core.aclose()
         await repository.close()
 
