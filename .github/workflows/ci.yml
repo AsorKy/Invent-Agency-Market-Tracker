@@ -125,12 +125,20 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
       - run: python -m pip install --upgrade pip
       - run: python -m pip install ".[dev,streamlit,identity]"
-      - run: docker compose up --build --detach --wait
-      - run: make test-integration
+      # Black box: the same command the owner runs (REQ-RUN-001), then look at the data. The
+      # integration tests are not repeated here: they create cluster-wide roles with their own
+      # passwords, which clash with the roles this stack already holds, and they run in the
+      # integration stage on a fresh server.
+      - name: Start the stack and load demo data (make invent-tracker)
+        run: make invent-tracker
+      - name: Configuration and service health (make doctor)
+        run: make doctor
+      - name: Demo data reached the schemas
+        run: python ops/e2e_check.py
       - name: Data UI answers (make db-ui)
         run: make db-ui && curl -fsS http://127.0.0.1:5050/misc/ping
       - if: failure()
-        run: docker compose --profile ui logs --no-color --tail=60 migrate bootstrap-roles postgres pgadmin
+        run: docker compose --profile ui logs --no-color --tail=60 migrate bootstrap-roles postgres pgadmin core ingest pulse
       - if: always()
         run: docker compose --profile ui down --volumes
 

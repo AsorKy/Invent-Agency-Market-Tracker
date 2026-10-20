@@ -30,6 +30,23 @@ for _name, _value in DEFAULT_ENVIRONMENT.items():
     os.environ.setdefault(_name, _value)
 
 
+def _ignore_dotenv() -> None:
+    """Stop ``Settings`` from reading a local ``.env``.
+
+    ``make invent-tracker`` writes a ``.env`` with generated secrets and development logins. Without
+    this, the next ``make test`` loads it and 108 tests fail on values that only exist on that
+    machine. Tests that need a dotenv file pass ``_env_file`` explicitly.
+    """
+    try:
+        from libs.common.settings import Settings
+    except ModuleNotFoundError:  # runtime dependencies missing: pure-Python tests still run
+        return
+    Settings.model_config["env_file"] = None
+
+
+_ignore_dotenv()
+
+
 @pytest.fixture(autouse=True)
 def _fresh_settings() -> Any:
     """Clear the cached settings around each test so environment changes apply."""
