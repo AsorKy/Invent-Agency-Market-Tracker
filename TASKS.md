@@ -1540,7 +1540,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: filled by the agent when done
 
 ### T-140 Bootstrap passwords for identity, socio and Redis in the generated .env
-- status: todo
+- status: done
 - spec: REQ-RUN-001, REQ-SEC-005
 - owner: devops-engineer
 - depends: T-130, T-131
@@ -1549,7 +1549,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: S
 - acceptance: `pytest -q tests/unit/test_bootstrap_env.py` and `python ops/check_configuration.py`
 - note: `SECRET_KEYS` must also generate `BOOTSTRAP_PASSWORD_IDENTITY`, `BOOTSTRAP_PASSWORD_SOCIO`, and the Redis ACL passwords, and keep every existing value of a `.env` that already exists. Never print a generated value.
-- evidence: filled by the agent when done
+- evidence: pytest -q tests/unit/test_bootstrap_env.py: passed; python ops/check_configuration.py: OK; make static and make test green. Generates identity, socio and Redis passwords and rewrites REDIS_URL; existing .env untouched.
 
 ### T-141 Demo scoring and brief rows reach the schemas
 - status: todo
@@ -1564,7 +1564,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: filled by the agent when done
 
 ### T-143 Narrow the error handling of bootstrap_roles extension creation
-- status: todo
+- status: done
 - spec: REQ-DAT-005
 - owner: database-engineer
 - depends: T-132
@@ -1573,4 +1573,4 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: S
 - acceptance: `pytest -q tests/unit/test_bootstrap_roles_privileges.py tests/unit/test_bootstrap_env.py`
 - note: `execute_tolerant` swallows every `psycopg.Error` on extension creation; tolerate only the errors that mean the platform does not offer the extension or the role lacks the privilege (insufficient privilege, undefined file), report them by name, and let anything else raise. Remove the unused `execute()` helper if nothing calls it.
-- evidence: filled by the agent when done
+- evidence: pytest -q tests/unit/test_bootstrap_roles_privileges.py tests/unit/test_bootstrap_env.py: 21 passed; make static and make test green. Only SQLSTATE 42501 and 58P01 tolerated; unused execute() removed.
