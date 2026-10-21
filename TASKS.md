@@ -43,7 +43,9 @@ Size is a rough token cost guide: S under 1 USD, M 1 to 3 USD, L 3 to 8 USD. Tes
 | r1-d | Platform, three sessions (done): T-060 to T-063, T-065, T-070 to T-073, T-077 | 11 tasks | about 24 USD |
 | r1-d2 | Follow-ups and launch tooling, seven parallel sessions: T-064, T-074 to T-076, T-078, T-079, T-081, T-083 to T-089, T-098, T-120 to T-122, T-124 to T-127 (T-082 is reserved for the row level security decision) | 22 tasks | about 62 USD |
 | r1-e | Security migration and review: T-123, T-080 | 2 tasks | about 6 USD |
-| r2 | Continuation with ADR-0002: T-100 to T-112, only if budget remains after T-080 | 13 tasks | about 38 USD |
+| r1-f | Long wave, four parallel sessions: layer L2 analytics T-100 to T-106 (one chain), schema T-129 and T-107, lens and cleanup T-101, T-133, T-134, platform T-132, T-130, T-131 | 14 tasks | about 55 USD |
+| r1-g | Layer L2 remainder after r1-f is merged: T-108 to T-112 | 5 tasks | about 16 USD |
+| r2 | Continuation with ADR-0002: T-100 to T-112, only if budget remains after T-080; run as r1-f and r1-g | 13 tasks | about 38 USD |
 
 Total estimate for run 1 (smoke to r1-d): about 197 USD (183 USD of the v3 plan plus about 14 USD for T-090 to T-097 and about 30 USD for the v6 follow-ups), plus about 38 USD for the optional ADR-0002 continuation, to be corrected after the smoke run shows real cost per task. Blocked tasks do not consume budget. Set the session budget of each run to about 1.5 times its estimate.
 
@@ -1404,3 +1406,75 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - acceptance: `test -f docs/experiments/ops-supabase-engine.md` and `make static`
 - note: needs Docker, so a managed-agent sandbox cannot run it; the coordinator runs it in a CI job or the owner runs it locally. Question: can the local engine be the `supabase/postgres` image with Supabase Studio, running `ops.migrate` and `ops/bootstrap_roles.py` as `supabase_admin` (the real superuser) while the app roles stay `<schema>_app`? Record in the note: (1) both scripts succeed and the four extensions enable; (2) Studio SQL editor and table editor work on the data; (3) container count, memory and cold start next to `deploy/Dockerfile.postgres` plus pgAdmin; (4) verdict keep or replace. Keep experiment files under `deploy/experiments/`; do not change `docker-compose.yml` or the default stack. Replacing the default image needs the owner's decision. Also check the hosted-Supabase case: run migrate and bootstrap as a role with `CREATEROLE` and `CREATEDB` but no superuser.
 - evidence: docs/experiments/ops-supabase-engine.md (run 39503437901): superuser flow ok on PG 15 and 17; bootstrap fails as a non-superuser role; Studio boots and reaches postgres-meta, SQL editor not verified in a browser
+
+### T-129 Retire the legacy analytics schema
+- status: todo
+- spec: REQ-DAT-001
+- owner: database-engineer
+- depends: T-080
+- write_scope: migrations/, ops/schemas.py, tests/unit/test_schema_catalog.py, tests/unit/test_migration_guard.py
+- context: migrations/contract_20261018_0003_retire_socioeconomic.sql, ops/schemas.py, docs/runs/RUN-r1-e.md (F-r1e-01)
+- size: S
+- acceptance: `python ops/check_migrations.py` and `pytest -q tests/unit/test_schema_catalog.py tests/unit/test_migration_guard.py tests/unit/test_sql_consistency.py`
+- note: follow the retire-socioeconomic pattern: a `contract_` migration copies any `analytics` rows that have a `pulse` equivalent into `pulse`, then drops `analytics`; afterwards remove `analytics` from `LEGACY_SCHEMAS`. Commit the migration separately from any code. Do not edit the baseline migration, and do not change whether fresh databases create the legacy schema; that is the owner's decision (E2.5 items 1 and 2). Runs before T-107 in the same session because both edit `ops/schemas.py`.
+- evidence: filled by the agent when done
+
+### T-130 Identity and socio roles in Compose and bootstrap
+- status: todo
+- spec: REQ-SEC-005, REQ-RUN-001
+- owner: devops-engineer
+- depends: T-125, T-123
+- write_scope: docker-compose.yml, deploy/, .env.example, ops/bootstrap_roles.py, ops/check_configuration.py, tests/unit/test_compose.py, tests/unit/test_bootstrap_env.py
+- context: docker-compose.yml, ops/bootstrap_roles.py, ops/check_configuration.py, docs/runs/RUN-r1-e.md (F-r1e-02)
+- size: M
+- acceptance: `pytest -q tests/unit/test_compose.py tests/unit/test_bootstrap_env.py` and `python ops/check_configuration.py`
+- note: give the identity service `POSTGRES_HOST`, `IDENTITY_DB_USER` and `IDENTITY_DB_PASSWORD` in Compose and `.env.example`; add `BOOTSTRAP_PASSWORD_IDENTITY` and `BOOTSTRAP_PASSWORD_SOCIO` to the `bootstrap-roles` service so the `identity_app` and `socio_app` roles exist; make bootstrap refuse default or empty passwords outside the local profile; extend the configuration check. The CI e2e stage runs `make invent-tracker` on this file, so keep every default working for the local profile.
+- evidence: filled by the agent when done
+
+### T-131 Redis ACL users edge and data
+- status: todo
+- spec: REQ-SEC-005
+- owner: lead-backend-engineer
+- depends: T-130
+- write_scope: docker-compose.yml, deploy/redis/, .env.example, libs/common/settings.py, ops/check_configuration.py, tests/unit/test_compose.py, tests/unit/test_redis_acl.py
+- context: SPEC.md REQ-SEC-005, docs/adr/ADR-IMT-0001-ARCH.md (Redis ACL rows), docs/runs/RUN-r1-e.md (F-r1e-03)
+- size: M
+- acceptance: `pytest -q tests/unit/test_compose.py tests/unit/test_redis_acl.py` and `python ops/check_configuration.py`
+- note: two ACL users. `edge` (gateway) may touch only the rate-limit keys; `data` (core, ingest, pulse, ml, brief) may touch streams and cache keys. Read the real key prefixes and commands from `libs/common` before writing the ACL file. Passwords come from the environment; the default user is disabled outside the local profile; services take their user through `REDIS_URL`. This task may add the optional Redis user settings to `libs/common/settings.py`. A configuration check fails when Compose or settings use the default user. Highest risk of the wave: a wrong ACL silently breaks streams and rate limits, and only the CI e2e stage runs the whole stack, so test the ACL rules against the key lists in unit tests and keep the local profile working.
+- evidence: filled by the agent when done
+
+### T-132 Run bootstrap_roles as a non-superuser role
+- status: todo
+- spec: REQ-DAT-005
+- owner: database-engineer
+- depends: T-128, T-125
+- write_scope: ops/bootstrap_roles.py, ops/migrate.py, tests/unit/test_bootstrap_roles_privileges.py, docs/experiments/ops-supabase-engine.md
+- context: docs/experiments/ops-supabase-engine.md, deploy/experiments/supabase/spike-workflow.yml.txt, ops/bootstrap_roles.py
+- size: M
+- acceptance: `pytest -q tests/unit/test_bootstrap_roles_privileges.py tests/unit/test_migrate.py tests/unit/test_bootstrap_env.py` and `make static`
+- note: the T-128 spike showed bootstrap fails when the connecting role has `CREATEROLE` and `CREATEDB` but is not a superuser (the hosted Supabase case). After creating each owner role, grant that role to the current user (with `SET TRUE` on PostgreSQL 16 and later, plain membership before), so `CREATE SCHEMA ... AUTHORIZATION` and `ALTER` work; keep the script idempotent; create extensions with `IF NOT EXISTS` and report which ones the platform must enable. Unit tests record the SQL with a fake cursor. Do not change the default Compose stack. Record the result in the experiment document.
+- evidence: filled by the agent when done
+
+### T-133 Fix the socioeconomic refresh workflow
+- status: todo
+- spec: REQ-ORC-001
+- owner: second-backend-engineer
+- depends: T-080
+- write_scope: orchestration/n8n/, tests/unit/test_workflows.py
+- context: orchestration/n8n/wf_socioeco_refresh.json, orchestration/n8n/README.md, docs/runs/RUN-r1-e.md (F-r1e-05)
+- size: S
+- acceptance: `pytest -q tests/unit/test_workflows.py`
+- note: make `wf_socioeco_refresh.json` and the README use `PULSE_URL` and the pulse socioeconomic refresh route instead of the removed analytics variables. Add a test that no workflow references an environment variable that the settings or `.env.example` no longer define.
+- evidence: filled by the agent when done
+
+### T-134 README and agent registry cleanup after the analytics merge
+- status: todo
+- spec: REQ-DOC-001
+- owner: coordinator
+- depends: T-080
+- write_scope: README.md, .codex/agent-registry.yaml, docstrings and comments only (no code changes) in libs/common (not settings.py), libs/contracts, services/core/app
+- context: docs/runs/RUN-r1-e.md (F-r1e-06, F-r1e-07), docs/adr/ADR-IMT-0001-ARCH.md E2.5 item 6
+- size: S
+- acceptance: `make static` and `make test`
+- note: update `README.md` to seven services plus Streamlit, seven schemas, and `pulse` instead of `analytics`; remove `legacy_paths: services/analytics/` from the agent registry and its profile sync; rename analytics mentions in the listed docstrings. Change no behavior.
+- evidence: filled by the agent when done
