@@ -1226,7 +1226,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_runbook.py` 5 passed; make static/test green
 
 ### T-080 Run 1 review pack
-- status: todo
+- status: done
 - spec: REQ-QA-001, REQ-TRC-001
 - owner: architecture-reviewer
 - depends: T-064, T-065, T-077, T-078, T-079, T-092, T-093, T-094, T-095, T-096, T-097, T-081, T-083, T-084, T-085, T-086, T-087, T-088, T-089, T-098, T-120, T-121, T-122, T-123, T-124, T-125, T-126, T-127
@@ -1235,7 +1235,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `make static`, `make test`, `make coverage`, `make openapi`, and `python ops/check_traceability.py` all pass, and `make compose-config` passes where the Docker CLI exists
 - note: walk the E2.5 checklist and the L1 definition of done, list unverified field mappings, blocked tasks, assumptions, and risks, and write the final section of `docs/runs/RUN-<run-id>.md`. Do not modify code; open follow-up items instead.
-- evidence:
+- evidence: make static, make test (1151 passed), make coverage (95.53%), make openapi, ops/check_traceability.py, make compose-config all pass; review pack in docs/runs/RUN-r1-e.md (follow-ups F-r1e-01..12)
 
 ### T-100 Metric pack library
 - status: todo
