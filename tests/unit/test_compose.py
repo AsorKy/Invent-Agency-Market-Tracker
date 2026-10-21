@@ -97,6 +97,12 @@ def test_postgres_image_carries_every_bootstrap_extension(services: dict[str, An
     assert dockerfile.count("FROM postgres:16") == 1
 
 
+def test_postgres_image_build_retries_flaky_apt_downloads() -> None:
+    dockerfile = (COMPOSE.parent / "deploy" / "Dockerfile.postgres").read_text(encoding="utf-8")
+    assert "Acquire::Retries" in dockerfile
+    assert dockerfile.index("Acquire::Retries") < dockerfile.index("apt-get update")
+
+
 def test_postgres_preloads_pg_cron_on_the_application_database(services: dict[str, Any]) -> None:
     command = services["postgres"]["command"]
     assert command[0] == "postgres"

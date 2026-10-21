@@ -3,9 +3,12 @@
 # of pgvector, PostGIS, or pg_cron, so bootstrap-roles failed there. The Debian image keeps the
 # `postgres` superuser unchanged, ships pg_trgm and pgcrypto, and is multi-arch (Apple Silicon).
 # pg_cron also needs shared_preload_libraries, which docker-compose.yml sets on the command.
+# apt.postgresql.org times out now and then on CI runners (main run 39519665171 failed the images
+# stage that way), so apt retries every download before the build gives up.
 FROM postgres:16-bookworm
 
-RUN apt-get update \
+RUN echo 'Acquire::Retries "5";' > /etc/apt/apt.conf.d/80-retries \
+    && apt-get update \
     && apt-get install -y --no-install-recommends \
         postgresql-16-pgvector \
         postgresql-16-postgis-3 \
