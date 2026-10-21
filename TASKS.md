@@ -1324,7 +1324,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-107 Validation schema (expand migration)
-- status: todo
+- status: done
 - spec: REQ-LNS-010
 - owner: database-engineer
 - depends: T-080
@@ -1333,7 +1333,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: S
 - acceptance: `python ops/check_migrations.py` and `pytest -q tests/unit/test_schema_catalog.py`
 - note: create the `validation` schema and its six tables in an expand migration, operated by the `core` roles, each table with `source_version`, `project_id`, and `measured_at`; add the schema to the single schema list.
-- evidence:
+- evidence: `python ops/check_migrations.py` OK; `pytest -q tests/unit/test_schema_catalog.py` passed; make static and make test pass (1163 passed). validation is in `CATALOG_SCHEMAS` (ops/schemas.py), operated by core_owner and core_app, no new roles
 
 ### T-108 Validation metrics V1 to V6 and thresholds
 - status: todo

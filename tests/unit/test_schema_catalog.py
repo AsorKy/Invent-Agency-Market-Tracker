@@ -53,7 +53,7 @@ def test_canonical_schemas_are_all_created() -> None:
 
 
 def test_no_unexpected_schema_besides_known_legacy() -> None:
-    assert _net_schemas() <= SCHEMAS
+    assert _net_schemas() <= SCHEMAS | {"validation"}
 
 
 def test_analytics_is_dropped_only_by_a_contract_migration() -> None:
@@ -217,3 +217,33 @@ def test_rls_enabled_on_company_lead_project() -> None:
 def test_no_json_float_or_real_columns() -> None:
     bad = re.compile(r"^\s+\w+\s+(json|float\w*|real|double)\b", re.I | re.M)
     assert not bad.findall(_all_sql())
+
+
+VALIDATION_TABLES = {
+    "financial_run",
+    "unit_economics",
+    "funnel_metric",
+    "growth_metric",
+    "portfolio_snapshot",
+    "meta_ml_metric",
+}
+
+
+def test_validation_schema_has_the_six_tables_and_is_operated_by_core() -> None:
+    from ops.schemas import CATALOG_SCHEMAS, app_role, owner_role
+    from ops.schemas import SCHEMAS as SINGLE_LIST
+
+    assert _tables()["validation"] == VALIDATION_TABLES
+    assert "validation" in CATALOG_SCHEMAS
+    assert "validation" not in SINGLE_LIST, "validation adds no roles"
+    assert (owner_role("validation"), app_role("validation")) == ("core_owner", "core_app")
+    assert not any("validation_" in role for role in ROLES)
+
+
+@pytest.mark.parametrize("table", sorted(VALIDATION_TABLES))
+def test_validation_tables_carry_the_required_columns_and_rls(table: str) -> None:
+    assert {"source_version", "project_id", "measured_at", "tenant_id"} <= _columns(
+        "validation", table
+    )
+    sql = _all_sql()
+    assert f"'{table}'" in sql  # listed in the RLS loop of the migration

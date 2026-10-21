@@ -6,7 +6,8 @@
     "ingest",
     "ml",
     "pulse",
-    "socio"
+    "socio",
+    "validation"
   ],
   "tables": {
     "analytics.daily_rollup": [
@@ -691,6 +692,85 @@
       "metadata",
       "provider",
       "refreshed_at"
+    ],
+    "validation.financial_run": [
+      "assumptions",
+      "created_at",
+      "discount_rate",
+      "discounted_payback_periods",
+      "emv",
+      "id",
+      "irr",
+      "measured_at",
+      "npv",
+      "payback_periods",
+      "project_id",
+      "source_version",
+      "tenant_id"
+    ],
+    "validation.funnel_metric": [
+      "conversion_rate",
+      "coverage",
+      "created_at",
+      "cycle_time_days",
+      "id",
+      "measured_at",
+      "project_id",
+      "source_version",
+      "tenant_id",
+      "velocity",
+      "win_rate"
+    ],
+    "validation.growth_metric": [
+      "burn_multiple",
+      "created_at",
+      "grr",
+      "id",
+      "magic_number",
+      "measured_at",
+      "mrr",
+      "nrr",
+      "project_id",
+      "rule_of_40",
+      "source_version",
+      "tenant_id"
+    ],
+    "validation.meta_ml_metric": [
+      "created_at",
+      "decision_latency_days",
+      "funnel_lift",
+      "id",
+      "measured_at",
+      "model_utility",
+      "precision_at_k",
+      "project_id",
+      "psi",
+      "source_version",
+      "tenant_id"
+    ],
+    "validation.portfolio_snapshot": [
+      "created_at",
+      "hhi",
+      "horizon_mix",
+      "id",
+      "measured_at",
+      "project_id",
+      "sharpe_like",
+      "source_version",
+      "tenant_id"
+    ],
+    "validation.unit_economics": [
+      "cac",
+      "cac_payback_months",
+      "created_at",
+      "gross_margin",
+      "id",
+      "ltv",
+      "ltv_cac_ratio",
+      "measured_at",
+      "project_id",
+      "source_version",
+      "tenant_id"
     ]
   }
 }
