@@ -1372,7 +1372,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-111 Streamlit validation page
-- status: todo
+- status: done
 - spec: REQ-LNS-013
 - owner: second-backend-engineer
 - depends: T-108, T-056
@@ -1381,7 +1381,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_streamlit_validation.py` (Streamlit AppTest)
 - note: page `9_Validation.py` with V1 to V6 per project, `measured_at`, `source_version`, and per-card degradation; add V6 to the Ops page.
-- evidence:
+- evidence: pytest -q tests/unit/test_streamlit_validation.py (4 passed), make static, make test pass; validation API endpoints are assumed, not yet served (follow-up)
 
 ### T-112 Layer L2 review pack
 - status: todo
