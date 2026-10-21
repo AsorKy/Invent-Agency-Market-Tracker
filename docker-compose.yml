@@ -9,7 +9,7 @@ x-app-env: &app_env
   ENVIRONMENT: ${ENVIRONMENT:-local}
   LOG_LEVEL: ${LOG_LEVEL:-INFO}
   SERVICE_NAME: ${SERVICE_NAME:-invent-market-tracker}
-  REDIS_URL: redis://redis:6379/0
+  REDIS_URL: redis://data:${REDIS_DATA_PASSWORD:-local-redis-data}@redis:6379/0
   DATABASE_POOL_TIMEOUT_SECONDS: ${DATABASE_POOL_TIMEOUT_SECONDS:-5}
   DATABASE_CONNECT_TIMEOUT_SECONDS: ${DATABASE_CONNECT_TIMEOUT_SECONDS:-5}
   DATABASE_POOL_SIZE: ${DATABASE_POOL_SIZE:-4}
@@ -87,11 +87,19 @@ services:
       retries: 10
 
   redis:
+    # ACL users edge (rate limits) and data (streams, locks); the default user is off.
+    # The entrypoint renders the ACL file from deploy/redis/acl.rules and these passwords.
     image: redis:7-alpine
+    entrypoint: ["sh", "/etc/redis-acl/entrypoint.sh"]
+    environment:
+      REDIS_EDGE_PASSWORD: ${REDIS_EDGE_PASSWORD:-local-redis-edge}
+      REDIS_DATA_PASSWORD: ${REDIS_DATA_PASSWORD:-local-redis-data}
+    volumes:
+      - ./deploy/redis:/etc/redis-acl:ro
     ports:
       - "6379:6379"
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "redis-cli --no-auth-warning --user data --pass \"$$REDIS_DATA_PASSWORD\" ping | grep -q PONG"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -159,7 +167,7 @@ services:
       PULSE_URL: http://pulse:8000
       BRIEF_URL: http://brief:8000
       STREAMLIT_URL: http://streamlit:8501
-      REDIS_URL: redis://redis:6379/0
+      REDIS_URL: redis://edge:${REDIS_EDGE_PASSWORD:-local-redis-edge}@redis:6379/0
       RATE_LIMIT_REQUESTS: ${RATE_LIMIT_REQUESTS:-60}
       RATE_LIMIT_WINDOW_SECONDS: ${RATE_LIMIT_WINDOW_SECONDS:-60}
       RATE_LIMIT_FAIL_OPEN: ${RATE_LIMIT_FAIL_OPEN:-true}

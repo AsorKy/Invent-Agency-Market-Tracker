@@ -14,6 +14,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import yaml  # type: ignore[import-untyped]
 
@@ -39,6 +40,20 @@ TOKEN_SERVICES = (
 )
 # Identity reads its database settings from these (services/identity/project/settings.py).
 IDENTITY_DB_VARIABLES = ("POSTGRES_HOST", "IDENTITY_DB_USER", "IDENTITY_DB_PASSWORD")
+# Redis ACL user each service must connect as (REQ-SEC-005); never the default user.
+REDIS_USER_BY_SERVICE = {"gateway": "edge"}
+REDIS_DATA_SERVICES = (
+    "ingest",
+    "ingest-processor",
+    "core",
+    "core-relay",
+    "core-worker",
+    "pulse",
+    "pulse-consumer",
+    "ml",
+    "ml-consumer",
+    "brief",
+)
 SECRET_PATTERNS = (
     re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----"),
     re.compile(r"\bAKIA[0-9A-Z]{16}\b"),
@@ -130,6 +145,26 @@ def role_wiring_problems(compose_text: str, env_variables: set[str]) -> list[str
     return problems
 
 
+def redis_acl_problems(compose_text: str) -> list[str]:
+    """Return services whose REDIS_URL lacks the expected ACL user, plus redis wiring gaps."""
+    services = (yaml.safe_load(compose_text) or {}).get("services", {})
+    expected = {**REDIS_USER_BY_SERVICE, **dict.fromkeys(REDIS_DATA_SERVICES, "data")}
+    problems = []
+    for name, user in expected.items():
+        environment = (services.get(name) or {}).get("environment") or {}
+        url = str(environment.get("REDIS_URL", ""))
+        if urlsplit(url).username != user:
+            problems.append(f"{name} must use REDIS_URL with Redis ACL user {user}")
+    redis = services.get("redis") or {}
+    redis_env = redis.get("environment") or {}
+    for name in ("REDIS_EDGE_PASSWORD", "REDIS_DATA_PASSWORD"):
+        if name not in redis_env:
+            problems.append(f"redis lacks {name} in docker-compose.yml")
+    if "entrypoint.sh" not in " ".join(str(part) for part in redis.get("entrypoint", [])):
+        problems.append("redis must start through deploy/redis/entrypoint.sh (ACL file)")
+    return problems
+
+
 def main() -> int:
     compose = COMPOSE_PATH.read_text(encoding="utf-8")
     env_variables = _env_example_variables()
@@ -144,9 +179,9 @@ def main() -> int:
         print("Services without INTERNAL_SERVICE_TOKEN in docker-compose.yml:", file=sys.stderr)
         print("\n".join(without_token), file=sys.stderr)
         return 1
-    wiring = role_wiring_problems(compose, env_variables)
+    wiring = role_wiring_problems(compose, env_variables) + redis_acl_problems(compose)
     if wiring:
-        print("Database role wiring problems:", file=sys.stderr)
+        print("Database role and Redis ACL wiring problems:", file=sys.stderr)
         print("\n".join(wiring), file=sys.stderr)
         return 1
     findings = scan_for_secrets(list_repository_files(ROOT))

@@ -1432,7 +1432,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_compose.py tests/unit/test_bootstrap_env.py` passed; `python ops/check_configuration.py` OK; make static and make test pass (1165 passed)
 
 ### T-131 Redis ACL users edge and data
-- status: in_progress
+- status: done
 - spec: REQ-SEC-005
 - owner: lead-backend-engineer
 - depends: T-130
@@ -1441,7 +1441,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_compose.py tests/unit/test_redis_acl.py` and `python ops/check_configuration.py`
 - note: two ACL users. `edge` (gateway) may touch only the rate-limit keys; `data` (core, ingest, pulse, ml, brief) may touch streams and cache keys. Read the real key prefixes and commands from `libs/common` before writing the ACL file. Passwords come from the environment; the default user is disabled outside the local profile; services take their user through `REDIS_URL`. This task may add the optional Redis user settings to `libs/common/settings.py`. A configuration check fails when Compose or settings use the default user. Highest risk of the wave: a wrong ACL silently breaks streams and rate limits, and only the CI e2e stage runs the whole stack, so test the ACL rules against the key lists in unit tests and keep the local profile working.
-- evidence: filled by the agent when done
+- evidence: `pytest -q tests/unit/test_compose.py tests/unit/test_redis_acl.py` 64 passed; `python ops/check_configuration.py` OK; make static and make test pass (1181 passed); ACL also exercised against a local redis 7.0
 
 ### T-132 Run bootstrap_roles as a non-superuser role
 - status: done
