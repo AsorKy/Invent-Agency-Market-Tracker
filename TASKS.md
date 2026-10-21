@@ -1528,7 +1528,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: filled by the agent when done
 
 ### T-139 Optional extras for the heavy L2 libraries
-- status: todo
+- status: done
 - spec: REQ-LNS-004
 - owner: devops-engineer
 - depends: T-103
@@ -1537,7 +1537,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: S
 - acceptance: `pytest -q tests/unit/test_optional_extras.py` and `make static`
 - note: add the extras `kmodes`, `graph` (igraph, leidenalg), and `topics` (yake, gensim, shap if the code imports it) with upper-bounded versions, and a test that every lazy import in `services/ml/app/` and `libs/domain/` is covered by exactly one extra and that importing the modules without the extras still works.
-- evidence: filled by the agent when done
+- evidence: `pytest -q tests/unit/test_optional_extras.py` 3 passed; `make static` clean; extras kmodes, graph, topics added.
 
 ### T-140 Bootstrap passwords for identity, socio and Redis in the generated .env
 - status: todo
@@ -1552,7 +1552,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: filled by the agent when done
 
 ### T-141 Demo scoring and brief rows reach the schemas
-- status: todo
+- status: done
 - spec: REQ-RUN-001, REQ-QA-001
 - owner: qa-reviewer
 - depends: T-123, T-130
@@ -1561,7 +1561,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/unit/test_e2e_check.py tests/unit/test_demo_pipeline.py` and `make test`
 - note: after `make invent-tracker` the CI e2e stage counts `core.company` 60, `core.signal` 150, `pulse.fact_signal` 150, `pulse.daily_rollup` 84, and zero rows in `ml.lead_score`, `brief.record_digest`, `core.brief`, and `ingest.raw_snapshot`. Trace from the code why the seed produces no score and no brief: which event should create a score, who consumes it, and what the seed lacks (a lead, a consumer group, a tenant, a trigger). Fix the cause so the demo fills `ml.lead_score` and `brief.record_digest` (and `core.brief` if a brief is generated without an LLM key; otherwise leave it informational and say why). Then mark in `ops/e2e_check.py` as required the tables that now fill. There is no Docker in your sandbox: prove the flow offline with the in-process pipeline test pattern of `tests/unit/test_pipeline_flow.py`, and state in the report that the CI e2e stage is the real check. `ingest.raw_snapshot` stays informational because the seed does not go through ingest snapshots.
-- evidence: filled by the agent when done
+- evidence: `pytest -q tests/unit/test_e2e_check.py tests/unit/test_demo_pipeline.py` 21 passed; `make test` 1303 passed. Offline proof only; CI e2e stage is the real check.
 
 ### T-143 Narrow the error handling of bootstrap_roles extension creation
 - status: todo
