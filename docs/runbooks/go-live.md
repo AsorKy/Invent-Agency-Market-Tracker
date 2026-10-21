@@ -105,15 +105,7 @@ make verify-live SOURCE=maps INPUTS=inputs.json
 
 Known caveat: Compose does not publish the ingest and core ports, so the defaults (`http://localhost:8001` and `http://localhost:8002`) do not answer. Set `VERIFY_LIVE_INGEST_URL` and `VERIFY_LIVE_CORE_URL` to addresses that reach those services, for example through a local override file that publishes the ports, or run the command from inside the Compose network. `VERIFY_LIVE_DATABASE_URL` overrides the database connection; otherwise `DATABASE_URL` or the `POSTGRES_*` values are used. These three `VERIFY_LIVE_*` names are read only by `ops/verify_live.py` and are not listed in `.env.example`.
 
-## 8. Enable the nightly backups
-
-The `backups` workflow stays disabled until its four repository secrets exist; while any is missing it skips the backup job and prints "backups disabled: secrets missing" as a warning and in the job summary. Before go-live:
-
-1. Add the secrets `BACKUP_SOURCE_URL`, `BACKUP_EPHEMERAL_ADMIN_URL`, `BACKUP_EPHEMERAL_PASSWORD`, and `BACKUP_AGE_RECIPIENT` (names only here; never write their values in the repository).
-2. Start the workflow once by hand (`gh workflow run backups`) and confirm that the job runs, the restore check passes, and the `backups-age` artifact holds only `.age` files.
-3. Confirm that the next scheduled nightly run (03:17 UTC) also passes.
-
-## 9. How data reaches `/api/v1`
+## 8. How data reaches `/api/v1`
 
 1. Trigger: the ingest service starts a collection at Bright Data (or n8n schedules it) and records it as pending.
 2. Snapshot: the finished snapshot arrives by webhook or by polling and is stored once, keyed by its payload hash.
@@ -125,7 +117,7 @@ The `backups` workflow stays disabled until its four repository secrets exist; w
 
 Only the gateway is meant to be called by clients; the services behind it are internal.
 
-## 10. Point the frontend at the gateway
+## 9. Point the frontend at the gateway
 
 The frontend is a separate application. With the local profile:
 
@@ -135,7 +127,7 @@ The frontend is a separate application. With the local profile:
 4. Sign in with `POST /api/v1/auth/session`. The development users and their generated passwords are in `.env` (`DEV_USER_PASSWORD_ADMIN`, `DEV_USER_PASSWORD_STRATEGIST`, `DEV_USER_PASSWORD_INTAKE`, `DEV_USER_PASSWORD_BD_REP`, `DEV_USER_PASSWORD_ANALYST`). Send requests with credentials so the session cookie is kept. When `CSRF_REQUIRED` is true, state-changing requests also need the `X-CSRF-Token` header.
 5. Check with `GET /api/v1/me` and `GET /api/v1/leads`.
 
-## 11. Troubleshooting
+## 10. Troubleshooting
 
 | Symptom | Likely cause | Check or fix |
 | --- | --- | --- |
@@ -155,3 +147,11 @@ The frontend is a separate application. With the local profile:
 | Edited mapping has no effect | The ingest service still runs the old file | `docker compose restart ingest`. |
 
 Return to mock mode at any time with `INGEST_MODE=mock` and `docker compose up -d`.
+
+## 11. Enable the nightly backups
+
+The `backups` workflow stays disabled until its four repository secrets exist; while any is missing it skips the backup job and prints "backups disabled: secrets missing" as a warning and in the job summary. Before go-live:
+
+1. Add the secrets `BACKUP_SOURCE_URL`, `BACKUP_EPHEMERAL_ADMIN_URL`, `BACKUP_EPHEMERAL_PASSWORD`, and `BACKUP_AGE_RECIPIENT` (names only here; never write their values in the repository).
+2. Start the workflow once by hand (`gh workflow run backups`) and confirm that the job runs, the restore check passes, and the `backups-age` artifact holds only `.age` files.
+3. Confirm that the next scheduled nightly run (03:17 UTC) also passes.
