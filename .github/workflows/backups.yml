@@ -11,10 +11,35 @@ permissions:
   contents: read
 
 jobs:
+  gate:
+    name: Check backup secrets
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      enabled: ${{ steps.check.outputs.enabled }}
+    steps:
+      - id: check
+        name: Report whether the four backup secrets exist (names only)
+        env:
+          HAS_PASSWORD: ${{ secrets.BACKUP_EPHEMERAL_PASSWORD != '' }}
+          HAS_SOURCE: ${{ secrets.BACKUP_SOURCE_URL != '' }}
+          HAS_ADMIN: ${{ secrets.BACKUP_EPHEMERAL_ADMIN_URL != '' }}
+          HAS_RECIPIENT: ${{ secrets.BACKUP_AGE_RECIPIENT != '' }}
+        run: |
+          if [ "$HAS_PASSWORD $HAS_SOURCE $HAS_ADMIN $HAS_RECIPIENT" = "true true true true" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::warning title=backups disabled::backups disabled: secrets missing (BACKUP_EPHEMERAL_PASSWORD, BACKUP_SOURCE_URL, BACKUP_EPHEMERAL_ADMIN_URL, BACKUP_AGE_RECIPIENT)"
+            echo "backups disabled: secrets missing" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
   backup:
     name: Verified encrypted backup
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    needs: [gate]
+    if: needs.gate.outputs.enabled == 'true'
     services:
       postgres:
         image: postgres:16
