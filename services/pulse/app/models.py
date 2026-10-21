@@ -11,6 +11,52 @@ from pydantic import BaseModel, Field, model_validator
 from libs.contracts.pulse import is_low_sample
 
 
+class DescriptiveStats(BaseModel):
+    """Describe a sample with percentiles and robust dispersion (REQ-LNS-003)."""
+
+    n: int = Field(ge=0)
+    p10: float | None = None
+    p50: float | None = None
+    p90: float | None = None
+    mad: float | None = None
+    iqr: float | None = None
+
+
+class Concentration(BaseModel):
+    """Describe how concentrated a set of magnitudes is (REQ-LNS-003)."""
+
+    n: int = Field(ge=0)
+    hhi: float | None = Field(default=None, ge=0, le=1)
+    gini: float | None = Field(default=None, ge=0, le=1)
+
+
+class BurnVersusPlan(BaseModel):
+    """Compare actual burn with planned burn over the projects that report both."""
+
+    n: int = Field(ge=0)
+    planned: float | None = None
+    actual: float | None = None
+    variance: float | None = None
+    ratio: float | None = None
+
+
+class ServiceLineValue(BaseModel):
+    """Represent pipeline value for one service line and its share of the total."""
+
+    service_line: str
+    value: float
+    projects: int = Field(ge=0)
+    share: float | None = Field(default=None, ge=0, le=1)
+
+
+class StageDuration(BaseModel):
+    """Represent the median days projects spent in one funnel stage."""
+
+    stage: str
+    median_days: float | None = Field(default=None, ge=0)
+    n: int = Field(ge=0)
+
+
 class SignalPoint(BaseModel):
     """Represent one unprocessed-signal time bucket."""
 
@@ -63,6 +109,7 @@ class SourceEfficiencyResponse(BaseModel):
     as_of: int
     stale: bool
     method_version: str | None = None
+    leads_concentration: Concentration | None = None
 
 
 class PipelineTimeGroup(BaseModel):
@@ -89,6 +136,7 @@ class PipelineTimeResponse(BaseModel):
     as_of: int
     stale: bool
     method_version: str | None = None
+    p50_days_stats: DescriptiveStats | None = None
 
 
 class TopSource(BaseModel):
@@ -106,6 +154,7 @@ class TopSourcesResponse(BaseModel):
     as_of: int
     stale: bool
     method_version: str | None = None
+    qualified_leads_concentration: Concentration | None = None
 
 
 class SourceFreshness(BaseModel):

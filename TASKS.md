@@ -1240,7 +1240,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: make static, make test (1151 passed), make coverage (95.53%), make openapi, ops/check_traceability.py, make compose-config all pass; review pack in docs/runs/RUN-r1-e.md (follow-ups F-r1e-01..12)
 
 ### T-100 Metric pack library
-- status: todo
+- status: done
 - spec: REQ-LNS-008
 - owner: second-backend-engineer
 - depends: T-080
@@ -1249,7 +1249,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_metrics_pack.py`
 - note: pure functions for AUC, PR-AUC, Brier, reliability table, lift@K, precision@K by subpopulation, NDCG@K, MAP, MRR, sMAPE, MASE, pinball loss, interval coverage, and Qini. Validate against hand-computed examples.
-- evidence:
+- evidence: pytest -q tests/unit/test_metrics_pack.py (39 passed), make static, make test (1193 passed)
 
 ### T-101 Lens contract and five-question checker
 - status: todo
@@ -1264,7 +1264,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-102 Descriptive aggregation (D1)
-- status: todo
+- status: done
 - spec: REQ-LNS-003
 - owner: second-backend-engineer
 - depends: T-100
@@ -1273,10 +1273,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_descriptive_metrics.py`
 - note: percentiles, MAD, IQR, HHI, and Gini as response fields of the Pulse endpoints, plus the project descriptive metrics.
-- evidence:
+- evidence: pytest -q tests/unit/test_descriptive_metrics.py (10 passed), make static, make test (1203 passed), make openapi; project metrics are pure functions only, endpoint needs a read path (follow-up)
 
 ### T-103 Profiling and topics (D2, D3)
-- status: todo
+- status: done
 - spec: REQ-LNS-004
 - owner: second-backend-engineer
 - depends: T-100, T-054
@@ -1285,10 +1285,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/unit/test_profiling.py tests/unit/test_topics.py`
 - note: K-Prototypes profiling, Leiden communities, centrality, regex and dictionary tagging, YAKE, TF-IDF, and monthly LDA, publishing results to `pulse` through its API. Heavy libraries load lazily.
-- evidence:
+- evidence: pytest -q tests/unit/test_profiling.py tests/unit/test_topics.py (12 passed), make static, make test (1231 passed); pulse ingest endpoints and optional extras (kmodes, igraph, leidenalg, yake, gensim) are follow-ups
 
 ### T-104 Attribution (Dx1)
-- status: todo
+- status: done
 - spec: REQ-LNS-005
 - owner: second-backend-engineer
 - depends: T-100
@@ -1297,10 +1297,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_attribution.py`
 - note: last-touch, first-touch, time-decay, and Markov removal-effect attribution; Shapley only behind a flag that requires 100 labeled closes.
-- evidence:
+- evidence: pytest -q tests/unit/test_attribution.py (8 passed), make static, make test (1211 passed); persistence to pulse.attribution is a follow-up
 
 ### T-105 Causal inference (Dx2)
-- status: todo
+- status: done
 - spec: REQ-LNS-006
 - owner: second-backend-engineer
 - depends: T-100
@@ -1309,10 +1309,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/unit/test_causal.py`
 - note: DID, synthetic control, and propensity matching returning ATE with a 95 percent interval, ATT and ATU, p-value, effect size, robustness checks, and E-value; mark results inconclusive when the sign flips. Test on simulated data with a known effect.
-- evidence:
+- evidence: pytest -q tests/unit/test_causal.py (8 passed), make static, make test (1219 passed)
 
 ### T-106 Drift and explainability (Dx3, Dx4)
-- status: todo
+- status: done
 - spec: REQ-LNS-007
 - owner: second-backend-engineer
 - depends: T-100, T-053
@@ -1321,7 +1321,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/unit/test_drift.py tests/unit/test_explain.py`
 - note: CUSUM, EWMA, change points, and PSI with the 0.1 and 0.25 thresholds, a nightly worker that alerts through an n8n webhook, and SHAP drivers plus counterfactuals attached to the Brief on regeneration.
-- evidence:
+- evidence: pytest -q tests/unit/test_drift.py tests/unit/test_explain.py (15 passed), make static, make test (1246 passed); Brief integration is a follow-up
 
 ### T-107 Validation schema (expand migration)
 - status: done
