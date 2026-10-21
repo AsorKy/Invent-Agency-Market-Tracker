@@ -20,6 +20,7 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from libs.common import db, rate_limiter, redis_client
+from libs.common.internal_auth import verify_service_token
 from libs.common.pagination import encode_cursor
 from libs.contracts.api import SignalCreate
 from services.brief.app import core_source
@@ -333,7 +334,6 @@ def _source(handler: Any) -> HttpCoreSource:
     source = HttpCoreSource("http://core", "tok", timeout_seconds=1.0)
     source._client = httpx.AsyncClient(
         base_url="http://core",
-        headers={"X-Service-Token": "tok"},
         transport=httpx.MockTransport(handler),
     )
     return source
@@ -354,7 +354,7 @@ async def test_core_source_get_facts_sends_token_and_tenant() -> None:
     assert facts.version == 3
     assert seen[0].url.path == f"/internal/core/companies/{company}/brief-facts"
     assert seen[0].headers["X-Tenant-Id"] == str(TENANT)
-    assert seen[0].headers["X-Service-Token"] == "tok"
+    assert verify_service_token(seen[0].headers["X-Service-Token"], "tok") == "brief"
 
 
 async def test_core_source_get_facts_without_tenant_omits_header() -> None:

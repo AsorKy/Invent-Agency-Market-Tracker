@@ -26,6 +26,7 @@ from services.core.app.tenant_config import (  # noqa: E402
     row_to_config,
     update_config,
 )
+from tests.unit.service_auth import service_headers  # noqa: E402
 
 TENANT = uuid4()
 
@@ -189,8 +190,7 @@ def test_routes() -> None:
             return FakeUow(store)
 
     main.app.state.repository = Repo()
-    main.app.dependency_overrides[main.require_internal_token] = lambda: None
-    client = TestClient(main.app)
+    client = TestClient(main.app, headers=service_headers())
     url = "/internal/core/admin/tenant-config"
     h = {"X-Tenant-ID": str(TENANT)}
     try:

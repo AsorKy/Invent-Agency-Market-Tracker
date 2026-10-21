@@ -7,6 +7,7 @@ from uuid import UUID, uuid4
 
 import httpx
 
+from libs.common.internal_auth import verify_service_token
 from libs.domain.entity_resolution import (
     EntityResolver,
     InMemoryResolutionStore,
@@ -210,7 +211,9 @@ async def test_http_client_sends_service_token_and_routes() -> None:
         "/internal/core/companies/upsert",
         "/internal/core/signals",
     ]
-    assert all(r.headers["X-Service-Token"] == "tok-test" for r in seen)
+    assert all(
+        verify_service_token(r.headers["X-Service-Token"], "tok-test") == "ingest" for r in seen
+    )
     assert json.loads(seen[0].content) == {"legal_name": "X"}
 
 

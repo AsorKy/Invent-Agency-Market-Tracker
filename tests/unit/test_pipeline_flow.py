@@ -40,6 +40,7 @@ from support_pipeline import (  # noqa: E402
 
 from services.gateway.app import main as gw  # noqa: E402
 from services.ingest.app import main as ingest_main  # noqa: E402
+from tests.unit.service_auth import service_headers  # noqa: E402
 
 SECRET = "pipeline-webhook-secret"
 FIXTURE = (
@@ -370,7 +371,7 @@ async def test_defect_core_serves_brief_facts(stack: tuple[World, Any]) -> None:
     async with httpx.AsyncClient(transport=world.transport) as core:
         response = await core.get(
             f"{url}{companies['Medellin']}/brief-facts",
-            headers={"X-Service-Token": "test-internal-token"},
+            headers=service_headers("gateway"),
         )
 
     assert response.status_code == 200

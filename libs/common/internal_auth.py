@@ -6,14 +6,16 @@ HMAC-SHA256 covers ``v1.<service>.<expires-at>`` and is keyed with
 gateway mint a short-lived token per request with ``sign_service_token``;
 FastAPI routes in ``services/*/app/main.py`` validate it through
 ``require_internal_token``. Tenant headers (``X-Tenant-ID``) are honoured only
-behind a valid token, and ``require_gateway_token`` additionally pins the
-caller to the gateway. For compatibility with callers that still send the raw
-shared secret, ``require_internal_token`` also accepts that value (legacy mode).
+behind a valid token, ``require_gateway_token`` pins the caller to the gateway,
+and ``require_service_token`` pins it to an explicit allow list of services.
+The raw shared secret is never accepted: every sender signs a token per request
+(``service_token_header``) because a token lives only 60 seconds.
 """
 
 import hashlib
 import hmac
 import time
+from collections.abc import Awaitable, Callable
 
 from fastapi import Header, HTTPException
 
@@ -63,33 +65,43 @@ def verify_service_token(token: str, secret: str, *, now: float | None = None) -
     return service
 
 
+def service_token_header(service: str, secret: str) -> dict[str, str]:
+    """Return the ``X-Service-Token`` header with a fresh token for ``service``."""
+
+    return {"X-Service-Token": sign_service_token(service, secret)}
+
+
 def caller_service(token: str | None) -> str | None:
-    """Return the caller of a valid token; the legacy raw secret maps to ``legacy``."""
+    """Return the calling service of a valid signed token, else ``None``."""
 
     if not token:
         return None
-    secret = get_settings().internal_service_token
-    service = verify_service_token(token, secret)
-    if service is not None:
-        return service
-    if hmac.compare_digest(token.encode("utf-8"), secret.encode("utf-8")):
-        return "legacy"
-    return None
+    return verify_service_token(token, get_settings().internal_service_token)
 
 
 async def require_internal_token(
     x_service_token: str | None = Header(default=None, alias="X-Service-Token"),
 ) -> None:
-    """Refuse any request without a valid signed (or legacy) service token."""
+    """Refuse any request without a valid signed service token."""
 
     if caller_service(x_service_token) is None:
         raise HTTPException(status_code=401, detail="invalid_service_token")
 
 
-async def require_gateway_token(
-    x_service_token: str | None = Header(default=None, alias="X-Service-Token"),
-) -> None:
-    """Accept only a valid signed token issued by the gateway."""
+def require_service_token(*allowed: str) -> Callable[..., Awaitable[None]]:
+    """Return a dependency that accepts only signed tokens from ``allowed`` services."""
 
-    if caller_service(x_service_token) != GATEWAY_SERVICE:
-        raise HTTPException(status_code=401, detail="invalid_service_token")
+    if not allowed:
+        raise ValueError("allowed services must not be empty")
+    permitted = frozenset(allowed)
+
+    async def dependency(
+        x_service_token: str | None = Header(default=None, alias="X-Service-Token"),
+    ) -> None:
+        if caller_service(x_service_token) not in permitted:
+            raise HTTPException(status_code=401, detail="invalid_service_token")
+
+    return dependency
+
+
+require_gateway_token = require_service_token(GATEWAY_SERVICE)

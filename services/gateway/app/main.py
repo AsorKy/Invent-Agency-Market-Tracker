@@ -23,6 +23,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, Response
 from redis.exceptions import RedisError
 
+from libs.common.internal_auth import GATEWAY_SERVICE, service_token_header
 from libs.common.lifecycle import graceful_lifespan, instrument_app
 from libs.common.log_redaction import redact_headers, redact_text
 from libs.common.logging import configure_logging
@@ -200,7 +201,7 @@ async def _authenticate(request: Request) -> Claims | JSONResponse:
                 validated = await client.get(
                     settings.identity_url.rstrip("/") + "/internal/identity/auth/validate",
                     headers={
-                        "X-Service-Token": settings.internal_service_token,
+                        **service_token_header(GATEWAY_SERVICE, settings.internal_service_token),
                         "Cookie": f"{session_cookie_name()}={session}",
                     },
                 )
@@ -304,10 +305,7 @@ async def proxy(path: str, request: Request) -> Response:
     request_id = getattr(request.state, "request_id", None)
     if not isinstance(request_id, str):
         request_id = request.headers.get("X-Request-ID") or str(uuid4())
-    upstream_headers: dict[str, str] = {
-        "X-Request-ID": request_id,
-        "X-Service-Token": settings.internal_service_token,
-    }
+    upstream_headers: dict[str, str] = {"X-Request-ID": request_id}
     forwarded = ["content-type", "x-brightdata-signature", "x-brightdata-timestamp"]
     if route.service == "identity":
         forwarded += ["cookie", "x-csrf-token"]
@@ -328,7 +326,10 @@ async def proxy(path: str, request: Request) -> Response:
                     target,
                     params=request.query_params,
                     content=body,
-                    headers=upstream_headers,
+                    headers={
+                        **upstream_headers,
+                        **service_token_header(GATEWAY_SERVICE, settings.internal_service_token),
+                    },
                 )
 
             if request.method in {"GET", "PUT", "DELETE"}:

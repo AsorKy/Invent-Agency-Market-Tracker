@@ -17,7 +17,6 @@ pytest.importorskip("structlog")
 pytest.importorskip("sqlalchemy")
 testclient = pytest.importorskip("fastapi.testclient")
 
-from libs.common.settings import get_settings  # noqa: E402
 from libs.contracts.pulse import STALE_AFTER_MS, is_low_sample, is_stale  # noqa: E402
 from services.pulse.app import main as pulse  # noqa: E402
 from services.pulse.app.models import (  # noqa: E402
@@ -28,8 +27,9 @@ from services.pulse.app.models import (  # noqa: E402
     SourceFreshness,
     TopSource,
 )
+from tests.unit.service_auth import service_headers  # noqa: E402
 
-HEADERS = {"X-Service-Token": get_settings().internal_service_token}
+HEADERS = service_headers()
 CACHE = "private, max-age=60"
 ENDPOINTS = [
     "/internal/pulse/unprocessed-signals",

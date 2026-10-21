@@ -10,8 +10,11 @@ from fastapi import Depends, FastAPI, Header  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
 from libs.common.internal_auth import (  # noqa: E402
+    caller_service,
     require_gateway_token,
     require_internal_token,
+    require_service_token,
+    service_token_header,
     sign_service_token,
     verify_service_token,
 )
@@ -85,9 +88,47 @@ def test_non_gateway_and_expired_tokens_refused_on_gateway_route() -> None:
     assert client.get("/internal/x", headers={"X-Service-Token": expired}).status_code == 401
 
 
-def test_legacy_shared_secret_still_accepted_for_internal_routes() -> None:
+def test_raw_shared_secret_is_refused_everywhere() -> None:
     client = _app()
-    assert client.get("/internal/x", headers={"X-Service-Token": SECRET}).status_code == 200
+    headers = {"X-Service-Token": SECRET}
+    assert client.get("/internal/x", headers=headers).status_code == 401
+    assert client.get("/internal/gw", headers=headers).status_code == 401
+    assert caller_service(SECRET) is None
+
+
+def test_expired_token_is_refused_on_any_internal_route() -> None:
+    client = _app()
+    expired = sign_service_token("brief", SECRET, ttl_seconds=-1)
+    assert client.get("/internal/x", headers={"X-Service-Token": expired}).status_code == 401
+
+
+def test_service_token_header_mints_a_fresh_token_per_call(monkeypatch: pytest.MonkeyPatch) -> None:
+    clock = {"now": 1000.0}
+    monkeypatch.setattr("libs.common.internal_auth.time.time", lambda: clock["now"])
+    first = service_token_header("brief", SECRET)["X-Service-Token"]
+    clock["now"] = 1100.0
+    second = service_token_header("brief", SECRET)["X-Service-Token"]
+    assert first != second
+    assert verify_service_token(first, SECRET, now=1010) == "brief"
+    assert verify_service_token(first, SECRET, now=1100) is None
+    assert verify_service_token(second, SECRET, now=1110) == "brief"
+
+
+def test_require_service_token_enforces_the_allow_list() -> None:
+    app = FastAPI()
+
+    @app.get("/internal/list", dependencies=[Depends(require_service_token("brief", "ingest"))])
+    async def listed() -> dict[str, str]:
+        return {"ok": "1"}
+
+    client = TestClient(app)
+    for service, expected in (("brief", 200), ("ingest", 200), ("gateway", 401), ("seed", 401)):
+        token = sign_service_token(service, SECRET)
+        response = client.get("/internal/list", headers={"X-Service-Token": token})
+        assert response.status_code == expected, service
+    assert client.get("/internal/list").status_code == 401
+    with pytest.raises(ValueError):
+        require_service_token()
 
 
 def test_core_refuses_tenant_header_without_token() -> None:

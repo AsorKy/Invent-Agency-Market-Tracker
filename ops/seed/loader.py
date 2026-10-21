@@ -58,6 +58,8 @@ class SeedCore(Protocol):
 class HttpSeedCore(HttpCoreClient):
     """Real ``SeedCore`` over core's internal HTTP API with the service token."""
 
+    service_name = "seed"
+
     async def list_companies(
         self, limit: int, cursor: str | None
     ) -> tuple[list[dict[str, Any]], str | None]:
@@ -65,7 +67,7 @@ class HttpSeedCore(HttpCoreClient):
         if cursor:
             params["cursor"] = cursor
         response = await self._client.get(
-            "/internal/core/companies", params=params, headers=self._headers
+            "/internal/core/companies", params=params, headers=self._auth_headers()
         )
         response.raise_for_status()
         body = response.json()

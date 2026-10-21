@@ -15,11 +15,24 @@ import subprocess
 import sys
 from pathlib import Path
 
+import yaml  # type: ignore[import-untyped]
+
 ROOT = Path(__file__).resolve().parents[1]
 SETTINGS_PATH = ROOT / "libs/common/settings.py"
 COMPOSE_PATH = ROOT / "docker-compose.yml"
 ENV_EXAMPLE_PATH = ROOT / ".env.example"
 COMPOSE_VARIABLE = re.compile(r"\$\{([A-Z][A-Z0-9_]*)")
+# Every service that signs or validates service tokens (REQ-SEC-005) needs the secret.
+TOKEN_SERVICES = (
+    "gateway",
+    "ingest",
+    "ingest-processor",
+    "core",
+    "brief",
+    "identity",
+    "pulse",
+    "ml",
+)
 SECRET_PATTERNS = (
     re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----"),
     re.compile(r"\bAKIA[0-9A-Z]{16}\b"),
@@ -80,6 +93,17 @@ def _env_example_variables() -> set[str]:
     }
 
 
+def services_missing_service_token(compose_text: str) -> list[str]:
+    """Return the token services whose Compose environment lacks INTERNAL_SERVICE_TOKEN."""
+    services = (yaml.safe_load(compose_text) or {}).get("services", {})
+    missing = []
+    for name in TOKEN_SERVICES:
+        environment = (services.get(name) or {}).get("environment") or {}
+        if "INTERNAL_SERVICE_TOKEN" not in environment:
+            missing.append(name)
+    return missing
+
+
 def main() -> int:
     compose = COMPOSE_PATH.read_text(encoding="utf-8")
     env_variables = _env_example_variables()
@@ -88,6 +112,11 @@ def main() -> int:
     if missing:
         print("Missing configuration variables in .env.example:", file=sys.stderr)
         print("\n".join(missing), file=sys.stderr)
+        return 1
+    without_token = services_missing_service_token(compose)
+    if without_token:
+        print("Services without INTERNAL_SERVICE_TOKEN in docker-compose.yml:", file=sys.stderr)
+        print("\n".join(without_token), file=sys.stderr)
         return 1
     findings = scan_for_secrets(list_repository_files(ROOT))
     if findings:

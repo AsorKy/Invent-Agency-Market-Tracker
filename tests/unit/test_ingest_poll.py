@@ -27,6 +27,7 @@ from services.ingest.app.poll import (  # noqa: E402
     SnapshotPoller,
     trigger_and_track,
 )
+from tests.unit.service_auth import service_headers  # noqa: E402
 
 NOW = datetime(2026, 10, 18, 12, 0, tzinfo=UTC)
 
@@ -309,7 +310,7 @@ async def test_budget_endpoint_returns_200_then_429(
 ) -> None:
     budget = FakeBudget(10)
     ingest_app.app.dependency_overrides[ingest_app.get_budget_repository] = lambda: budget
-    headers = {"X-Service-Token": "tok"}
+    headers = service_headers("gateway")
     async with asgi_client(ingest_app.app) as client:
         ok = await client.get("/internal/ingest/budget/maps", headers=headers)
         budget.left = 0

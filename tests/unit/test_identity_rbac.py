@@ -18,7 +18,6 @@ import django  # noqa: E402
 
 django.setup()
 
-from django.conf import settings  # noqa: E402
 from django.db import connection  # noqa: E402
 from django.test import Client  # noqa: E402
 
@@ -29,9 +28,10 @@ from services.identity.iam.models import (  # noqa: E402
     TenantMembership,
     UserAccount,
 )
+from tests.unit.service_auth import service_headers  # noqa: E402
 
 MODELS = (Tenant, UserAccount, TenantMembership, MembershipScope)
-TOKEN = {"HTTP_X_SERVICE_TOKEN": settings.IDENTITY_INTERNAL_SERVICE_TOKEN}
+TOKEN = {"HTTP_X_SERVICE_TOKEN": service_headers("gateway")["X-Service-Token"]}
 
 
 @pytest.fixture

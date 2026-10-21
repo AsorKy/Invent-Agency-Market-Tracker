@@ -975,7 +975,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_brief_routes.py tests/unit/test_pipeline_flow.py` pass; make static/test pass (915 passed). Coordinator added get_lead_company to FakeCore in tests/unit/support_brief.py and support_pipeline.py
 
 ### T-123 Service tokens everywhere
-- status: todo
+- status: done
 - spec: REQ-SEC-005
 - owner: lead-backend-engineer
 - depends: T-060, T-122, T-089, T-120
@@ -984,7 +984,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_internal_auth.py tests/unit/test_service_clients.py` and `python ops/check_configuration.py`
 - note: runs alone, after the r1-d2 pull requests are merged, because it edits clients in several services. Gateway, brief, ingest, and identity senders switch to `sign_service_token`; then remove the legacy raw shared secret from `require_internal_token`. Core requires the gateway token for tenant headers where only the gateway calls, with an explicit per-service allow list where brief and ingest also call core. Record, for the coordinator, the `_app` role per service in settings and the Redis ACL users `edge` and `data` in compose configuration checks.
-- evidence:
+- evidence: `pytest -q tests/unit/test_internal_auth.py tests/unit/test_service_clients.py` -> 36 passed; `python ops/check_configuration.py` OK; make static and make test pass (1150 passed)
 
 ### T-124 Resilience gaps from the failure matrix
 - status: done

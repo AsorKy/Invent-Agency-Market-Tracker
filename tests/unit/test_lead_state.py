@@ -36,6 +36,7 @@ from services.core.app.leads import (  # noqa: E402
     change_status,
     create_lead,
 )
+from tests.unit.service_auth import service_headers  # noqa: E402
 
 S = PipelineStage
 TENANT = uuid4()
@@ -240,8 +241,7 @@ def test_routes_use_repository_and_return_409(monkeypatch: pytest.MonkeyPatch) -
 
     repo = Repo()
     main.app.state.repository = repo
-    client = TestClient(main.app)
-    main.app.dependency_overrides[main.require_internal_token] = lambda: None
+    client = TestClient(main.app, headers=service_headers())
     try:
         h = {"Idempotency-Key": "abc", "X-Tenant-ID": str(TENANT)}
         body = {"company_id": str(UUID(int=1)), "service_line": "saas"}

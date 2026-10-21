@@ -19,7 +19,6 @@ import django  # noqa: E402
 
 django.setup()
 
-from django.conf import settings  # noqa: E402
 from django.core.management import call_command  # noqa: E402
 from django.core.management.base import CommandError  # noqa: E402
 from django.db import connection  # noqa: E402
@@ -35,9 +34,10 @@ from services.identity.iam.models import (  # noqa: E402
     UserAccount,
 )
 from services.identity.iam.session_views import set_password  # noqa: E402
+from tests.unit.service_auth import service_headers  # noqa: E402
 
 MODELS = (Tenant, UserAccount, TenantMembership, MembershipScope, Credential, AuthSession)
-TOKEN = {"HTTP_X_SERVICE_TOKEN": settings.IDENTITY_INTERNAL_SERVICE_TOKEN}
+TOKEN = {"HTTP_X_SERVICE_TOKEN": service_headers("gateway")["X-Service-Token"]}
 LOGIN = "/internal/identity/auth/session"
 ME = "/internal/identity/me"
 PASSWORD = "unit-test-password-1"  # generated test value, not a credential

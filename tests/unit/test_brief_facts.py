@@ -11,9 +11,11 @@ import pytest
 
 pytest.importorskip("fastapi")
 from fastapi.testclient import TestClient  # noqa: E402
+
 from services.brief.app.models import CompanyFacts  # noqa: E402
 from services.core.app import main  # noqa: E402
 from services.core.app.brief_facts import build_facts  # noqa: E402
+from tests.unit.service_auth import service_headers  # noqa: E402
 
 TENANT = uuid4()
 COMPANY = uuid4()
@@ -52,9 +54,8 @@ class Repo:
 @pytest.fixture
 def client():
     main.app.state.repository = Repo()
-    main.app.dependency_overrides[main.require_internal_token] = lambda: None
     try:
-        yield TestClient(main.app)
+        yield TestClient(main.app, headers=service_headers())
     finally:
         main.app.dependency_overrides.clear()
 

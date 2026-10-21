@@ -23,6 +23,7 @@ from services.core.app.actions import (  # noqa: E402
     log_activity,
 )
 from services.core.app.leads import LeadNotFoundError  # noqa: E402
+from tests.unit.service_auth import service_headers  # noqa: E402
 
 
 def _activity(store: FakeStore, key: str | None = None, **over: Any) -> tuple[dict[str, Any], bool]:
@@ -137,8 +138,7 @@ def test_routes(monkeypatch: pytest.MonkeyPatch) -> None:
 
     repo = Repo()
     main.app.state.repository = repo
-    main.app.dependency_overrides[main.require_internal_token] = lambda: None
-    client = TestClient(main.app)
+    client = TestClient(main.app, headers=service_headers())
     try:
         base = f"/internal/core/leads/{LEAD_ID}"
         tenant = {"X-Tenant-ID": str(TENANT)}

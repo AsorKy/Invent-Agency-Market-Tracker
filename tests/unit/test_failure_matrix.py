@@ -43,10 +43,11 @@ from services.brief.app.single_flight import SingleFlightLock  # noqa: E402
 from services.gateway.app import main as gw  # noqa: E402
 from services.pulse.app import main as pulse_main  # noqa: E402
 from services.pulse.app.models import PipelineBacklog  # noqa: E402
+from tests.unit.service_auth import service_headers  # noqa: E402
 from tests.unit.support_brief import COMPANY, TENANT, FakeCore, FakeRedis  # noqa: E402
 
 REAL_ASYNC_CLIENT = httpx.AsyncClient
-SERVICE_HEADERS = {"X-Service-Token": get_settings().internal_service_token}
+SERVICE_HEADERS = service_headers()
 ML_PORT = httpx.URL(get_settings().ml_url).port
 PULSE_PORT = httpx.URL(get_settings().pulse_url).port
 BRIEF_PORT = httpx.URL(get_settings().brief_url).port

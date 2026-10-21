@@ -18,7 +18,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Res
 from fastapi.responses import JSONResponse
 
 from libs.common.db import check_database
-from libs.common.internal_auth import require_internal_token
+from libs.common.internal_auth import GATEWAY_SERVICE, require_service_token
 from libs.common.lifecycle import graceful_lifespan, instrument_app
 from libs.common.logging import configure_logging
 from libs.common.redis_client import check_redis
@@ -73,6 +73,16 @@ from services.core.app.tenant_config import (
     update_config,
 )
 
+# Per-route-group allow lists of calling services (REQ-SEC-005). Routes that
+# trust the X-Tenant-Id header accept only the gateway, which derives it from
+# verified claims, unless another service is named here. Ingest and the seed
+# send the tenant in the request body instead.
+GATEWAY_ONLY = Depends(require_service_token(GATEWAY_SERVICE))
+INGEST_WRITE = Depends(require_service_token(GATEWAY_SERVICE, "ingest", "seed"))
+BRIEF_READ = Depends(require_service_token(GATEWAY_SERVICE, "brief"))
+GATEWAY_OR_SEED = Depends(require_service_token(GATEWAY_SERVICE, "seed"))
+GATEWAY_OR_VERIFY = Depends(require_service_token(GATEWAY_SERVICE, "verify_live"))
+
 settings = get_settings()
 configure_logging(settings.log_level)
 
@@ -112,7 +122,7 @@ async def ready() -> JSONResponse:
     return JSONResponse(status_code=200 if database and redis else 503, content=body)
 
 
-@app.post("/internal/core/signals", status_code=201, dependencies=[Depends(require_internal_token)])
+@app.post("/internal/core/signals", status_code=201, dependencies=[INGEST_WRITE])
 async def create_signal(payload: SignalCreate, request: Request) -> dict[str, str | None]:
     try:
         reject_personal_identifiers(payload.model_dump(mode="json"))
@@ -132,7 +142,7 @@ async def create_signal(payload: SignalCreate, request: Request) -> dict[str, st
     }
 
 
-@app.post("/internal/core/companies/upsert", dependencies=[Depends(require_internal_token)])
+@app.post("/internal/core/companies/upsert", dependencies=[INGEST_WRITE])
 async def upsert_company_route(
     payload: CompanyUpsert, request: Request, response: Response
 ) -> dict[str, str | int]:
@@ -157,7 +167,7 @@ async def upsert_company_route(
     }
 
 
-@app.get("/internal/core/companies", dependencies=[Depends(require_internal_token)])
+@app.get("/internal/core/companies", dependencies=[GATEWAY_OR_SEED])
 async def companies(
     request: Request,
     limit: int = Query(default=50, ge=1, le=200),
@@ -173,7 +183,7 @@ async def companies(
     return {"data": data, "next_cursor": next_cursor}
 
 
-@app.get("/internal/core/leads", dependencies=[Depends(require_internal_token)])
+@app.get("/internal/core/leads", dependencies=[GATEWAY_OR_VERIFY])
 async def leads(
     request: Request,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
@@ -206,7 +216,7 @@ async def leads(
 
 @app.get(
     "/internal/core/companies/{company_id}/brief-facts",
-    dependencies=[Depends(require_internal_token)],
+    dependencies=[BRIEF_READ],
 )
 async def company_brief_facts(
     company_id: UUID,
@@ -223,7 +233,7 @@ async def company_brief_facts(
     return facts
 
 
-@app.post("/internal/core/leads", dependencies=[Depends(require_internal_token)])
+@app.post("/internal/core/leads", dependencies=[GATEWAY_ONLY])
 async def create_lead_route(
     payload: LeadCreate,
     request: Request,
@@ -248,7 +258,7 @@ async def create_lead_route(
     return dict(body)
 
 
-@app.get("/internal/core/leads/{lead_id}", dependencies=[Depends(require_internal_token)])
+@app.get("/internal/core/leads/{lead_id}", dependencies=[BRIEF_READ])
 async def get_lead_route(
     lead_id: UUID,
     request: Request,
@@ -266,7 +276,7 @@ async def get_lead_route(
     return lead
 
 
-@app.patch("/internal/core/leads/{lead_id}/status", dependencies=[Depends(require_internal_token)])
+@app.patch("/internal/core/leads/{lead_id}/status", dependencies=[GATEWAY_ONLY])
 async def change_lead_status(
     lead_id: UUID,
     payload: LeadStatusPatch,
@@ -298,7 +308,7 @@ async def change_lead_status(
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
-@app.get("/internal/core/pipeline/kanban", dependencies=[Depends(require_internal_token)])
+@app.get("/internal/core/pipeline/kanban", dependencies=[GATEWAY_ONLY])
 async def pipeline_kanban(
     request: Request, x_tenant_id: Annotated[UUID | None, Header()] = None
 ) -> dict[str, object]:
@@ -313,7 +323,7 @@ async def pipeline_kanban(
 @app.post(
     "/internal/core/leads/{lead_id}/outcomes",
     status_code=201,
-    dependencies=[Depends(require_internal_token)],
+    dependencies=[GATEWAY_ONLY],
 )
 async def record_outcome_route(
     lead_id: UUID,
@@ -336,9 +346,7 @@ async def record_outcome_route(
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
-@app.post(
-    "/internal/core/leads/{lead_id}/activities", dependencies=[Depends(require_internal_token)]
-)
+@app.post("/internal/core/leads/{lead_id}/activities", dependencies=[GATEWAY_ONLY])
 async def log_activity_route(
     lead_id: UUID,
     payload: ActivityCreate,
@@ -365,9 +373,7 @@ async def log_activity_route(
     return dict(body)
 
 
-@app.post(
-    "/internal/core/projects", status_code=201, dependencies=[Depends(require_internal_token)]
-)
+@app.post("/internal/core/projects", status_code=201, dependencies=[GATEWAY_ONLY])
 async def create_project(
     payload: ProjectCreate,
     request: Request,
@@ -394,7 +400,7 @@ async def create_project(
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
-@app.get("/internal/core/projects", dependencies=[Depends(require_internal_token)])
+@app.get("/internal/core/projects", dependencies=[GATEWAY_ONLY])
 async def projects(
     request: Request,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
@@ -414,7 +420,7 @@ async def projects(
     return {"data": data, "next_cursor": next_cursor}
 
 
-@app.get("/internal/core/admin/tenant-config", dependencies=[Depends(require_internal_token)])
+@app.get("/internal/core/admin/tenant-config", dependencies=[BRIEF_READ])
 async def get_tenant_config(
     request: Request, response: Response, x_tenant_id: Annotated[UUID, Header()]
 ) -> dict[str, object]:
@@ -427,7 +433,7 @@ async def get_tenant_config(
     return body
 
 
-@app.put("/internal/core/admin/tenant-config", dependencies=[Depends(require_internal_token)])
+@app.put("/internal/core/admin/tenant-config", dependencies=[GATEWAY_ONLY])
 async def put_tenant_config(
     payload: TenantConfig,
     request: Request,
@@ -463,7 +469,7 @@ async def put_tenant_config(
     return body
 
 
-@app.post("/internal/core/imports/{entity}", dependencies=[Depends(require_internal_token)])
+@app.post("/internal/core/imports/{entity}", dependencies=[GATEWAY_ONLY])
 async def create_import_route(
     entity: ImportEntity,
     request: Request,
@@ -503,7 +509,7 @@ async def create_import_route(
     return JSONResponse(status_code=202 if created else 200, content=body)
 
 
-@app.get("/internal/core/jobs/{job_id}", dependencies=[Depends(require_internal_token)])
+@app.get("/internal/core/jobs/{job_id}", dependencies=[GATEWAY_ONLY])
 async def get_job_route(
     job_id: UUID, request: Request, x_tenant_id: Annotated[UUID | None, Header()] = None
 ) -> dict[str, object]:
@@ -516,7 +522,7 @@ async def get_job_route(
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
-@app.post("/internal/core/compliance/opt-out", dependencies=[Depends(require_internal_token)])
+@app.post("/internal/core/compliance/opt-out", dependencies=[GATEWAY_OR_SEED])
 async def opt_out_route(payload: OptOutRequest, request: Request) -> dict[str, object]:
     try:
         repository: CoreRepository = request.app.state.repository
@@ -525,7 +531,7 @@ async def opt_out_route(payload: OptOutRequest, request: Request) -> dict[str, o
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
-@app.post("/internal/core/compliance/purge", dependencies=[Depends(require_internal_token)])
+@app.post("/internal/core/compliance/purge", dependencies=[GATEWAY_ONLY])
 async def purge_route(
     request: Request,
     dry_run: bool = True,
