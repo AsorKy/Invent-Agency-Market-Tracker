@@ -21,7 +21,7 @@ Other workflows:
 | File | Trigger | Behavior |
 |---|---|---|
 | `wf_rues_delta` | weekly | budget check, `POST {RUES_DELTA_URL}` with `notify={INGEST_WEBHOOK_URL}`, Telegram |
-| `wf_socioeco_refresh` | monthly | `POST {ANALYTICS_URL}/internal/analytics/socioeconomic/refresh`, Telegram |
+| `wf_socioeco_refresh` | monthly | `POST {PULSE_URL}/internal/pulse/socioeconomic/refresh`, Telegram |
 | `wf_hot_lead_alert` | webhook `hot-lead` | forwards the core alert body (`lead_id`, `company_id`, `tenant_id`, `score`, which may be null) to Telegram |
 | `wf_ops_health` | hourly | `GET /health` of core and ingest; an error trigger sends an email (SMTP credential `ops-smtp`, `OPS_ALERT_FROM`, `OPS_ALERT_TO`) |
 

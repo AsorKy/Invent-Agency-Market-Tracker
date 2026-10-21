@@ -1456,7 +1456,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: filled by the agent when done
 
 ### T-133 Fix the socioeconomic refresh workflow
-- status: todo
+- status: done
 - spec: REQ-ORC-001
 - owner: second-backend-engineer
 - depends: T-080
@@ -1465,7 +1465,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: S
 - acceptance: `pytest -q tests/unit/test_workflows.py`
 - note: make `wf_socioeco_refresh.json` and the README use `PULSE_URL` and the pulse socioeconomic refresh route instead of the removed analytics variables. Add a test that no workflow references an environment variable that the settings or `.env.example` no longer define.
-- evidence: filled by the agent when done
+- evidence: `pytest -q tests/unit/test_workflows.py` 34 passed; `python ops/check_workflows.py` OK; make static and make test pass. Risk: pulse has no /internal/pulse/socioeconomic/refresh route yet (workflow inactive).
 
 ### T-134 README and agent registry cleanup after the analytics merge
 - status: todo
