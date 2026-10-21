@@ -23,7 +23,14 @@ def scripted(counts: dict[str, int]) -> Callable[[str], int]:
     return query
 
 
-FILLED = {"core.company": 60, "core.signal": 900, "pulse.fact_signal": 900}
+FILLED = {
+    "core.company": 60,
+    "core.signal": 150,
+    "pulse.fact_signal": 150,
+    "pulse.daily_rollup": 84,
+    "ml.lead_score": 60,
+    "brief.record_digest": 60,
+}
 
 
 def test_passes_when_core_is_filled_and_the_outbox_is_drained(
@@ -33,7 +40,10 @@ def test_passes_when_core_is_filled_and_the_outbox_is_drained(
     assert code == 0
     out = capsys.readouterr().out
     assert "core.company: 60 (required)" in out
-    assert "ml.lead_score: 0 (info)" in out
+    assert "ml.lead_score: 60 (required)" in out
+    assert "brief.record_digest: 60 (required)" in out
+    assert "core.brief: 0 (info)" in out
+    assert "ingest.raw_snapshot: 0 (info)" in out
     assert "e2e data check: OK" in out
 
 
@@ -41,6 +51,17 @@ def test_fails_when_a_required_table_is_empty(capsys: pytest.CaptureFixture[str]
     counts = {**FILLED, "core.signal": 0}
     assert e2e_check.run(["--timeout", "0"], query=scripted(counts), sleep=lambda _s: None) == 1
     assert "FAIL: core.signal is empty" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    "table", ["pulse.fact_signal", "pulse.daily_rollup", "ml.lead_score", "brief.record_digest"]
+)
+def test_fails_when_a_downstream_table_is_empty(
+    table: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    counts = {**FILLED, table: 0}
+    assert e2e_check.run(["--timeout", "0"], query=scripted(counts), sleep=lambda _s: None) == 1
+    assert f"FAIL: {table} is empty" in capsys.readouterr().err
 
 
 def test_fails_on_pending_events_and_dead_letters(capsys: pytest.CaptureFixture[str]) -> None:
