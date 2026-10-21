@@ -3,7 +3,7 @@
 It keeps the ``invent.events`` stream name and the module path that compose and ``procs.toml``
 run (``python -m services.core.app.outbox_relay``). ``main`` delegates to ``dead_letter.main``,
 which publishes with the retry schedule and the dead letter queue. It relates to ``dead_letter.py``,
-``republish.py`` and the analytics and ML consumers. REQ-EVT-001, REQ-EVT-003, REQ-EVT-006.
+``republish.py`` and the pulse and ML consumers. REQ-EVT-001, REQ-EVT-003, REQ-EVT-006.
 """
 
 import asyncio

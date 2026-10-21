@@ -2,7 +2,7 @@
 
 The module creates consumer groups idempotently and reads pending messages for
 the current consumer before waiting for new messages. It relates to
-``services/ingest/app/processor.py``, ``analytics/app/consumer.py``, and
+``services/ingest/app/processor.py``, ``pulse/app/consumer.py``, and
 ``ml/app/consumer.py``; each acknowledges with ``XACK`` only after its database
 transaction commits. It prevents a transient failure from leaving a message
 pending indefinitely after its first attempt.

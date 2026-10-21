@@ -103,9 +103,3 @@ agents:
     mode: implementation
     primary_paths:
       - frontend/
-legacy_paths:
-  # Directories that still exist on disk but are no longer owned. Remove the entry
-  # when the directory is deleted (REQ-ARC-001).
-  - path: services/analytics/
-    merged_into: services/pulse/
-    owner: second-backend-engineer

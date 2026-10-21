@@ -5,17 +5,17 @@ The product evaluates SaaS, AaaS, consulting, digital marketing, event
 catering, and related projects using market evidence, while curating leads for
 the agency.
 
-The implementation follows `ARCH-0001 v2` and starts with F0: five Python
-services, a public gateway, Postgres with five schemas, Redis Streams, versioned
+The implementation follows `ARCH-0001 v2` and starts with F0: seven Python
+services plus a Streamlit app, a public gateway, Postgres with seven schemas, Redis Streams, versioned
 contracts, a transactional outbox, dbt, n8n workflows, and reproducible
 synthetic data. The frontend is reserved for a later phase.
 
 ## Structure
 
 ```text
-services/          gateway, ingest, core, analytics, ml, and mocks
+services/          gateway, ingest, core, identity, brief, ml, pulse, streamlit, and mocks
 libs/              configuration, database, Redis, contracts, and pure domain
-migrations/        expand bootstrap for the five schemas
+migrations/        expand bootstrap for the seven schemas
 transform/         dbt project and initial semantic model
 orchestration/n8n/ versioned workflows without secrets
 datagen/           deterministic synthetic data for development
