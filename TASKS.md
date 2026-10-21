@@ -1300,7 +1300,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: pytest -q tests/unit/test_attribution.py (8 passed), make static, make test (1211 passed); persistence to pulse.attribution is a follow-up
 
 ### T-105 Causal inference (Dx2)
-- status: todo
+- status: done
 - spec: REQ-LNS-006
 - owner: second-backend-engineer
 - depends: T-100
@@ -1309,7 +1309,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/unit/test_causal.py`
 - note: DID, synthetic control, and propensity matching returning ATE with a 95 percent interval, ATT and ATU, p-value, effect size, robustness checks, and E-value; mark results inconclusive when the sign flips. Test on simulated data with a known effect.
-- evidence:
+- evidence: pytest -q tests/unit/test_causal.py (8 passed), make static, make test (1219 passed)
 
 ### T-106 Drift and explainability (Dx3, Dx4)
 - status: todo
