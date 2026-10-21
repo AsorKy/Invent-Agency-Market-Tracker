@@ -87,3 +87,63 @@ def test_wait_ready_times_out() -> None:
     assert not env.wait_ready(
         "u", 10, 1, lambda _u: False, lambda _s: None, lambda: float(next(ticks))
     )
+
+
+def test_bootstrap_roles_profile_detection() -> None:
+    from ops import bootstrap_roles as roles
+
+    assert roles.is_local_profile({})
+    assert roles.is_local_profile({"APP_PROFILE": "local", "ENVIRONMENT": "ci"})
+    assert not roles.is_local_profile({"APP_PROFILE": "production"})
+    assert not roles.is_local_profile({"ENVIRONMENT": "staging"})
+
+
+def test_bootstrap_roles_flags_default_or_empty_passwords() -> None:
+    from ops import bootstrap_roles as roles
+
+    passwords = {"identity": "s3cret-value", "socio": "CHANGE_ME_SOCIO", "core": "  "}
+    weak = roles.insecure_password_schemas(passwords, ["identity", "socio", "core", "ml"])
+    assert weak == ["socio", "core", "ml"]
+
+
+def test_bootstrap_roles_refuses_defaults_outside_local(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from ops import bootstrap_roles as roles
+
+    for key in list(roles.os.environ):
+        if key.startswith("BOOTSTRAP_PASSWORD_"):
+            monkeypatch.delenv(key)
+    monkeypatch.setenv("APP_PROFILE", "production")
+    monkeypatch.setenv("BOOTSTRAP_PASSWORD_IDENTITY", "CHANGE_ME_IDENTITY")
+    assert roles.main([]) == 2
+    err = capsys.readouterr().err
+    assert "BOOTSTRAP_PASSWORD_IDENTITY" in err and "BOOTSTRAP_PASSWORD_SOCIO" in err
+    assert "CHANGE_ME_IDENTITY" not in err
+
+
+def test_bootstrap_roles_prints_sql_with_real_passwords_in_production(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from ops import bootstrap_roles as roles
+
+    monkeypatch.setenv("APP_PROFILE", "production")
+    for schema in roles.SCHEMAS:
+        monkeypatch.setenv(f"BOOTSTRAP_PASSWORD_{schema.upper()}", f"pw-{schema}-x9")
+    monkeypatch.delenv("BOOTSTRAP_DATABASE_URL", raising=False)
+    assert roles.main([]) == 0
+    out = capsys.readouterr().out
+    assert "pw-identity-x9" in out and "CHANGE_ME" not in out
+
+
+def test_bootstrap_roles_local_profile_keeps_placeholders(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from ops import bootstrap_roles as roles
+
+    for key in list(roles.os.environ):
+        if key.startswith("BOOTSTRAP_PASSWORD_") or key in {"APP_PROFILE", "ENVIRONMENT"}:
+            monkeypatch.delenv(key)
+    monkeypatch.delenv("BOOTSTRAP_DATABASE_URL", raising=False)
+    assert roles.main([]) == 0
+    assert "CHANGE_ME_IDENTITY" in capsys.readouterr().out

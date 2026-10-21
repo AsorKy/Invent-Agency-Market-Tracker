@@ -9,6 +9,9 @@ Usage: ``python ops/bootstrap_roles.py`` prints the SQL. With ``--db-url`` (or
 ``BOOTSTRAP_DATABASE_URL``) it executes the SQL through psycopg when installed.
 App passwords come from ``BOOTSTRAP_PASSWORD_<SCHEMA>`` env vars; otherwise a
 ``CHANGE_ME_<SCHEMA>`` placeholder is written. No real secret lives in this repo.
+Outside the local profile (``APP_PROFILE`` other than ``local`` or an ``ENVIRONMENT``
+other than local, test, ci, dev) a missing, empty, or ``CHANGE_ME_`` password aborts
+the run (REQ-SEC-005).
 """
 
 import argparse
@@ -26,6 +29,28 @@ from ops.schemas import (  # noqa: E402
     owner_role,
     validate_identifier,
 )
+
+LOCAL_ENVIRONMENTS = frozenset({"local", "test", "ci", "dev", "development"})
+
+
+def is_local_profile(env: Mapping[str, str] | None = None) -> bool:
+    """Return True only for the local profile; unknown values count as non-local."""
+    source = os.environ if env is None else env
+    profile = source.get("APP_PROFILE", "local").strip().lower()
+    environment = source.get("ENVIRONMENT", "local").strip().lower()
+    return profile == "local" and environment in LOCAL_ENVIRONMENTS
+
+
+def insecure_password_schemas(
+    passwords: Mapping[str, str], schemas: Iterable[str] = SCHEMAS
+) -> list[str]:
+    """Return the schemas whose app password is missing, blank, or a placeholder."""
+    bad = []
+    for s in schemas:
+        value = passwords.get(s, "").strip()
+        if not value or value.upper().startswith("CHANGE_ME"):
+            bad.append(s)
+    return bad
 
 
 def _literal(value: str) -> str:
@@ -140,9 +165,19 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--db-url", default=os.environ.get("BOOTSTRAP_DATABASE_URL"))
     args = parser.parse_args(argv)
-    sql = generate_sql(passwords=passwords_from_env())
+    passwords = passwords_from_env()
+    if not is_local_profile():
+        weak = insecure_password_schemas(passwords)
+        if weak:
+            print(
+                "Refusing default or empty role passwords outside the local profile; set "
+                + ", ".join(f"BOOTSTRAP_PASSWORD_{name.upper()}" for name in weak),
+                file=sys.stderr,
+            )
+            return 2
+    sql = generate_sql(passwords=passwords)
     if args.db_url:
-        missing = execute_tolerant(args.db_url, passwords_from_env())
+        missing = execute_tolerant(args.db_url, passwords)
         if missing:
             print(
                 "Extensions the platform must enable: " + ", ".join(missing),

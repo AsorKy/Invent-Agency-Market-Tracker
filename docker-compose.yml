@@ -125,6 +125,10 @@ services:
       BOOTSTRAP_PASSWORD_ML: ${BOOTSTRAP_PASSWORD_ML:-CHANGE_ME_ML}
       BOOTSTRAP_PASSWORD_PULSE: ${BOOTSTRAP_PASSWORD_PULSE:-CHANGE_ME_PULSE}
       BOOTSTRAP_PASSWORD_BRIEF: ${BOOTSTRAP_PASSWORD_BRIEF:-CHANGE_ME_BRIEF}
+      BOOTSTRAP_PASSWORD_IDENTITY: ${BOOTSTRAP_PASSWORD_IDENTITY:-CHANGE_ME_IDENTITY}
+      BOOTSTRAP_PASSWORD_SOCIO: ${BOOTSTRAP_PASSWORD_SOCIO:-CHANGE_ME_SOCIO}
+      APP_PROFILE: ${APP_PROFILE:-local}
+      ENVIRONMENT: ${ENVIRONMENT:-local}
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -346,12 +350,23 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       SERVICE_NAME: ${SERVICE_NAME:-invent-market-tracker}
       INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-local-development-token}
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: ${POSTGRES_DB:-invent_market_tracker}
+      IDENTITY_DB_USER: ${IDENTITY_DB_USER:-identity_app}
+      IDENTITY_DB_PASSWORD: ${BOOTSTRAP_PASSWORD_IDENTITY:-CHANGE_ME_IDENTITY}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health', timeout=3).status == 200 else 1)"]
       interval: 10s
       timeout: 5s
       retries: 6
       start_period: 10s
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      bootstrap-roles:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
 
   streamlit:
     build:

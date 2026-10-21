@@ -72,7 +72,7 @@ def test_bootstrap_roles_is_one_shot_after_migrate(services: dict[str, Any]) -> 
     }
     env = _env(boot)
     assert env["BOOTSTRAP_DATABASE_URL"].startswith("postgresql://")
-    for schema in DB_APIS.values():
+    for schema in [*DB_APIS.values(), "identity", "socio"]:
         assert env[f"BOOTSTRAP_PASSWORD_{schema.upper()}"].endswith(
             f":-CHANGE_ME_{schema.upper()}}}"
         )
@@ -187,3 +187,34 @@ def test_app_services_read_optional_env_file(services: dict[str, Any]) -> None:
             continue
         entries = services[name]["env_file"]
         assert {"path": ".env", "required": False} in entries
+
+
+def test_identity_reaches_postgres_with_its_own_role(services: dict[str, Any]) -> None:
+    identity = services["identity"]
+    env = _env(identity)
+    assert env["POSTGRES_HOST"] == "postgres"
+    assert env["IDENTITY_DB_USER"].endswith(":-identity_app}")
+    assert env["IDENTITY_DB_PASSWORD"] == "${BOOTSTRAP_PASSWORD_IDENTITY:-CHANGE_ME_IDENTITY}"
+    assert "POSTGRES_PASSWORD" not in env
+    deps = _depends(identity)
+    assert deps["migrate"] == "service_completed_successfully"
+    assert deps["bootstrap-roles"] == "service_completed_successfully"
+    assert deps["postgres"] == "service_healthy"
+
+
+def test_bootstrap_roles_declares_profile_and_all_passwords(services: dict[str, Any]) -> None:
+    env = _env(services["bootstrap-roles"])
+    assert env["APP_PROFILE"].endswith(":-local}")
+    assert env["ENVIRONMENT"].endswith(":-local}")
+    assert env["BOOTSTRAP_PASSWORD_SOCIO"].endswith(":-CHANGE_ME_SOCIO}")
+
+
+def test_configuration_guard_reports_missing_role_wiring() -> None:
+    from ops import check_configuration as guard
+
+    text = COMPOSE.read_text(encoding="utf-8")
+    env = guard._env_example_variables()
+    assert guard.role_wiring_problems(text, env) == []
+    stripped = text.replace("IDENTITY_DB_USER:", "OTHER_USER:")
+    assert any("IDENTITY_DB_USER" in p for p in guard.role_wiring_problems(stripped, env))
+    assert any("BOOTSTRAP_PASSWORD_SOCIO" in p for p in guard.role_wiring_problems(text, set()))

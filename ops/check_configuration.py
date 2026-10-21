@@ -17,6 +17,10 @@ from pathlib import Path
 
 import yaml  # type: ignore[import-untyped]
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from ops.schemas import SCHEMAS  # noqa: E402
+
 ROOT = Path(__file__).resolve().parents[1]
 SETTINGS_PATH = ROOT / "libs/common/settings.py"
 COMPOSE_PATH = ROOT / "docker-compose.yml"
@@ -33,6 +37,8 @@ TOKEN_SERVICES = (
     "pulse",
     "ml",
 )
+# Identity reads its database settings from these (services/identity/project/settings.py).
+IDENTITY_DB_VARIABLES = ("POSTGRES_HOST", "IDENTITY_DB_USER", "IDENTITY_DB_PASSWORD")
 SECRET_PATTERNS = (
     re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----"),
     re.compile(r"\bAKIA[0-9A-Z]{16}\b"),
@@ -104,6 +110,26 @@ def services_missing_service_token(compose_text: str) -> list[str]:
     return missing
 
 
+def role_wiring_problems(compose_text: str, env_variables: set[str]) -> list[str]:
+    """Return problems in the identity and bootstrap-roles database wiring (REQ-SEC-005)."""
+    services = (yaml.safe_load(compose_text) or {}).get("services", {})
+    problems = []
+    identity_env = (services.get("identity") or {}).get("environment") or {}
+    for name in IDENTITY_DB_VARIABLES:
+        if name not in identity_env:
+            problems.append(f"identity lacks {name} in docker-compose.yml")
+        if name not in env_variables:
+            problems.append(f"{name} missing in .env.example")
+    bootstrap_env = (services.get("bootstrap-roles") or {}).get("environment") or {}
+    for schema in SCHEMAS:
+        name = f"BOOTSTRAP_PASSWORD_{schema.upper()}"
+        if name not in bootstrap_env:
+            problems.append(f"bootstrap-roles lacks {name} in docker-compose.yml")
+        if name not in env_variables:
+            problems.append(f"{name} missing in .env.example")
+    return problems
+
+
 def main() -> int:
     compose = COMPOSE_PATH.read_text(encoding="utf-8")
     env_variables = _env_example_variables()
@@ -117,6 +143,11 @@ def main() -> int:
     if without_token:
         print("Services without INTERNAL_SERVICE_TOKEN in docker-compose.yml:", file=sys.stderr)
         print("\n".join(without_token), file=sys.stderr)
+        return 1
+    wiring = role_wiring_problems(compose, env_variables)
+    if wiring:
+        print("Database role wiring problems:", file=sys.stderr)
+        print("\n".join(wiring), file=sys.stderr)
         return 1
     findings = scan_for_secrets(list_repository_files(ROOT))
     if findings:
