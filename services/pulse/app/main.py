@@ -27,6 +27,7 @@ from libs.common.redis_client import check_redis
 from libs.common.request_id import RequestIdMiddleware
 from libs.common.settings import get_settings
 from libs.contracts.pulse import CACHE_CONTROL, is_stale
+from services.pulse.app.descriptive import concentration, describe
 from services.pulse.app.models import (
     OpsHealthResponse,
     PipelineBacklogResponse,
@@ -196,7 +197,12 @@ async def source_efficiency(
         period=period, service_line=service_line
     )
     as_of, stale = _freshness(source_as_of)
-    payload = SourceEfficiencyResponse(sources=rows, as_of=as_of, stale=stale)
+    payload = SourceEfficiencyResponse(
+        sources=rows,
+        as_of=as_of,
+        stale=stale,
+        leads_concentration=concentration([r.leads for r in rows]) if rows else None,
+    )
     return _json_response(payload.model_dump(mode="json"), as_of=as_of)
 
 
@@ -208,7 +214,14 @@ async def time_in_pipeline(
     """Return pipeline duration groups and low-sample flags."""
     rows, source_as_of = await request.app.state.repository.time_in_pipeline(group_by=group_by)
     as_of, stale = _freshness(source_as_of)
-    payload = PipelineTimeResponse(groups=rows, as_of=as_of, stale=stale)
+    payload = PipelineTimeResponse(
+        groups=rows,
+        as_of=as_of,
+        stale=stale,
+        p50_days_stats=describe([r.p50_days for r in rows if r.p50_days is not None])
+        if rows
+        else None,
+    )
     return _json_response(payload.model_dump(mode="json"), as_of=as_of)
 
 
@@ -223,7 +236,14 @@ async def top_sources(
         limit=k, service_line=service_line
     )
     as_of, stale = _freshness(source_as_of)
-    payload = TopSourcesResponse(ranking=rows, as_of=as_of, stale=stale)
+    payload = TopSourcesResponse(
+        ranking=rows,
+        as_of=as_of,
+        stale=stale,
+        qualified_leads_concentration=concentration([r.qualified_leads for r in rows])
+        if rows
+        else None,
+    )
     return _json_response(payload.model_dump(mode="json"), as_of=as_of)
 
 

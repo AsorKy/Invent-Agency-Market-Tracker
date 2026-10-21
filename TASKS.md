@@ -1264,7 +1264,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-102 Descriptive aggregation (D1)
-- status: todo
+- status: done
 - spec: REQ-LNS-003
 - owner: second-backend-engineer
 - depends: T-100
@@ -1273,7 +1273,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_descriptive_metrics.py`
 - note: percentiles, MAD, IQR, HHI, and Gini as response fields of the Pulse endpoints, plus the project descriptive metrics.
-- evidence:
+- evidence: pytest -q tests/unit/test_descriptive_metrics.py (10 passed), make static, make test (1203 passed), make openapi; project metrics are pure functions only, endpoint needs a read path (follow-up)
 
 ### T-103 Profiling and topics (D2, D3)
 - status: todo
