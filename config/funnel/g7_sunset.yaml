@@ -1,0 +1,16 @@
+# EXAMPLE checklist for gate G7 Sunset. Decision D-06: the owner replaces it.
+# Production refuses to load it unless FUNNEL_ALLOW_EXAMPLE_CHECKLISTS=true.
+# type: kill (fails => KILL), required (missing => WAIT, fails => PIVOT),
+# score (weighted share of passed items must reach rules.advance_min_score).
+version: 1
+example: true
+gate: G7
+name: Sunset
+items:
+  - {id: handover_done, description: "Handover done (0 or 1)", op: eq, threshold: 1, type: required, weight: 1}
+  - {id: revenue_trend, description: "Revenue trend over 3 months", op: lte, threshold: 0.0, type: score, weight: 1}
+  - {id: strategic_fit_score, description: "Strategic fit score", op: lte, threshold: 0.4, type: score, weight: 1}
+  - {id: contract_obligations_open, description: "Open contract obligations (0 or 1)", op: eq, threshold: 0, type: kill, weight: 1}
+rules:
+  advance_min_score: 0.5
+  max_pivots: 3

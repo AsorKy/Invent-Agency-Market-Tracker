@@ -1348,7 +1348,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: pytest -q tests/unit/test_validation_metrics.py tests/unit/test_validation_thresholds.py (41 passed), make static, make test (1332 passed); core worker/persistence into validation schema is a follow-up
 
 ### T-109 Deterministic funnel engine
-- status: todo
+- status: done
 - spec: REQ-LNS-009
 - owner: lead-backend-engineer
 - depends: T-108, T-023
@@ -1357,7 +1357,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/unit/test_funnel.py`
 - note: gates G1 to G7 from versioned YAML checklists, verdicts ADVANCE, PIVOT, KILL, and WAIT, audit rows for each decision, and the `funnel.*` events through the outbox. Ship example checklists marked `example: true`; production must refuse them unless `FUNNEL_ALLOW_EXAMPLE_CHECKLISTS=true` (decision D-06).
-- evidence:
+- evidence: pytest -q tests/unit/test_funnel.py (28 passed), make static, make test (1364 passed); HTTP route for gate evaluation is a follow-up; example checklists need owner replacement (D-06)
 
 ### T-110 Event chain with source_version
 - status: todo

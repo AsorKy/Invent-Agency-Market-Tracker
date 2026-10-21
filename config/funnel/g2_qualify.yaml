@@ -1,0 +1,16 @@
+# EXAMPLE checklist for gate G2 Qualify. Decision D-06: the owner replaces it.
+# Production refuses to load it unless FUNNEL_ALLOW_EXAMPLE_CHECKLISTS=true.
+# type: kill (fails => KILL), required (missing => WAIT, fails => PIVOT),
+# score (weighted share of passed items must reach rules.advance_min_score).
+version: 1
+example: true
+gate: G2
+name: Qualify
+items:
+  - {id: lead_score, description: "Lead score", op: gte, threshold: 70, type: required, weight: 1}
+  - {id: budget_confirmed, description: "Budget confirmed (0 or 1)", op: eq, threshold: 1, type: score, weight: 1}
+  - {id: decision_maker_reached, description: "Decision maker reached (0 or 1)", op: eq, threshold: 1, type: score, weight: 1}
+  - {id: company_inactive, description: "Company is active (1) or inactive (0)", op: eq, threshold: 1, type: kill, weight: 1}
+rules:
+  advance_min_score: 0.5
+  max_pivots: 3

@@ -1,0 +1,16 @@
+# EXAMPLE checklist for gate G3 Validate. Decision D-06: the owner replaces it.
+# Production refuses to load it unless FUNNEL_ALLOW_EXAMPLE_CHECKLISTS=true.
+# type: kill (fails => KILL), required (missing => WAIT, fails => PIVOT),
+# score (weighted share of passed items must reach rules.advance_min_score).
+version: 1
+example: true
+gate: G3
+name: Validate
+items:
+  - {id: npv_p10, description: "NPV at percentile 10", op: gt, threshold: 0, type: required, weight: 1}
+  - {id: ltv_cac_ratio, description: "LTV to CAC ratio", op: gte, threshold: 3, type: score, weight: 1}
+  - {id: payback_months, description: "Payback in months", op: lte, threshold: 18, type: score, weight: 1}
+  - {id: npv_p90_all_scenarios_negative, description: "NPV negative in every scenario (0 or 1)", op: eq, threshold: 0, type: kill, weight: 1}
+rules:
+  advance_min_score: 0.5
+  max_pivots: 3
