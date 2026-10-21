@@ -20,6 +20,7 @@ from services.core.app.companies import (  # noqa: E402
     normalize_nit,
     upsert_company,
 )
+from tests.unit.service_auth import service_headers  # noqa: E402
 
 
 class FakeStore:
@@ -214,7 +215,6 @@ def test_endpoint_requires_token_and_reports_status(monkeypatch: pytest.MonkeyPa
     pytest.importorskip("httpx")
     from fastapi.testclient import TestClient
 
-    from libs.common.settings import get_settings
     from services.core.app import main
 
     store = FakeStore()
@@ -227,7 +227,7 @@ def test_endpoint_requires_token_and_reports_status(monkeypatch: pytest.MonkeyPa
     client = TestClient(main.app)
     body = {"legal_name": "Acme SAS", "nit": "900123456-7"}
     assert client.post("/internal/core/companies/upsert", json=body).status_code == 401
-    headers = {"X-Service-Token": get_settings().internal_service_token}
+    headers = service_headers("ingest")
     first = client.post("/internal/core/companies/upsert", json=body, headers=headers)
     assert first.status_code == 201
     assert first.json()["status"] == "created"

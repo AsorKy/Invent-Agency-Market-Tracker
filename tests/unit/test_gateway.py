@@ -22,6 +22,7 @@ pytest.importorskip("fakeredis")
 pytest.importorskip("structlog")
 redis_exceptions = pytest.importorskip("redis.exceptions")
 
+from libs.common.internal_auth import verify_service_token  # noqa: E402
 from libs.common.rate_limiter import (  # noqa: E402
     RateLimitDecision,
     RedisSlidingWindowRateLimiter,
@@ -242,7 +243,9 @@ async def test_public_resource_is_translated_to_internal_path_with_query(
     assert sent.method == "GET"
     assert sent.url.path == "/internal/core/companies/42"
     assert dict(sent.url.params) == {"limit": "5", "q": "cafe"}
-    assert sent.headers["X-Service-Token"] == gw.settings.internal_service_token
+    token = sent.headers["X-Service-Token"]
+    assert token != gw.settings.internal_service_token
+    assert verify_service_token(token, gw.settings.internal_service_token) == "gateway"
 
 
 @pytest.mark.parametrize(

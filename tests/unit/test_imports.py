@@ -32,6 +32,7 @@ from services.core.app.imports import (  # noqa: E402
     row_sha256,
 )
 from services.core.app.leads import IdempotencyKeyReuseError  # noqa: E402
+from tests.unit.service_auth import service_headers  # noqa: E402
 
 TENANT = uuid4()
 NOW = datetime(2026, 1, 1, tzinfo=UTC)
@@ -489,8 +490,7 @@ def test_routes_return_202_then_status() -> None:
             return db.uow()
 
     main.app.state.repository = Repo()
-    main.app.dependency_overrides[main.require_internal_token] = lambda: None
-    client = TestClient(main.app)
+    client = TestClient(main.app, headers=service_headers())
     h = {"X-Tenant-ID": str(TENANT), "Idempotency-Key": "r1", "Content-Type": "text/csv"}
     try:
         url = "/internal/core/imports/companies"

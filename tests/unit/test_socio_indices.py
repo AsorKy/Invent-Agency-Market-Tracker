@@ -27,7 +27,6 @@ pytest.importorskip("structlog")
 pytest.importorskip("sqlalchemy")
 testclient = pytest.importorskip("fastapi.testclient")
 
-from libs.common.settings import get_settings  # noqa: E402
 from services.pulse.app import main as pulse  # noqa: E402
 from services.pulse.app.models import TerritoryOpportunity  # noqa: E402
 from services.pulse.app.repository import PulseRepository  # noqa: E402
@@ -36,9 +35,10 @@ from services.pulse.app.socio_loader import (  # noqa: E402
     load_records,
     resolve_data_file,
 )
+from tests.unit.service_auth import service_headers  # noqa: E402
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "socio"
-HEADERS = {"X-Service-Token": get_settings().internal_service_token}
+HEADERS = service_headers()
 HEADER_LINE = (
     "city,territory_code,territory_name,gdp_per_capita,formality_rate,"
     "youth_employment_rate,business_growth_rate,web_share,ecommerce_share,"

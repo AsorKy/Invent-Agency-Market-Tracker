@@ -14,9 +14,10 @@ from services.brief.app import main as brief_main  # noqa: E402
 from services.brief.app.core_source import CoreNotFound, HttpCoreSource  # noqa: E402
 from services.brief.app.repository import BriefRepository, TenantRequired  # noqa: E402
 from services.brief.app.summarizer import HttpSummarizer, build_summarizer  # noqa: E402
+from tests.unit.service_auth import service_headers  # noqa: E402
 from tests.unit.support_brief import COMPANY, TENANT, FakeCore, FakeRedis  # noqa: E402
 
-HEADERS = {"X-Service-Token": "test-internal-token", "X-Tenant-Id": str(TENANT)}
+HEADERS = service_headers("gateway", **{"X-Tenant-Id": str(TENANT)})
 LEAD = uuid4()
 
 
@@ -72,7 +73,7 @@ async def test_missing_tenant_is_a_client_error() -> None:
     _install(LeadCore(), NoTenantRepository(None))
     response = await _get(
         f"/internal/brief/companies/{COMPANY}/digest",
-        {"X-Service-Token": "test-internal-token"},
+        service_headers("gateway"),
     )
     assert response.status_code == 400
     assert response.json()["detail"] == "tenant_required"

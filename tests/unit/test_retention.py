@@ -24,6 +24,7 @@ from services.core.app.retention import (  # noqa: E402
     reject_personal_identifiers,
     retention_cutoff,
 )
+from tests.unit.service_auth import service_headers  # noqa: E402
 
 NOW = datetime(2026, 10, 18, tzinfo=UTC)
 
@@ -219,8 +220,7 @@ def test_routes_apply_guard_and_compliance_endpoints() -> None:
             return FakeUow(store)
 
     main.app.state.repository = Repo()
-    main.app.dependency_overrides[main.require_internal_token] = lambda: None
-    client = TestClient(main.app)
+    client = TestClient(main.app, headers=service_headers())
     try:
         bad_signal = {
             "company_id": str(uuid4()),

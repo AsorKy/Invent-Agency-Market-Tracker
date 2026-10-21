@@ -12,7 +12,10 @@ from uuid import UUID
 
 import httpx
 
+from libs.common.internal_auth import service_token_header
 from services.brief.app.models import BriefRules, CompanyFacts
+
+BRIEF_SERVICE = "brief"
 
 
 class CoreUnavailable(Exception):
@@ -41,17 +44,16 @@ class HttpCoreSource:
     """Call ``core`` internal endpoints with the service token."""
 
     def __init__(self, base_url: str, token: str, timeout_seconds: float = 2.0) -> None:
-        self._client = httpx.AsyncClient(
-            base_url=base_url,
-            headers={"X-Service-Token": token},
-            timeout=timeout_seconds,
-        )
+        self._client = httpx.AsyncClient(base_url=base_url, timeout=timeout_seconds)
+        self._secret = token
 
     async def close(self) -> None:
         await self._client.aclose()
 
     async def _get(self, path: str, tenant_id: UUID | None) -> httpx.Response:
-        headers = {"X-Tenant-Id": str(tenant_id)} if tenant_id else {}
+        headers = service_token_header(BRIEF_SERVICE, self._secret)
+        if tenant_id:
+            headers["X-Tenant-Id"] = str(tenant_id)
         try:
             response = await self._client.get(path, headers=headers)
         except httpx.HTTPError as exc:

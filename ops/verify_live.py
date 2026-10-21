@@ -37,6 +37,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from libs.common.internal_auth import service_token_header  # noqa: E402
 from ops import doctor, verify_mappings  # noqa: E402
 
 MAX_RECORDS = 5
@@ -193,7 +194,10 @@ class LiveBackend:
     def _http(self, method: str, url: str, body: Any = None) -> Any:
         data = json.dumps(body).encode("utf-8") if body is not None else None
         request = urllib.request.Request(  # noqa: S310
-            url, data=data, method=method, headers={"X-Service-Token": self._token}
+            url,
+            data=data,
+            method=method,
+            headers=service_token_header("verify_live", self._token),
         )
         request.add_header("Content-Type", "application/json")
         try:

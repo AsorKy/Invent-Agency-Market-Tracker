@@ -12,9 +12,10 @@ pytest.importorskip("httpx")
 from services.brief.app import main as brief_main  # noqa: E402
 from services.brief.app.models import CompanyFacts  # noqa: E402
 from services.brief.app.repository import BriefRepository  # noqa: E402
+from tests.unit.service_auth import service_headers  # noqa: E402
 from tests.unit.support_brief import COMPANY, TENANT, FakeCore, FakeRedis  # noqa: E402
 
-HEADERS = {"X-Service-Token": "test-internal-token", "X-Tenant-Id": str(TENANT)}
+HEADERS = service_headers("gateway", **{"X-Tenant-Id": str(TENANT)})
 URL = f"/internal/brief/companies/{COMPANY}/digest"
 
 

@@ -25,13 +25,13 @@ from libs.common.lifecycle import (  # noqa: E402
     instrument_app,
     register_shutdown_hook,
 )
-from libs.common.settings import get_settings  # noqa: E402
 from services.core.app.dead_letter import stream_fields  # noqa: E402
 from services.ml.app import consumer as ml_consumer  # noqa: E402
 from services.pulse.app import consumer as pulse_consumer  # noqa: E402
 from services.pulse.app import main as pulse  # noqa: E402
+from tests.unit.service_auth import service_headers  # noqa: E402
 
-HEADERS = {"X-Service-Token": get_settings().internal_service_token}
+HEADERS = service_headers()
 ENDPOINTS = [
     "/internal/pulse/unprocessed-signals",
     "/internal/pulse/pipeline-backlog",

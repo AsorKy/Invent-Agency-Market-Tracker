@@ -32,6 +32,7 @@ import httpx
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 
+from libs.common.internal_auth import service_token_header
 from libs.common.retry import retry_with_backoff
 from libs.domain.entity_resolution import Candidate, Resolution
 from services.ingest.app.mapping import (
@@ -87,7 +88,9 @@ Resolve = Callable[[Candidate], Resolution]
 
 
 class HttpCoreClient:
-    """Call core with the ``X-Service-Token`` header; raises on non-2xx answers."""
+    """Call core with a per-request signed service token; raises on non-2xx answers."""
+
+    service_name = "ingest"
 
     def __init__(
         self,
@@ -100,12 +103,15 @@ class HttpCoreClient:
         self._client = client or httpx.AsyncClient(
             base_url=base_url.rstrip("/"), timeout=timeout_seconds
         )
-        self._headers = {"X-Service-Token": service_token}
+        self._secret = service_token
+
+    def _auth_headers(self) -> dict[str, str]:
+        return service_token_header(self.service_name, self._secret)
 
     async def _post(
         self, path: str, body: dict[str, Any], idempotency_key: str | None = None
     ) -> dict[str, Any]:
-        headers = dict(self._headers)
+        headers = self._auth_headers()
         if idempotency_key:
             headers["Idempotency-Key"] = idempotency_key
         response = await self._client.post(path, json=body, headers=headers)

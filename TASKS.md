@@ -975,7 +975,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_brief_routes.py tests/unit/test_pipeline_flow.py` pass; make static/test pass (915 passed). Coordinator added get_lead_company to FakeCore in tests/unit/support_brief.py and support_pipeline.py
 
 ### T-123 Service tokens everywhere
-- status: todo
+- status: done
 - spec: REQ-SEC-005
 - owner: lead-backend-engineer
 - depends: T-060, T-122, T-089, T-120
@@ -984,7 +984,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_internal_auth.py tests/unit/test_service_clients.py` and `python ops/check_configuration.py`
 - note: runs alone, after the r1-d2 pull requests are merged, because it edits clients in several services. Gateway, brief, ingest, and identity senders switch to `sign_service_token`; then remove the legacy raw shared secret from `require_internal_token`. Core requires the gateway token for tenant headers where only the gateway calls, with an explicit per-service allow list where brief and ingest also call core. Record, for the coordinator, the `_app` role per service in settings and the Redis ACL users `edge` and `data` in compose configuration checks.
-- evidence:
+- evidence: `pytest -q tests/unit/test_internal_auth.py tests/unit/test_service_clients.py` -> 36 passed; `python ops/check_configuration.py` OK; make static and make test pass (1150 passed)
 
 ### T-124 Resilience gaps from the failure matrix
 - status: done
@@ -1226,7 +1226,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_runbook.py` 5 passed; make static/test green
 
 ### T-080 Run 1 review pack
-- status: todo
+- status: done
 - spec: REQ-QA-001, REQ-TRC-001
 - owner: architecture-reviewer
 - depends: T-064, T-065, T-077, T-078, T-079, T-092, T-093, T-094, T-095, T-096, T-097, T-081, T-083, T-084, T-085, T-086, T-087, T-088, T-089, T-098, T-120, T-121, T-122, T-123, T-124, T-125, T-126, T-127
@@ -1235,7 +1235,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `make static`, `make test`, `make coverage`, `make openapi`, and `python ops/check_traceability.py` all pass, and `make compose-config` passes where the Docker CLI exists
 - note: walk the E2.5 checklist and the L1 definition of done, list unverified field mappings, blocked tasks, assumptions, and risks, and write the final section of `docs/runs/RUN-<run-id>.md`. Do not modify code; open follow-up items instead.
-- evidence:
+- evidence: make static, make test (1151 passed), make coverage (95.53%), make openapi, ops/check_traceability.py, make compose-config all pass; review pack in docs/runs/RUN-r1-e.md (follow-ups F-r1e-01..12)
 
 ### T-100 Metric pack library
 - status: todo
