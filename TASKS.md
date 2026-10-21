@@ -1312,7 +1312,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: pytest -q tests/unit/test_causal.py (8 passed), make static, make test (1219 passed)
 
 ### T-106 Drift and explainability (Dx3, Dx4)
-- status: todo
+- status: done
 - spec: REQ-LNS-007
 - owner: second-backend-engineer
 - depends: T-100, T-053
@@ -1321,7 +1321,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/unit/test_drift.py tests/unit/test_explain.py`
 - note: CUSUM, EWMA, change points, and PSI with the 0.1 and 0.25 thresholds, a nightly worker that alerts through an n8n webhook, and SHAP drivers plus counterfactuals attached to the Brief on regeneration.
-- evidence:
+- evidence: pytest -q tests/unit/test_drift.py tests/unit/test_explain.py (15 passed), make static, make test (1246 passed); Brief integration is a follow-up
 
 ### T-107 Validation schema (expand migration)
 - status: todo
