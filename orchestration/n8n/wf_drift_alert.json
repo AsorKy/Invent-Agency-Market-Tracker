@@ -1,0 +1,29 @@
+{
+  "id": "wf-drift-alert",
+  "name": "wf_drift_alert",
+  "description": "Receive the nightly drift alert from the ml worker (header authenticated) and forward it to Telegram.",
+  "active": false,
+  "versionId": "1.0.0",
+  "meta": {"payloadVersion": "1"},
+  "settings": {"executionOrder": "v1"},
+  "nodes": [
+    {
+      "parameters": {"httpMethod": "POST", "path": "drift-alert", "authentication": "headerAuth", "responseMode": "onReceived"},
+      "id": "drift-alert-webhook",
+      "name": "Drift alert event",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [260, 300],
+      "credentials": {"httpHeaderAuth": {"id": "drift-alert", "name": "drift-alert-header"}}
+    },
+    {
+      "parameters": {"method": "POST", "url": "={{$env.TELEGRAM_WEBHOOK_URL}}", "sendBody": true, "specifyBody": "json", "jsonBody": "={\"text\":\"Drift alert run {{$json.body.run_id}}: {{$json.body.features.length}} feature(s) flagged\"}", "options": {"timeout": 5000}},
+      "id": "notify-telegram",
+      "name": "Notify data team",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [540, 300]
+    }
+  ],
+  "connections": {"Drift alert event": {"main": [[{"node": "Notify data team", "type": "main", "index": 0}]]}}
+}

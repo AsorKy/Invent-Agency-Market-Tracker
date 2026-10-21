@@ -22,7 +22,7 @@ SOURCES = {
     "wf_linkedin_jobs": "linkedin_jobs",
     "wf_instagram_horeca": "instagram",
 }
-OTHERS = ["wf_rues_delta", "wf_socioeco_refresh", "wf_ops_health", "wf_hot_lead_alert"]
+OTHERS = ["wf_rues_delta", "wf_socioeco_refresh", "wf_ops_health", "wf_hot_lead_alert", "wf_drift_alert"]
 EXPECTED = sorted([*SOURCES, *OTHERS])
 TRIGGERS = {
     "n8n-nodes-base.scheduleTrigger",
@@ -168,3 +168,18 @@ def test_socioeco_refresh_uses_pulse_url() -> None:
     nodes = {node["name"]: node for node in _load("wf_socioeco_refresh")["nodes"]}
     url = nodes["Refresh socioeconomic data"]["parameters"]["url"]
     assert url.startswith("={{$env.PULSE_URL}}/internal/pulse/")
+
+
+def test_socioeco_refresh_credential_names_pulse() -> None:
+    nodes = {node["name"]: node for node in _load("wf_socioeco_refresh")["nodes"]}
+    credential = nodes["Refresh socioeconomic data"]["credentials"]["httpHeaderAuth"]
+    assert credential == {"id": "pulse-internal", "name": "pulse-internal-header"}
+
+
+def test_drift_alert_webhook_requires_header_auth() -> None:
+    document = _load("wf_drift_alert")
+    hook = next(n for n in document["nodes"] if n["type"] == "n8n-nodes-base.webhook")
+    assert hook["parameters"]["path"] == "drift-alert"
+    assert hook["parameters"]["authentication"] == "headerAuth"
+    assert set(hook["credentials"]["httpHeaderAuth"]) == {"id", "name"}
+    assert _chain(document, "Drift alert event") == ["Drift alert event", "Notify data team"]

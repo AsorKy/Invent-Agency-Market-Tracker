@@ -1504,7 +1504,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: filled by the agent when done
 
 ### T-137 Brief drivers and counterfactuals from the explainability module
-- status: todo
+- status: done
 - spec: REQ-LNS-007
 - owner: second-backend-engineer
 - depends: T-106
@@ -1513,10 +1513,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_brief_explanations.py tests/unit/test_contract_snapshot.py` and `make openapi`
 - note: when the brief regenerates, call `build_explanation` and attach the drivers and counterfactuals as optional additive fields. Regenerate the contract snapshot with `UPDATE_SNAPSHOTS=1` and check that the diff only adds. A missing explanation must leave the brief valid.
-- evidence: filled by the agent when done
+- evidence: `pytest -q tests/unit/test_brief_explanations.py tests/unit/test_contract_snapshot.py` pass; `make openapi` ok; additive snapshot diff. Note: ml has no explanation route yet, so fields stay null until added.
 
 ### T-138 Drift worker loader, nightly schedule, and webhook authentication
-- status: todo
+- status: done
 - spec: REQ-LNS-007
 - owner: second-backend-engineer
 - depends: T-106
@@ -1525,7 +1525,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_drift_worker.py tests/unit/test_workflows.py` and `python ops/check_configuration.py`
 - note: give the drift worker a real loader (read series from pulse through its API), a nightly schedule entry point with a stop condition for tests, and an authenticated alert post to the n8n webhook (header from settings, never a literal). Rename the n8n credential that says ingest for a pulse call. Keep the local Compose profile working: if you add a worker entry, it must start without extra secrets.
-- evidence: filled by the agent when done
+- evidence: `pytest -q tests/unit/test_drift_worker.py tests/unit/test_workflows.py` 45 passed; `python ops/check_configuration.py` OK. No Compose worker entry added (test_compose.py out of scope); run via `python -m services.ml.app.schedule`.
 
 ### T-139 Optional extras for the heavy L2 libraries
 - status: done
