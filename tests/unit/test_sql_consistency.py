@@ -138,12 +138,14 @@ def test_dynamic_sql_is_listed_with_a_reason_line_by_line(statements):
 
 def test_schema_replays_every_migration_in_order(schema):
     names = migration_files()
-    assert [n for n in names if "contract_" in n] == names[-1:], "contract_ files go last"
-    assert names[-1].startswith("migrations/contract_")
+    contracts = [n for n in names if "contract_" in n]
+    assert contracts == names[-len(contracts) :], "contract_ files go last"
     assert schema.files == names
     assert "core.company" in schema.tables
     assert "socioeconomic.source_dataset" not in schema.tables, "contract drops the legacy schema"
     assert "socio.source_dataset" in schema.tables
+    assert "analytics.fact_signal" not in schema.tables, "contract drops the legacy schema"
+    assert "pulse.fact_signal" in schema.tables
 
 
 def test_schema_loader_ignores_only_listed_constructs(schema):

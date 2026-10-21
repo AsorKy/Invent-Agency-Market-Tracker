@@ -20,10 +20,12 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from ops.schemas import (  # noqa: E402
+    CATALOG_SCHEMAS,
     EXTENSIONS,
     SCHEMAS,
     app_role,
     owner_role,
+    role_base,
     validate_identifier,
 )
 
@@ -41,7 +43,7 @@ def _create_role(role: str, options: str) -> str:
 
 
 def generate_sql(
-    schemas: Iterable[str] = SCHEMAS,
+    schemas: Iterable[str] = CATALOG_SCHEMAS,
     passwords: Mapping[str, str] | None = None,
     extensions: Iterable[str] = EXTENSIONS,
 ) -> str:
@@ -53,6 +55,8 @@ def generate_sql(
         out.append(f"CREATE EXTENSION IF NOT EXISTS {validate_identifier(ext)};\n")
     out.append("\nDO $$\nBEGIN\n")
     for s in names:
+        if role_base(s) != s:
+            continue
         password = secrets.get(s, f"CHANGE_ME_{s.upper()}")
         out.append(_create_role(owner_role(s), "NOLOGIN"))
         out.append(_create_role(app_role(s), f"LOGIN PASSWORD {_literal(password)}"))

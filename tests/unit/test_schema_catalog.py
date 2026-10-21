@@ -53,15 +53,26 @@ def test_canonical_schemas_are_all_created() -> None:
 
 
 def test_no_unexpected_schema_besides_known_legacy() -> None:
-    assert _net_schemas() - SCHEMAS <= {"analytics"}
+    assert _net_schemas() <= SCHEMAS | {"validation"}
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="REQ-DAT-001: migration 20261017_0001 (already applied, checksummed) creates analytics",
-)
-def test_analytics_is_never_created() -> None:
+def test_analytics_is_dropped_only_by_a_contract_migration() -> None:
+    droppers = [
+        p.name
+        for p in MIGRATIONS
+        if "analytics" in DROP_SCHEMA.findall(p.read_text(encoding="utf-8"))
+    ]
+    assert droppers
+    assert all(name.startswith("contract_") for name in droppers)
     assert "analytics" not in _net_schemas()
+
+
+def test_analytics_contract_copies_into_pulse_before_the_drop() -> None:
+    sql = next(p for p in MIGRATIONS if "retire_analytics" in p.name).read_text(encoding="utf-8")
+    for table in ("fact_signal", "fact_company_snapshot", "fact_lead_outcome"):
+        assert f"INSERT INTO pulse.{table}" in sql
+        assert f"FROM analytics.{table}" in sql
+    assert sql.index("INSERT INTO pulse") < sql.index("DROP SCHEMA IF EXISTS analytics")
 
 
 def test_roles_example_has_no_legacy_names() -> None:
@@ -206,3 +217,33 @@ def test_rls_enabled_on_company_lead_project() -> None:
 def test_no_json_float_or_real_columns() -> None:
     bad = re.compile(r"^\s+\w+\s+(json|float\w*|real|double)\b", re.I | re.M)
     assert not bad.findall(_all_sql())
+
+
+VALIDATION_TABLES = {
+    "financial_run",
+    "unit_economics",
+    "funnel_metric",
+    "growth_metric",
+    "portfolio_snapshot",
+    "meta_ml_metric",
+}
+
+
+def test_validation_schema_has_the_six_tables_and_is_operated_by_core() -> None:
+    from ops.schemas import CATALOG_SCHEMAS, app_role, owner_role
+    from ops.schemas import SCHEMAS as SINGLE_LIST
+
+    assert _tables()["validation"] == VALIDATION_TABLES
+    assert "validation" in CATALOG_SCHEMAS
+    assert "validation" not in SINGLE_LIST, "validation adds no roles"
+    assert (owner_role("validation"), app_role("validation")) == ("core_owner", "core_app")
+    assert not any("validation_" in role for role in ROLES)
+
+
+@pytest.mark.parametrize("table", sorted(VALIDATION_TABLES))
+def test_validation_tables_carry_the_required_columns_and_rls(table: str) -> None:
+    assert {"source_version", "project_id", "measured_at", "tenant_id"} <= _columns(
+        "validation", table
+    )
+    sql = _all_sql()
+    assert f"'{table}'" in sql  # listed in the RLS loop of the migration

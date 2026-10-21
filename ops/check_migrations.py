@@ -17,7 +17,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from ops.schemas import LEGACY_SCHEMAS, SCHEMAS  # noqa: E402
+from ops.schemas import CATALOG_SCHEMAS, LEGACY_SCHEMAS  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[1]
 MIGRATIONS = REPO / "migrations"
@@ -49,7 +49,7 @@ def strip_comments(sql: str) -> str:
     return re.sub(r"--[^\n]*", " ", sql)
 
 
-def check_sql(name: str, sql: str, allowed_schemas: Iterable[str] = SCHEMAS) -> list[str]:
+def check_sql(name: str, sql: str, allowed_schemas: Iterable[str] = CATALOG_SCHEMAS) -> list[str]:
     """Return the guardian failures of one migration file."""
     contract = name.startswith("contract_")
     allowed = set(allowed_schemas) | LEGACY_SCHEMAS
@@ -76,7 +76,7 @@ def check_sql(name: str, sql: str, allowed_schemas: Iterable[str] = SCHEMAS) -> 
 
 
 def check_directory(
-    migrations: Path = MIGRATIONS, allowed_schemas: Iterable[str] = SCHEMAS
+    migrations: Path = MIGRATIONS, allowed_schemas: Iterable[str] = CATALOG_SCHEMAS
 ) -> list[str]:
     """Run ``check_sql`` over every ``*.sql`` file of a migrations directory."""
     failures: list[str] = []

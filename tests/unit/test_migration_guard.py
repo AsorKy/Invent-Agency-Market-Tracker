@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 
 from ops import bootstrap_roles, check_migrations
-from ops.schemas import EXTENSIONS, SCHEMAS
+from ops.schemas import EXTENSIONS, SCHEMAS, role_base
 
 ROOT = Path(__file__).resolve().parents[2]
 ROLES_EXAMPLE = ROOT / "ops" / "bootstrap_roles.sql.example"
@@ -90,10 +90,10 @@ def test_bootstrap_has_no_cross_schema_grants() -> None:
     for line in sql.splitlines():
         match = re.search(r"IN SCHEMA (\w+) TO (\w+)_app", line)
         if match:
-            assert match.group(1) == match.group(2)
+            assert role_base(match.group(1)) == match.group(2)
         match = re.search(r"GRANT USAGE ON SCHEMA (\w+) TO (\w+)_app", line)
         if match:
-            assert match.group(1) == match.group(2)
+            assert role_base(match.group(1)) == match.group(2)
 
 
 def test_bootstrap_rejects_unsafe_identifier_and_quotes_password() -> None:

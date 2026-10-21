@@ -35,7 +35,6 @@ DYNAMIC_SKELETON_SKIPPED: dict[tuple[str, str], str] = {}
 # tables. UNVERIFIED: reasons are guesses from table names; pending an owner
 # decision (core.location and core.signal may need RLS). Key: schema.table.
 RLS_EXEMPT: dict[str, str] = {
-    "analytics.processed_event": "consumer idempotency ledger, written by the service only",
     "core.audit_log": "append-only audit trail written by the service, not tenant queried",
     "core.lead_outcome": "outcome log written by the service for lead scoring",
     "core.location": "shared location reference data keyed by tenant for lookup",
