@@ -541,6 +541,23 @@
       "expires_at",
       "owner_id"
     ],
+    "pulse.company_community": [
+      "algorithm",
+      "centrality",
+      "community",
+      "created_at",
+      "node_ref",
+      "run_id",
+      "tenant_id"
+    ],
+    "pulse.company_profile": [
+      "algorithm",
+      "archetype",
+      "company_ref",
+      "created_at",
+      "run_id",
+      "tenant_id"
+    ],
     "pulse.daily_rollup": [
       "as_of",
       "city",
@@ -597,6 +614,24 @@
       "replay",
       "tenant_id"
     ],
+    "pulse.project_snapshot": [
+      "actual_burn",
+      "pipeline_value",
+      "planned_burn",
+      "project_id",
+      "score",
+      "service_line",
+      "stage",
+      "tenant_id",
+      "updated_at"
+    ],
+    "pulse.project_stage_visit": [
+      "entered_at",
+      "exited_at",
+      "project_id",
+      "stage",
+      "tenant_id"
+    ],
     "pulse.semantic_metric_definition": [
       "definition",
       "grain",
@@ -626,6 +661,15 @@
       "source",
       "stale",
       "tenant_id"
+    ],
+    "pulse.topic_result": [
+      "created_at",
+      "kind",
+      "period",
+      "run_id",
+      "tenant_id",
+      "terms",
+      "topic_index"
     ],
     "socio.composite_index": [
       "as_of",

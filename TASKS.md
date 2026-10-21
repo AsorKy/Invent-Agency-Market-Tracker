@@ -1480,7 +1480,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `make static` and `make test` pass; README, registry and docstrings updated, no behavior change.
 
 ### T-135 Pulse endpoints for profiles, communities, topics, project metrics and socioeconomic refresh
-- status: todo
+- status: done
 - spec: REQ-LNS-003, REQ-LNS-004
 - owner: second-backend-engineer
 - depends: T-102, T-103
@@ -1489,7 +1489,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_pulse_lens_routes.py` and `make openapi`
 - note: add the routes that `services/ml/app/publisher.py` `PATHS` already names (`POST /internal/pulse/ingest/profiles`, `/communities`, `/topics`), a read route for the project descriptive metrics of T-102 (SQL over the pulse tables, tenant scoped), and `POST /internal/pulse/socioeconomic/refresh` that `orchestration/n8n/wf_socioeco_refresh.json` calls. Use the signed service token dependency and the existing allow lists. New tables or columns need a migration: put them in T-136's migration style (expand only). Additive OpenAPI changes only; regenerate `docs/api/openapi.json`.
-- evidence: filled by the agent when done
+- evidence: `pytest -q tests/unit/test_pulse_lens_routes.py` 8 passed; `make static` and `make test` pass; `make openapi` no diff (export covers gateway only); migration 20261021_0010 adds five pulse tables; snapshot table_catalog regenerated
 
 ### T-136 Persist attribution results in pulse.attribution
 - status: todo

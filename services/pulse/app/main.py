@@ -28,6 +28,8 @@ from libs.common.request_id import RequestIdMiddleware
 from libs.common.settings import get_settings
 from libs.contracts.pulse import CACHE_CONTROL, is_stale
 from services.pulse.app.descriptive import concentration, describe
+from services.pulse.app.lens import LensStore
+from services.pulse.app.lens import router as lens_router
 from services.pulse.app.models import (
     OpsHealthResponse,
     PipelineBacklogResponse,
@@ -50,6 +52,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Create and close the service-local read repository."""
     repository = PulseRepository(settings.database_url, settings.socio_data_dir)
     app.state.repository = repository
+    app.state.lens_store = LensStore(repository.engine)
     yield
     await repository.close()
 
@@ -61,6 +64,7 @@ app = FastAPI(
 )
 app.add_middleware(RequestIdMiddleware)
 instrument_app(app, "pulse")
+app.include_router(lens_router)
 
 
 @app.exception_handler(SQLAlchemyError)
