@@ -164,6 +164,8 @@ class BriefResponse(ContractModel):
     summarizer_version: str
     stale: bool = False
     degraded: bool = False
+    drivers: list[dict[str, Any]] | None = None
+    counterfactual: dict[str, Any] | None = None
 
 
 class ImportEntity(StrEnum):

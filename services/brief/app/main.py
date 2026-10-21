@@ -30,6 +30,7 @@ from services.brief.app.core_source import (
     CoreUnavailable,
     HttpCoreSource,
 )
+from services.brief.app.explanations import ExplanationSource, HttpExplanationSource
 from services.brief.app.models import BriefResponse
 from services.brief.app.repository import BriefStore, TenantRequired, create_repository
 from services.brief.app.rule_based import Summarizer
@@ -50,6 +51,7 @@ class BriefState:
         redis: Redis,
         core: CoreSource,
         summarizer: Summarizer | None = None,
+        explanations: ExplanationSource | None = None,
     ) -> None:
         self.repository = repository
         self.redis = redis
@@ -59,6 +61,7 @@ class BriefState:
             lock=SingleFlightLock(redis, ttl_ms=30_000),
             core=core,
             summarizer=summarizer,
+            explanations=explanations,
         )
 
 
@@ -68,11 +71,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     redis = create_redis(settings.redis_url)
     core = HttpCoreSource(settings.core_url, settings.internal_service_token)
     summarizer = build_summarizer()
-    state = BriefState(create_repository(settings.database_url), redis, core, summarizer)
+    explanations = HttpExplanationSource(settings.ml_url, settings.internal_service_token)
+    state = BriefState(
+        create_repository(settings.database_url), redis, core, summarizer, explanations
+    )
     app.state.brief = state
     yield
     if summarizer is not None:
         await summarizer.close()
+    await explanations.close()
     await core.close()
     await state.repository.close()
     await state.redis.aclose()
@@ -107,8 +114,14 @@ async def _digest_response(
         raise HTTPException(status_code=400, detail="tenant_required") from exc
     if pending is not None:
         background_tasks.add_task(pending.run)
+    digest = result.digest.model_dump()
+    content = digest["content"]
     payload = BriefResponse(
-        **result.digest.model_dump(), lead_id=lead_id, stale=result.stale
+        **digest,
+        lead_id=lead_id,
+        stale=result.stale,
+        drivers=content.get("drivers"),
+        counterfactual=content.get("counterfactual"),
     ).model_dump(mode="json")
     return JSONResponse(
         content=payload,

@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from uuid import UUID, uuid4
 
 from services.brief.app.core_source import CoreSource
+from services.brief.app.explanations import ExplanationSource
 from services.brief.app.models import BriefRules, CompanyFacts, StoredDigest
 from services.brief.app.repository import BriefStore
 from services.brief.app.rule_based import (
@@ -30,6 +31,7 @@ from services.brief.app.single_flight import SingleFlightLock
 logger = logging.getLogger(__name__)
 
 SUMMARIZER_TIMEOUT_SECONDS = 5.0
+EXPLANATION_TIMEOUT_SECONDS = 1.5
 
 
 @dataclass(frozen=True)
@@ -60,6 +62,7 @@ class BriefService:
         lock: SingleFlightLock,
         core: CoreSource,
         summarizer: Summarizer | None = None,
+        explanations: ExplanationSource | None = None,
         summarizer_timeout: float = SUMMARIZER_TIMEOUT_SECONDS,
         wait_interval: float = 0.05,
         wait_timeout: float = SUMMARIZER_TIMEOUT_SECONDS + 1.0,
@@ -68,6 +71,7 @@ class BriefService:
         self.lock = lock
         self.core = core
         self.summarizer = summarizer
+        self.explanations = explanations
         self.summarizer_timeout = summarizer_timeout
         self.wait_interval = wait_interval
         self.wait_timeout = wait_timeout
@@ -135,6 +139,7 @@ class BriefService:
             if latest is not None and self.is_fresh(latest, expected_version, config_version):
                 return latest
             digest = await self._generate(facts, rules, config_version, expected_version)
+            digest = await self._with_explanation(digest, tenant_id)
             await self.repository.save(digest, tenant_id)
             return digest
         finally:
@@ -162,6 +167,28 @@ class BriefService:
                 break
             await asyncio.sleep(self.wait_interval)
         return self._fallback(facts, rules, config_version, expected_version)
+
+    async def _with_explanation(self, digest: StoredDigest, tenant_id: UUID | None) -> StoredDigest:
+        """Attach drivers and counterfactual when available; never fail the digest."""
+        if self.explanations is None:
+            return digest
+        try:
+            explanation = await asyncio.wait_for(
+                self.explanations.get_explanation(digest.company_id, tenant_id),
+                timeout=EXPLANATION_TIMEOUT_SECONDS,
+            )
+            if not explanation:
+                return digest
+            content = digest.content.model_copy(
+                update={
+                    "drivers": explanation.get("drivers"),
+                    "counterfactual": explanation.get("counterfactual"),
+                }
+            )
+            return digest.model_copy(update={"content": content})
+        except Exception as exc:  # explanations are optional
+            logger.warning("brief explanation failed (%s); omitted", type(exc).__name__)
+            return digest
 
     async def _generate(
         self,

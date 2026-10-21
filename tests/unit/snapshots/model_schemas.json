@@ -38,10 +38,39 @@
         "title": "Content",
         "type": "object"
       },
+      "counterfactual": {
+        "anyOf": [
+          {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Counterfactual"
+      },
       "degraded": {
         "default": false,
         "title": "Degraded",
         "type": "boolean"
+      },
+      "drivers": {
+        "anyOf": [
+          {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Drivers"
       },
       "generated_at": {
         "minimum": 0,
