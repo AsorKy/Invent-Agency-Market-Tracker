@@ -541,6 +541,15 @@
       "expires_at",
       "owner_id"
     ],
+    "pulse.attribution": [
+      "channel",
+      "computed_at",
+      "credit",
+      "model",
+      "project_id",
+      "source_version",
+      "tenant_id"
+    ],
     "pulse.company_community": [
       "algorithm",
       "centrality",

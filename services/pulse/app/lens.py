@@ -14,7 +14,8 @@ both are present they must match. The module is wired in ``main.py``.
 import asyncio
 import json
 from datetime import datetime
-from typing import Annotated, Any
+from decimal import Decimal
+from typing import Annotated, Any, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
@@ -78,6 +79,30 @@ class TopicsIn(BaseModel):
     top_terms: list[list[tuple[str, float]]] = Field(default_factory=list, max_length=MAX_TOPICS)
     lda_topics: list[list[str]] = Field(default_factory=list, max_length=MAX_TOPICS)
     tenant_id: UUID | None = None
+
+
+class AttributionRowIn(BaseModel):
+    """One channel credit of an attribution model."""
+
+    model: Literal["last_touch", "first_touch", "time_decay", "markov", "shapley"]
+    channel: str = Field(min_length=1, max_length=200)
+    credit: float = Field(allow_inf_nan=False)
+
+
+class AttributionIn(BaseModel):
+    """Attribution rows of one project, as published by ml (REQ-LNS-005)."""
+
+    project_id: UUID
+    source_version: str = Field(min_length=1, max_length=200)
+    rows: list[AttributionRowIn] = Field(max_length=MAX_TOPICS)
+    tenant_id: UUID | None = None
+
+
+class AttributionResult(BaseModel):
+    """Acknowledge an attribution ingest with the number of stored rows."""
+
+    project_id: UUID
+    accepted: int = Field(ge=0)
 
 
 class IngestResult(BaseModel):
@@ -240,6 +265,34 @@ class LensStore:
             rows,
         )
 
+    async def save_attribution(self, tenant: UUID, body: AttributionIn) -> int:
+        """Upsert the channel credits of one project and source version."""
+        rows = [
+            {
+                "tenant": str(tenant),
+                "project": str(body.project_id),
+                "model": row.model,
+                "channel": row.channel,
+                "credit": Decimal(str(row.credit)),
+                "version": body.source_version,
+            }
+            for row in body.rows
+        ]
+        return await self._write(
+            tenant,
+            text(
+                """
+            INSERT INTO pulse.attribution
+                (tenant_id, project_id, model, channel, credit, source_version)
+            VALUES (CAST(:tenant AS uuid), CAST(:project AS uuid), :model, :channel,
+                    :credit, :version)
+            ON CONFLICT (tenant_id, project_id, model, channel, source_version)
+            DO UPDATE SET credit = EXCLUDED.credit, computed_at = now()
+                """
+            ),
+            rows,
+        )
+
     async def project_inputs(
         self, tenant: UUID
     ) -> tuple[list[ProjectRow], list[StageVisit], datetime | None]:
@@ -340,6 +393,17 @@ async def ingest_topics(
     tenant = resolve_tenant(x_tenant_id, body.tenant_id)
     return IngestResult(
         run_id=body.run_id, accepted=await _store(request).save_topics(tenant, body)
+    )
+
+
+@router.post("/ingest/attribution", dependencies=[ML_ONLY])
+async def ingest_attribution(
+    body: AttributionIn, request: Request, x_tenant_id: TenantHeader = None
+) -> AttributionResult:
+    """Store the attribution credits published by ml."""
+    tenant = resolve_tenant(x_tenant_id, body.tenant_id)
+    return AttributionResult(
+        project_id=body.project_id, accepted=await _store(request).save_attribution(tenant, body)
     )
 
 

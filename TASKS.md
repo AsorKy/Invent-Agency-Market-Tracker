@@ -1492,7 +1492,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_pulse_lens_routes.py` 8 passed; `make static` and `make test` pass; `make openapi` no diff (export covers gateway only); migration 20261021_0010 adds five pulse tables; snapshot table_catalog regenerated
 
 ### T-136 Persist attribution results in pulse.attribution
-- status: todo
+- status: done
 - spec: REQ-LNS-005
 - owner: database-engineer
 - depends: T-104, T-135
@@ -1501,7 +1501,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `python ops/check_migrations.py` and `pytest -q tests/unit/test_attribution_storage.py tests/unit/test_sql_consistency.py`
 - note: expand migration for `pulse.attribution` (tenant_id, project_id, model, channel, credit, source_version, computed_at; forced RLS with the standard `app.tenant_id` policy; grants to `pulse_app`), a repository in pulse, and the ml attribution service publishing through the T-135 style route. Run `tests/unit/test_sql_consistency.py` before each commit.
-- evidence: filled by the agent when done
+- evidence: check_migrations OK; `pytest -q tests/unit/test_attribution_storage.py tests/unit/test_sql_consistency.py` 30 passed; `make static` and `make test` pass; migration 20261021_0011 pulse.attribution, route POST /internal/pulse/ingest/attribution
 
 ### T-137 Brief drivers and counterfactuals from the explainability module
 - status: todo
