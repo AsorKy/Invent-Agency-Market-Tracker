@@ -40,6 +40,24 @@ def _create_role(role: str, options: str) -> str:
     )
 
 
+def _grant_owner_to_current_user(role: str) -> str:
+    """Let a non-superuser connecting role use ``role`` (REQ-DAT-005).
+
+    Hosted Postgres gives CREATEROLE without superuser; ALTER SCHEMA ... OWNER TO and
+    CREATE SCHEMA ... AUTHORIZATION then need membership with SET. PostgreSQL 16+ needs
+    ``WITH SET TRUE``; earlier versions use plain membership. Superusers skip it.
+    """
+    return (
+        "    IF NOT (SELECT rolsuper FROM pg_roles WHERE rolname = current_user) THEN\n"
+        "        IF current_setting('server_version_num')::int >= 160000 THEN\n"
+        f"            EXECUTE 'GRANT {role} TO CURRENT_USER WITH SET TRUE';\n"
+        "        ELSE\n"
+        f"            EXECUTE 'GRANT {role} TO CURRENT_USER';\n"
+        "        END IF;\n"
+        "    END IF;\n"
+    )
+
+
 def generate_sql(
     schemas: Iterable[str] = SCHEMAS,
     passwords: Mapping[str, str] | None = None,
@@ -55,6 +73,7 @@ def generate_sql(
     for s in names:
         password = secrets.get(s, f"CHANGE_ME_{s.upper()}")
         out.append(_create_role(owner_role(s), "NOLOGIN"))
+        out.append(_grant_owner_to_current_user(owner_role(s)))
         out.append(_create_role(app_role(s), f"LOGIN PASSWORD {_literal(password)}"))
     out.append("END $$;\n\n")
     for s in names:
@@ -95,6 +114,27 @@ def execute(db_url: str, sql: str) -> None:
         conn.execute(sql)
 
 
+def execute_tolerant(
+    db_url: str, passwords: Mapping[str, str], extensions: Iterable[str] = EXTENSIONS
+) -> list[str]:
+    """Create extensions one by one, then run the role SQL; return missing extensions.
+
+    A platform that does not let this role create an extension (hosted Postgres) gets
+    the name reported instead of a crash; the platform must enable it in its dashboard.
+    """
+    import psycopg  # type: ignore[import-not-found,unused-ignore]
+
+    missing: list[str] = []
+    with psycopg.connect(db_url, autocommit=True) as conn:
+        for ext in extensions:
+            try:
+                conn.execute(f"CREATE EXTENSION IF NOT EXISTS {validate_identifier(ext)}")
+            except psycopg.Error:
+                missing.append(ext)
+        conn.execute(generate_sql(passwords=passwords, extensions=()))
+    return missing
+
+
 def main(argv: list[str] | None = None) -> int:
     """Print the SQL, or execute it when a database URL is supplied."""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -102,7 +142,12 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     sql = generate_sql(passwords=passwords_from_env())
     if args.db_url:
-        execute(args.db_url, sql)
+        missing = execute_tolerant(args.db_url, passwords_from_env())
+        if missing:
+            print(
+                "Extensions the platform must enable: " + ", ".join(missing),
+                file=sys.stderr,
+            )
         print("Role bootstrap applied")
     else:
         print(sql)

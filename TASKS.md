@@ -1444,7 +1444,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: filled by the agent when done
 
 ### T-132 Run bootstrap_roles as a non-superuser role
-- status: todo
+- status: done
 - spec: REQ-DAT-005
 - owner: database-engineer
 - depends: T-128, T-125
@@ -1453,7 +1453,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_bootstrap_roles_privileges.py tests/unit/test_migrate.py tests/unit/test_bootstrap_env.py` and `make static`
 - note: the T-128 spike showed bootstrap fails when the connecting role has `CREATEROLE` and `CREATEDB` but is not a superuser (the hosted Supabase case). After creating each owner role, grant that role to the current user (with `SET TRUE` on PostgreSQL 16 and later, plain membership before), so `CREATE SCHEMA ... AUTHORIZATION` and `ALTER` work; keep the script idempotent; create extensions with `IF NOT EXISTS` and report which ones the platform must enable. Unit tests record the SQL with a fake cursor. Do not change the default Compose stack. Record the result in the experiment document.
-- evidence: filled by the agent when done
+- evidence: `pytest -q tests/unit/test_bootstrap_roles_privileges.py tests/unit/test_migrate.py tests/unit/test_bootstrap_env.py` passed; make static and make test pass (1157 passed)
 
 ### T-133 Fix the socioeconomic refresh workflow
 - status: todo
