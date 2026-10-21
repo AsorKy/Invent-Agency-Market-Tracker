@@ -1288,7 +1288,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence:
 
 ### T-104 Attribution (Dx1)
-- status: todo
+- status: done
 - spec: REQ-LNS-005
 - owner: second-backend-engineer
 - depends: T-100
@@ -1297,7 +1297,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_attribution.py`
 - note: last-touch, first-touch, time-decay, and Markov removal-effect attribution; Shapley only behind a flag that requires 100 labeled closes.
-- evidence:
+- evidence: pytest -q tests/unit/test_attribution.py (8 passed), make static, make test (1211 passed); persistence to pulse.attribution is a follow-up
 
 ### T-105 Causal inference (Dx2)
 - status: todo
