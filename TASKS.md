@@ -1336,7 +1336,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `python ops/check_migrations.py` OK; `pytest -q tests/unit/test_schema_catalog.py` passed; make static and make test pass (1163 passed). validation is in `CATALOG_SCHEMAS` (ops/schemas.py), operated by core_owner and core_app, no new roles
 
 ### T-108 Validation metrics V1 to V6 and thresholds
-- status: todo
+- status: done
 - spec: REQ-LNS-010, REQ-LNS-011
 - owner: lead-backend-engineer
 - depends: T-107, T-100
@@ -1345,7 +1345,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/unit/test_validation_metrics.py tests/unit/test_validation_thresholds.py`
 - note: workers and pure functions for NPV, IRR, payback, DPV, EMV, CAC, LTV, LTV:CAC, CAC payback, gross margin, conversion, win rate, cycle time, velocity, coverage, MRR, NRR, GRR, Rule of 40, burn multiple, magic number, horizon mix, HHI, Sharpe-like ratio, and the V6 metrics. Thresholds live in YAML, not in code.
-- evidence:
+- evidence: pytest -q tests/unit/test_validation_metrics.py tests/unit/test_validation_thresholds.py (41 passed), make static, make test (1332 passed); core worker/persistence into validation schema is a follow-up
 
 ### T-109 Deterministic funnel engine
 - status: todo
