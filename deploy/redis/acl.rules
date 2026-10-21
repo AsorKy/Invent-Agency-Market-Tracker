@@ -1,0 +1,9 @@
+# Redis ACL rules for REQ-SEC-005. Format: <user> <password env var> <ACL rules...>
+# deploy/redis/entrypoint.sh renders them into an ACL file, adding the password and
+# disabling the default user. Keep the lists in sync with tests/unit/test_redis_acl.py,
+# which extracts the commands and keys the code uses and checks them against these rules.
+# edge (gateway): only the sliding-window rate-limit keys. The Lua script calls
+# TIME, ZREMRANGEBYSCORE, ZCARD, ZRANGE, ZADD and EXPIRE with the caller's rights.
+edge REDIS_EDGE_PASSWORD ~invent:rate:* -@all +ping +eval +time +zremrangebyscore +zcard +zrange +zadd +expire
+# data (core, ingest, pulse, ml, brief): event streams, enqueue marks and locks.
+data REDIS_DATA_PASSWORD ~invent.events ~invent.events.dead ~invent.ingest ~invent:ingest:queued:* ~lock:score:* ~brief:lock:* ~republish:lock:* -@all +ping +xadd +xreadgroup +xack +xgroup|create +set +del +exists +get +eval

@@ -9,6 +9,9 @@ Usage: ``python ops/bootstrap_roles.py`` prints the SQL. With ``--db-url`` (or
 ``BOOTSTRAP_DATABASE_URL``) it executes the SQL through psycopg when installed.
 App passwords come from ``BOOTSTRAP_PASSWORD_<SCHEMA>`` env vars; otherwise a
 ``CHANGE_ME_<SCHEMA>`` placeholder is written. No real secret lives in this repo.
+Outside the local profile (``APP_PROFILE`` other than ``local`` or an ``ENVIRONMENT``
+other than local, test, ci, dev) a missing, empty, or ``CHANGE_ME_`` password aborts
+the run (REQ-SEC-005).
 """
 
 import argparse
@@ -29,6 +32,28 @@ from ops.schemas import (  # noqa: E402
     validate_identifier,
 )
 
+LOCAL_ENVIRONMENTS = frozenset({"local", "test", "ci", "dev", "development"})
+
+
+def is_local_profile(env: Mapping[str, str] | None = None) -> bool:
+    """Return True only for the local profile; unknown values count as non-local."""
+    source = os.environ if env is None else env
+    profile = source.get("APP_PROFILE", "local").strip().lower()
+    environment = source.get("ENVIRONMENT", "local").strip().lower()
+    return profile == "local" and environment in LOCAL_ENVIRONMENTS
+
+
+def insecure_password_schemas(
+    passwords: Mapping[str, str], schemas: Iterable[str] = SCHEMAS
+) -> list[str]:
+    """Return the schemas whose app password is missing, blank, or a placeholder."""
+    bad = []
+    for s in schemas:
+        value = passwords.get(s, "").strip()
+        if not value or value.upper().startswith("CHANGE_ME"):
+            bad.append(s)
+    return bad
+
 
 def _literal(value: str) -> str:
     return "'" + value.replace("'", "''") + "'"
@@ -38,6 +63,24 @@ def _create_role(role: str, options: str) -> str:
     return (
         f"    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = {_literal(role)}) THEN\n"
         f"        CREATE ROLE {role} {options};\n"
+        "    END IF;\n"
+    )
+
+
+def _grant_owner_to_current_user(role: str) -> str:
+    """Let a non-superuser connecting role use ``role`` (REQ-DAT-005).
+
+    Hosted Postgres gives CREATEROLE without superuser; ALTER SCHEMA ... OWNER TO and
+    CREATE SCHEMA ... AUTHORIZATION then need membership with SET. PostgreSQL 16+ needs
+    ``WITH SET TRUE``; earlier versions use plain membership. Superusers skip it.
+    """
+    return (
+        "    IF NOT (SELECT rolsuper FROM pg_roles WHERE rolname = current_user) THEN\n"
+        "        IF current_setting('server_version_num')::int >= 160000 THEN\n"
+        f"            EXECUTE 'GRANT {role} TO CURRENT_USER WITH SET TRUE';\n"
+        "        ELSE\n"
+        f"            EXECUTE 'GRANT {role} TO CURRENT_USER';\n"
+        "        END IF;\n"
         "    END IF;\n"
     )
 
@@ -59,6 +102,7 @@ def generate_sql(
             continue
         password = secrets.get(s, f"CHANGE_ME_{s.upper()}")
         out.append(_create_role(owner_role(s), "NOLOGIN"))
+        out.append(_grant_owner_to_current_user(owner_role(s)))
         out.append(_create_role(app_role(s), f"LOGIN PASSWORD {_literal(password)}"))
     out.append("END $$;\n\n")
     for s in names:
@@ -99,14 +143,50 @@ def execute(db_url: str, sql: str) -> None:
         conn.execute(sql)
 
 
+def execute_tolerant(
+    db_url: str, passwords: Mapping[str, str], extensions: Iterable[str] = EXTENSIONS
+) -> list[str]:
+    """Create extensions one by one, then run the role SQL; return missing extensions.
+
+    A platform that does not let this role create an extension (hosted Postgres) gets
+    the name reported instead of a crash; the platform must enable it in its dashboard.
+    """
+    import psycopg  # type: ignore[import-not-found,unused-ignore]
+
+    missing: list[str] = []
+    with psycopg.connect(db_url, autocommit=True) as conn:
+        for ext in extensions:
+            try:
+                conn.execute(f"CREATE EXTENSION IF NOT EXISTS {validate_identifier(ext)}")
+            except psycopg.Error:
+                missing.append(ext)
+        conn.execute(generate_sql(passwords=passwords, extensions=()))
+    return missing
+
+
 def main(argv: list[str] | None = None) -> int:
     """Print the SQL, or execute it when a database URL is supplied."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--db-url", default=os.environ.get("BOOTSTRAP_DATABASE_URL"))
     args = parser.parse_args(argv)
-    sql = generate_sql(passwords=passwords_from_env())
+    passwords = passwords_from_env()
+    if not is_local_profile():
+        weak = insecure_password_schemas(passwords)
+        if weak:
+            print(
+                "Refusing default or empty role passwords outside the local profile; set "
+                + ", ".join(f"BOOTSTRAP_PASSWORD_{name.upper()}" for name in weak),
+                file=sys.stderr,
+            )
+            return 2
+    sql = generate_sql(passwords=passwords)
     if args.db_url:
-        execute(args.db_url, sql)
+        missing = execute_tolerant(args.db_url, passwords)
+        if missing:
+            print(
+                "Extensions the platform must enable: " + ", ".join(missing),
+                file=sys.stderr,
+            )
         print("Role bootstrap applied")
     else:
         print(sql)

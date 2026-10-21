@@ -56,3 +56,18 @@ the PG major version. Fix finding 2 independently: it blocks any non-superuser d
   this workflow on the hosted-like case.
 - Owner: open Studio against the experiment stack and confirm the SQL and table editors.
 - Owner: choose the PG major version for local and hosted environments.
+
+## Fix for finding 2 (T-132, REQ-DAT-005)
+
+`ops/bootstrap_roles.py` now grants each `<schema>_owner` role to the connecting user right after
+creating it: `GRANT <role> TO CURRENT_USER WITH SET TRUE` on PostgreSQL 16 and later, a plain
+membership grant before (chosen in SQL by `server_version_num`). A superuser skips the grant, so the
+default Compose flow is unchanged, and re-runs stay idempotent. When run with a database URL the
+script creates each extension separately and prints the ones this role may not create
+("Extensions the platform must enable: ..."), instead of failing; the platform enables those in its
+dashboard. The printed SQL (piped to psql by `make db-bootstrap`) still has plain
+`CREATE EXTENSION IF NOT EXISTS` lines.
+
+Verification: unit tests with a fake connection (`tests/unit/test_bootstrap_roles_privileges.py`)
+check the grant, its order before `ALTER SCHEMA`, the version gate and the extension report. Not
+yet re-run against the hosted-like `postgres` role; repeat the spike workflow to confirm.

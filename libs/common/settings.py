@@ -9,6 +9,7 @@ logging, and versions outside business code.
 
 from functools import lru_cache
 from typing import Any, Literal, Self
+from urllib.parse import urlsplit
 
 from pydantic import Field, ValidationInfo, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -156,6 +157,8 @@ class Settings(BaseSettings):
             raise ValueError("upstream retry max delay must cover its base delay")
         if self.worker_retry_max_delay_seconds < self.worker_retry_base_delay_seconds:
             raise ValueError("worker retry max delay must cover its base delay")
+        if self.app_profile == "production" and not urlsplit(self.redis_url).username:
+            raise ValueError("REDIS_URL must name an ACL user in the production profile")
         if self.edge_secret_required and not self.edge_secret:
             raise ValueError("EDGE_SECRET is required when EDGE_SECRET_REQUIRED is enabled")
         if self.database_ssl_mode not in {

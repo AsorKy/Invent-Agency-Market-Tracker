@@ -1420,7 +1420,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `python ops/check_migrations.py` OK; `pytest -q tests/unit/test_schema_catalog.py tests/unit/test_migration_guard.py tests/unit/test_sql_consistency.py` 64 passed; make static and make test pass (1156 passed). `analytics` stays in `LEGACY_SCHEMAS`: baseline 0001 still creates it and the guardian would reject that file otherwise (same as `socioeconomic`); see docs/runs/RUN-r1-f-schema.md
 
 ### T-130 Identity and socio roles in Compose and bootstrap
-- status: todo
+- status: done
 - spec: REQ-SEC-005, REQ-RUN-001
 - owner: devops-engineer
 - depends: T-125, T-123
@@ -1429,10 +1429,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_compose.py tests/unit/test_bootstrap_env.py` and `python ops/check_configuration.py`
 - note: give the identity service `POSTGRES_HOST`, `IDENTITY_DB_USER` and `IDENTITY_DB_PASSWORD` in Compose and `.env.example`; add `BOOTSTRAP_PASSWORD_IDENTITY` and `BOOTSTRAP_PASSWORD_SOCIO` to the `bootstrap-roles` service so the `identity_app` and `socio_app` roles exist; make bootstrap refuse default or empty passwords outside the local profile; extend the configuration check. The CI e2e stage runs `make invent-tracker` on this file, so keep every default working for the local profile.
-- evidence: filled by the agent when done
+- evidence: `pytest -q tests/unit/test_compose.py tests/unit/test_bootstrap_env.py` passed; `python ops/check_configuration.py` OK; make static and make test pass (1165 passed)
 
 ### T-131 Redis ACL users edge and data
-- status: todo
+- status: done
 - spec: REQ-SEC-005
 - owner: lead-backend-engineer
 - depends: T-130
@@ -1441,10 +1441,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_compose.py tests/unit/test_redis_acl.py` and `python ops/check_configuration.py`
 - note: two ACL users. `edge` (gateway) may touch only the rate-limit keys; `data` (core, ingest, pulse, ml, brief) may touch streams and cache keys. Read the real key prefixes and commands from `libs/common` before writing the ACL file. Passwords come from the environment; the default user is disabled outside the local profile; services take their user through `REDIS_URL`. This task may add the optional Redis user settings to `libs/common/settings.py`. A configuration check fails when Compose or settings use the default user. Highest risk of the wave: a wrong ACL silently breaks streams and rate limits, and only the CI e2e stage runs the whole stack, so test the ACL rules against the key lists in unit tests and keep the local profile working.
-- evidence: filled by the agent when done
+- evidence: `pytest -q tests/unit/test_compose.py tests/unit/test_redis_acl.py` 64 passed; `python ops/check_configuration.py` OK; make static and make test pass (1181 passed); ACL also exercised against a local redis 7.0
 
 ### T-132 Run bootstrap_roles as a non-superuser role
-- status: todo
+- status: done
 - spec: REQ-DAT-005
 - owner: database-engineer
 - depends: T-128, T-125
@@ -1453,7 +1453,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_bootstrap_roles_privileges.py tests/unit/test_migrate.py tests/unit/test_bootstrap_env.py` and `make static`
 - note: the T-128 spike showed bootstrap fails when the connecting role has `CREATEROLE` and `CREATEDB` but is not a superuser (the hosted Supabase case). After creating each owner role, grant that role to the current user (with `SET TRUE` on PostgreSQL 16 and later, plain membership before), so `CREATE SCHEMA ... AUTHORIZATION` and `ALTER` work; keep the script idempotent; create extensions with `IF NOT EXISTS` and report which ones the platform must enable. Unit tests record the SQL with a fake cursor. Do not change the default Compose stack. Record the result in the experiment document.
-- evidence: filled by the agent when done
+- evidence: `pytest -q tests/unit/test_bootstrap_roles_privileges.py tests/unit/test_migrate.py tests/unit/test_bootstrap_env.py` passed; make static and make test pass (1157 passed)
 
 ### T-133 Fix the socioeconomic refresh workflow
 - status: todo
