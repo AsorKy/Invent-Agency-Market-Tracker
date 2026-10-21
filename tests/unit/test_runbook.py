@@ -13,6 +13,13 @@ ROOT = Path(__file__).resolve().parents[2]
 RUNBOOK = ROOT / "docs" / "runbooks" / "go-live.md"
 ENV_EXAMPLE = ROOT / ".env.example"
 OVERRIDES = {"VERIFY_LIVE_INGEST_URL", "VERIFY_LIVE_CORE_URL", "VERIFY_LIVE_DATABASE_URL"}
+# Repository secrets of the backups workflow: GitHub secrets, not entries of .env.
+BACKUP_SECRETS = {
+    "BACKUP_SOURCE_URL",
+    "BACKUP_EPHEMERAL_ADMIN_URL",
+    "BACKUP_EPHEMERAL_PASSWORD",
+    "BACKUP_AGE_RECIPIENT",
+}
 PLACEHOLDER = re.compile(r"SOURCE_<NAME>_(ENABLED|DATASET_ID)")
 
 
@@ -32,7 +39,7 @@ def test_runbook_is_ascii() -> None:
 def test_runbook_cites_only_known_variables() -> None:
     text = PLACEHOLDER.sub("", RUNBOOK.read_text(encoding="ascii"))
     cited = set(re.findall(r"`([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+)(?:=[^`]*)?`", text))
-    unknown = cited - _env_names() - OVERRIDES
+    unknown = cited - _env_names() - OVERRIDES - BACKUP_SECRETS
     assert not unknown, f"variables not in .env.example: {sorted(unknown)}"
     assert cited & _env_names()
 

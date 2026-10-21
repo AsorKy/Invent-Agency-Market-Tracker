@@ -147,3 +147,11 @@ The frontend is a separate application. With the local profile:
 | Edited mapping has no effect | The ingest service still runs the old file | `docker compose restart ingest`. |
 
 Return to mock mode at any time with `INGEST_MODE=mock` and `docker compose up -d`.
+
+## 11. Enable the nightly backups
+
+The `backups` workflow stays disabled until its four repository secrets exist; while any is missing it skips the backup job and prints "backups disabled: secrets missing" as a warning and in the job summary. Before go-live:
+
+1. Add the secrets `BACKUP_SOURCE_URL`, `BACKUP_EPHEMERAL_ADMIN_URL`, `BACKUP_EPHEMERAL_PASSWORD`, and `BACKUP_AGE_RECIPIENT` (names only here; never write their values in the repository).
+2. Start the workflow once by hand (`gh workflow run backups`) and confirm that the job runs, the restore check passes, and the `backups-age` artifact holds only `.age` files.
+3. Confirm that the next scheduled nightly run (03:17 UTC) also passes.

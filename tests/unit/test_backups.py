@@ -158,6 +158,34 @@ def test_workflow_contract() -> None:
     assert not re.search(r"postgres(ql)?://[^\s$]*:[^\s$]*@", text)
 
 
+def test_workflow_skips_visibly_without_secrets() -> None:
+    text = (ROOT / ".github/workflows/backups.yml").read_text(encoding="utf-8")
+    assert "needs: [gate]" in text
+    assert "if: needs.gate.outputs.enabled == 'true'" in text
+    assert "backups disabled: secrets missing" in text
+    assert "::warning" in text
+    assert "GITHUB_STEP_SUMMARY" in text
+    for name in (
+        "BACKUP_SOURCE_URL",
+        "BACKUP_EPHEMERAL_ADMIN_URL",
+        "BACKUP_EPHEMERAL_PASSWORD",
+        "BACKUP_AGE_RECIPIENT",
+    ):
+        assert f"secrets.{name} != ''" in text
+
+
+def test_go_live_runbook_lists_the_backup_secrets() -> None:
+    runbook = (ROOT / "docs/runbooks/go-live.md").read_text(encoding="utf-8")
+    assert "Enable the nightly backups" in runbook
+    for name in (
+        "BACKUP_SOURCE_URL",
+        "BACKUP_EPHEMERAL_ADMIN_URL",
+        "BACKUP_EPHEMERAL_PASSWORD",
+        "BACKUP_AGE_RECIPIENT",
+    ):
+        assert name in runbook
+
+
 def test_readme_contract() -> None:
     readme = (ROOT / "ops/backups/README.md").read_text(encoding="utf-8")
     for schema in SCHEMAS:
