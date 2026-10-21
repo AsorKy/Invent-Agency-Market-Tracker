@@ -1252,7 +1252,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: pytest -q tests/unit/test_metrics_pack.py (39 passed), make static, make test (1193 passed)
 
 ### T-101 Lens contract and five-question checker
-- status: todo
+- status: done
 - spec: REQ-LNS-001, REQ-LNS-002
 - owner: lead-backend-engineer
 - depends: T-080
@@ -1261,7 +1261,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_lens_contract.py` and `python ops/check_five_questions.py`
 - note: a quality-metrics envelope per lens, and a checker that reads feature specs under `docs/features/` and fails when any of the five answers is empty. Wire the checker into `make static` through the coordinator.
-- evidence:
+- evidence: `pytest -q tests/unit/test_lens_contract.py` 6 passed; `python ops/check_five_questions.py` exit 0; checker wired into make static; make static and make test pass.
 
 ### T-102 Descriptive aggregation (D1)
 - status: done
@@ -1456,7 +1456,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_bootstrap_roles_privileges.py tests/unit/test_migrate.py tests/unit/test_bootstrap_env.py` passed; make static and make test pass (1157 passed)
 
 ### T-133 Fix the socioeconomic refresh workflow
-- status: todo
+- status: done
 - spec: REQ-ORC-001
 - owner: second-backend-engineer
 - depends: T-080
@@ -1465,10 +1465,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: S
 - acceptance: `pytest -q tests/unit/test_workflows.py`
 - note: make `wf_socioeco_refresh.json` and the README use `PULSE_URL` and the pulse socioeconomic refresh route instead of the removed analytics variables. Add a test that no workflow references an environment variable that the settings or `.env.example` no longer define.
-- evidence: filled by the agent when done
+- evidence: `pytest -q tests/unit/test_workflows.py` 34 passed; `python ops/check_workflows.py` OK; make static and make test pass. Risk: pulse has no /internal/pulse/socioeconomic/refresh route yet (workflow inactive).
 
 ### T-134 README and agent registry cleanup after the analytics merge
-- status: todo
+- status: done
 - spec: REQ-DOC-001
 - owner: coordinator
 - depends: T-080
@@ -1477,4 +1477,4 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: S
 - acceptance: `make static` and `make test`
 - note: update `README.md` to seven services plus Streamlit, seven schemas, and `pulse` instead of `analytics`; remove `legacy_paths: services/analytics/` from the agent registry and its profile sync; rename analytics mentions in the listed docstrings. Change no behavior.
-- evidence: filled by the agent when done
+- evidence: `make static` and `make test` pass; README, registry and docstrings updated, no behavior change.

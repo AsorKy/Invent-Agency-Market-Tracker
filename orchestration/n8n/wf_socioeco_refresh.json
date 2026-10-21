@@ -1,7 +1,7 @@
 {
   "id": "wf-socioeco-refresh",
   "name": "wf_socioeco_refresh",
-  "description": "Monthly socioeconomic refresh: ask the analytics service to reload DANE data and notify the team.",
+  "description": "Monthly socioeconomic refresh: ask the pulse service to reload DANE data and notify the team.",
   "active": false,
   "versionId": "1.0.0",
   "meta": {
@@ -35,7 +35,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.ANALYTICS_URL}}/internal/analytics/socioeconomic/refresh",
+        "url": "={{$env.PULSE_URL}}/internal/pulse/socioeconomic/refresh",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,

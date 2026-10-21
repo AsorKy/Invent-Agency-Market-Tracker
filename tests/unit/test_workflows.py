@@ -6,11 +6,13 @@ the guard in ``ops/check_workflows.py`` accepts them and rejects code nodes.
 """
 
 import json
+import re
 from pathlib import Path
 
 import pytest
 
 from ops.check_workflows import check_directory, check_workflow
+from libs.common.settings import Settings
 
 DIRECTORY = Path(__file__).resolve().parents[2] / "orchestration/n8n"
 SOURCES = {
@@ -126,3 +128,43 @@ def test_guard_rejects_code_node() -> None:
     document = _load("wf_maps_medellin")
     document["nodes"].append({"name": "x", "type": "n8n-nodes-base.code"})
     assert check_workflow(document)
+
+
+ROOT = Path(__file__).resolve().parents[2]
+ENV_REFERENCE = re.compile(r"\$env\.([A-Za-z_][A-Za-z0-9_]*)")
+
+
+def _defined_variables() -> set[str]:
+    names = set()
+    for line in (ROOT / ".env.example").read_text(encoding="utf-8").splitlines():
+        match = re.match(r"\s*([A-Za-z_][A-Za-z0-9_]*)=", line)
+        if match:
+            names.add(match.group(1))
+    return names | {name.upper() for name in Settings.model_fields}
+
+
+def _referenced_variables() -> dict[str, set[str]]:
+    return {
+        path.stem: set(ENV_REFERENCE.findall(path.read_text(encoding="utf-8")))
+        for path in sorted(DIRECTORY.glob("*.json"))
+    }
+
+
+def test_workflow_env_variables_are_defined() -> None:
+    defined = _defined_variables()
+    undefined = {
+        name: sorted(refs - defined)
+        for name, refs in _referenced_variables().items()
+        if refs - defined
+    }
+    assert undefined == {}
+
+
+def test_no_workflow_references_analytics_url() -> None:
+    assert [n for n, refs in _referenced_variables().items() if "ANALYTICS_URL" in refs] == []
+
+
+def test_socioeco_refresh_uses_pulse_url() -> None:
+    nodes = {node["name"]: node for node in _load("wf_socioeco_refresh")["nodes"]}
+    url = nodes["Refresh socioeconomic data"]["parameters"]["url"]
+    assert url.startswith("={{$env.PULSE_URL}}/internal/pulse/")

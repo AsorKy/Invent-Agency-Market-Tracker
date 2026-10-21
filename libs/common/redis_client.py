@@ -2,7 +2,7 @@
 
 The client uses decoded string responses required by Redis Streams and scoring
 locks. It relates indirectly to ``libs.common.settings`` and directly to the
-``ingest``, ``core``, ``analytics``, and ``ml`` workers, which use
+``ingest``, ``core``, ``pulse``, and ``ml`` workers, which use
 ``create_redis`` for queues, outbox delivery, and events. Its purpose is to
 centralize connection setup and ensure processes close clients on shutdown.
 """

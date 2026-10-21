@@ -2,7 +2,7 @@
 
 ``DomainEvent`` fixes the common envelope and ``EventType`` limits the names
 services can publish. It relates to the outbox in
-``services/core/app/repository.py``, the analytics and ML consumers, and the
+``services/core/app/repository.py``, the pulse and ML consumers, and the
 ``core.outbox_event`` table from the migration. Its purpose is to support
 at-least-once delivery with idempotent consumers while introducing the v2.2
 tenant and replay metadata additively.

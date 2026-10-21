@@ -3,7 +3,7 @@
 The lifespan registers ``CoreRepository``; handlers validate the internal token,
 write idempotent signals, and read companies and leads for the kanban. It
 relates to ``services/core/app/repository.py``, ``outbox_relay.py``, and the
-``core`` migration. It is the source of truth from which analytics and ML
+``core`` migration. It is the source of truth from which pulse and ML
 receive events derived from committed changes.
 """
 

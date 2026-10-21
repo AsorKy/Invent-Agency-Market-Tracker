@@ -60,6 +60,7 @@ static:
 	python ops/check_script_docs.py
 	python ops/check_traceability.py
 	python ops/check_workflows.py
+	python ops/check_five_questions.py
 	python -m compileall -q libs services datagen ops
 	ruff check libs services datagen ops
 	ruff format --check libs services datagen ops
