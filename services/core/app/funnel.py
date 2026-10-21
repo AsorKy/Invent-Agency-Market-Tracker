@@ -13,6 +13,7 @@ from typing import Any, Protocol
 from uuid import UUID, uuid4
 
 from libs.contracts.events import ReservedEventType as EventType
+from libs.domain.event_chain import build_source_version, stamp_payload
 from libs.domain.funnel import Checklist, GateDecision, Verdict, evaluate_gate, load_checklist
 
 
@@ -64,6 +65,7 @@ async def evaluate_project_gate(
     checklist: Checklist | None = None,
     request_id: str | None = None,
     now: datetime | None = None,
+    parent_event: dict[str, Any] | None = None,
 ) -> GateDecision:
     """Return the decision after auditing it and queueing its events."""
     loaded = checklist or load_checklist(gate)
@@ -88,6 +90,11 @@ async def evaluate_project_gate(
             "decided_at": moment.isoformat(),
             "request_id": request_id,
         }
+        producer_version = f"funnel-{decision.checklist_version}"
+        if parent_event is None:
+            body["source_version"] = build_source_version(producer_version)
+        else:
+            body = stamp_payload(body, "funnel.gate_decision", producer_version, parent_event)
         await tx.add_audit(
             action="funnel.gate_decision",
             project_id=project_id,

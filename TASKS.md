@@ -1360,7 +1360,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: pytest -q tests/unit/test_funnel.py (28 passed), make static, make test (1364 passed); HTTP route for gate evaluation is a follow-up; example checklists need owner replacement (D-06)
 
 ### T-110 Event chain with source_version
-- status: todo
+- status: done
 - spec: REQ-LNS-012
 - owner: lead-backend-engineer
 - depends: T-109, T-102, T-106
@@ -1369,7 +1369,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_event_chain.py`
 - note: wire signal.tagged, signal.scored, company.matched, signal.explained, funnel.gate_decision, project.pipeline_updated, and project.forecast_updated so every event carries `source_version` and the chain can be traced. Contracts are additive: new modules only.
-- evidence:
+- evidence: pytest -q tests/unit/test_event_chain.py (5 passed), make static, make test (1369 passed); only funnel.gate_decision is emitted for real, other chain producers not wired (builder libs/domain/event_chain.py ready)
 
 ### T-111 Streamlit validation page
 - status: done
