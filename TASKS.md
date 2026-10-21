@@ -44,7 +44,7 @@ Size is a rough token cost guide: S under 1 USD, M 1 to 3 USD, L 3 to 8 USD. Tes
 | r1-d2 | Follow-ups and launch tooling, seven parallel sessions: T-064, T-074 to T-076, T-078, T-079, T-081, T-083 to T-089, T-098, T-120 to T-122, T-124 to T-127 (T-082 is reserved for the row level security decision) | 22 tasks | about 62 USD |
 | r1-e | Security migration and review: T-123, T-080 | 2 tasks | about 6 USD |
 | r1-f | Long wave, four parallel sessions: layer L2 analytics T-100 to T-106 (one chain), schema T-129 and T-107, lens and cleanup T-101, T-133, T-134, platform T-132, T-130, T-131 | 14 tasks | about 55 USD |
-| r1-g | Layer L2 remainder after r1-f is merged: T-108 to T-112 | 5 tasks | about 16 USD |
+| r1-g | Long wave, four parallel sessions: layer L2 validation chain T-108, T-109, T-111, T-110, T-112; pulse endpoints and attribution storage T-135, T-136; ml and brief gaps T-139, T-141, T-137, T-138; platform T-140, T-143 | 14 tasks | about 55 USD |
 | r2 | Continuation with ADR-0002: T-100 to T-112, only if budget remains after T-080; run as r1-f and r1-g | 13 tasks | about 38 USD |
 
 Total estimate for run 1 (smoke to r1-d): about 197 USD (183 USD of the v3 plan plus about 14 USD for T-090 to T-097 and about 30 USD for the v6 follow-ups), plus about 38 USD for the optional ADR-0002 continuation, to be corrected after the smoke run shows real cost per task. Blocked tasks do not consume budget. Set the session budget of each run to about 1.5 times its estimate.
@@ -1478,3 +1478,99 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - acceptance: `make static` and `make test`
 - note: update `README.md` to seven services plus Streamlit, seven schemas, and `pulse` instead of `analytics`; remove `legacy_paths: services/analytics/` from the agent registry and its profile sync; rename analytics mentions in the listed docstrings. Change no behavior.
 - evidence: `make static` and `make test` pass; README, registry and docstrings updated, no behavior change.
+
+### T-135 Pulse endpoints for profiles, communities, topics, project metrics and socioeconomic refresh
+- status: todo
+- spec: REQ-LNS-003, REQ-LNS-004
+- owner: second-backend-engineer
+- depends: T-102, T-103
+- write_scope: services/pulse/, tests/unit/test_pulse_lens_routes.py
+- context: docs/runs/RUN-r1-f-metrics.md, docs/runs/RUN-r1-f-lens.md, services/ml/app/publisher.py
+- size: M
+- acceptance: `pytest -q tests/unit/test_pulse_lens_routes.py` and `make openapi`
+- note: add the routes that `services/ml/app/publisher.py` `PATHS` already names (`POST /internal/pulse/ingest/profiles`, `/communities`, `/topics`), a read route for the project descriptive metrics of T-102 (SQL over the pulse tables, tenant scoped), and `POST /internal/pulse/socioeconomic/refresh` that `orchestration/n8n/wf_socioeco_refresh.json` calls. Use the signed service token dependency and the existing allow lists. New tables or columns need a migration: put them in T-136's migration style (expand only). Additive OpenAPI changes only; regenerate `docs/api/openapi.json`.
+- evidence: filled by the agent when done
+
+### T-136 Persist attribution results in pulse.attribution
+- status: todo
+- spec: REQ-LNS-005
+- owner: database-engineer
+- depends: T-104, T-135
+- write_scope: migrations/, ops/schemas.py (only if the schema list needs it), services/pulse/, services/ml/app/attribution_service.py, tests/unit/test_attribution_storage.py
+- context: docs/runs/RUN-r1-f-metrics.md, libs/domain/attribution.py, services/ml/app/attribution_service.py
+- size: M
+- acceptance: `python ops/check_migrations.py` and `pytest -q tests/unit/test_attribution_storage.py tests/unit/test_sql_consistency.py`
+- note: expand migration for `pulse.attribution` (tenant_id, project_id, model, channel, credit, source_version, computed_at; forced RLS with the standard `app.tenant_id` policy; grants to `pulse_app`), a repository in pulse, and the ml attribution service publishing through the T-135 style route. Run `tests/unit/test_sql_consistency.py` before each commit.
+- evidence: filled by the agent when done
+
+### T-137 Brief drivers and counterfactuals from the explainability module
+- status: todo
+- spec: REQ-LNS-007
+- owner: second-backend-engineer
+- depends: T-106
+- write_scope: services/brief/, libs/contracts/ (additive fields on the brief response only), docs/api/openapi.json, tests/unit/snapshots/model_schemas.json, tests/unit/test_brief_explanations.py
+- context: docs/runs/RUN-r1-f-metrics.md, services/ml/app/explain.py, services/brief/app/
+- size: M
+- acceptance: `pytest -q tests/unit/test_brief_explanations.py tests/unit/test_contract_snapshot.py` and `make openapi`
+- note: when the brief regenerates, call `build_explanation` and attach the drivers and counterfactuals as optional additive fields. Regenerate the contract snapshot with `UPDATE_SNAPSHOTS=1` and check that the diff only adds. A missing explanation must leave the brief valid.
+- evidence: filled by the agent when done
+
+### T-138 Drift worker loader, nightly schedule, and webhook authentication
+- status: todo
+- spec: REQ-LNS-007
+- owner: second-backend-engineer
+- depends: T-106
+- write_scope: services/ml/app/drift_worker.py, services/ml/app/schedule.py, orchestration/n8n/, docker-compose.yml (one worker entry only), tests/unit/test_drift_worker.py, tests/unit/test_workflows.py
+- context: docs/runs/RUN-r1-f-metrics.md, services/ml/app/drift_worker.py, orchestration/n8n/README.md
+- size: M
+- acceptance: `pytest -q tests/unit/test_drift_worker.py tests/unit/test_workflows.py` and `python ops/check_configuration.py`
+- note: give the drift worker a real loader (read series from pulse through its API), a nightly schedule entry point with a stop condition for tests, and an authenticated alert post to the n8n webhook (header from settings, never a literal). Rename the n8n credential that says ingest for a pulse call. Keep the local Compose profile working: if you add a worker entry, it must start without extra secrets.
+- evidence: filled by the agent when done
+
+### T-139 Optional extras for the heavy L2 libraries
+- status: todo
+- spec: REQ-LNS-004
+- owner: devops-engineer
+- depends: T-103
+- write_scope: pyproject.toml, tests/unit/test_optional_extras.py
+- context: pyproject.toml, docs/runs/RUN-r1-f-metrics.md
+- size: S
+- acceptance: `pytest -q tests/unit/test_optional_extras.py` and `make static`
+- note: add the extras `kmodes`, `graph` (igraph, leidenalg), and `topics` (yake, gensim, shap if the code imports it) with upper-bounded versions, and a test that every lazy import in `services/ml/app/` and `libs/domain/` is covered by exactly one extra and that importing the modules without the extras still works.
+- evidence: filled by the agent when done
+
+### T-140 Bootstrap passwords for identity, socio and Redis in the generated .env
+- status: todo
+- spec: REQ-RUN-001, REQ-SEC-005
+- owner: devops-engineer
+- depends: T-130, T-131
+- write_scope: ops/bootstrap_env.py, tests/unit/test_bootstrap_env.py, .env.example (comments only)
+- context: ops/bootstrap_env.py, docs/runs/RUN-r1-f-platform.md
+- size: S
+- acceptance: `pytest -q tests/unit/test_bootstrap_env.py` and `python ops/check_configuration.py`
+- note: `SECRET_KEYS` must also generate `BOOTSTRAP_PASSWORD_IDENTITY`, `BOOTSTRAP_PASSWORD_SOCIO`, and the Redis ACL passwords, and keep every existing value of a `.env` that already exists. Never print a generated value.
+- evidence: filled by the agent when done
+
+### T-141 Demo scoring and brief rows reach the schemas
+- status: todo
+- spec: REQ-RUN-001, REQ-QA-001
+- owner: qa-reviewer
+- depends: T-123, T-130
+- write_scope: services/ml/, services/brief/, ops/seed/, ops/e2e_check.py, tests/unit/test_e2e_check.py, tests/unit/test_demo_pipeline.py
+- context: ops/e2e_check.py, docs/runs/RUN-r1-d-e2e.md, services/ml/app/, services/brief/app/
+- size: L
+- acceptance: `pytest -q tests/unit/test_e2e_check.py tests/unit/test_demo_pipeline.py` and `make test`
+- note: after `make invent-tracker` the CI e2e stage counts `core.company` 60, `core.signal` 150, `pulse.fact_signal` 150, `pulse.daily_rollup` 84, and zero rows in `ml.lead_score`, `brief.record_digest`, `core.brief`, and `ingest.raw_snapshot`. Trace from the code why the seed produces no score and no brief: which event should create a score, who consumes it, and what the seed lacks (a lead, a consumer group, a tenant, a trigger). Fix the cause so the demo fills `ml.lead_score` and `brief.record_digest` (and `core.brief` if a brief is generated without an LLM key; otherwise leave it informational and say why). Then mark in `ops/e2e_check.py` as required the tables that now fill. There is no Docker in your sandbox: prove the flow offline with the in-process pipeline test pattern of `tests/unit/test_pipeline_flow.py`, and state in the report that the CI e2e stage is the real check. `ingest.raw_snapshot` stays informational because the seed does not go through ingest snapshots.
+- evidence: filled by the agent when done
+
+### T-143 Narrow the error handling of bootstrap_roles extension creation
+- status: todo
+- spec: REQ-DAT-005
+- owner: database-engineer
+- depends: T-132
+- write_scope: ops/bootstrap_roles.py, tests/unit/test_bootstrap_roles_privileges.py
+- context: ops/bootstrap_roles.py, docs/runs/RUN-r1-f-platform.md
+- size: S
+- acceptance: `pytest -q tests/unit/test_bootstrap_roles_privileges.py tests/unit/test_bootstrap_env.py`
+- note: `execute_tolerant` swallows every `psycopg.Error` on extension creation; tolerate only the errors that mean the platform does not offer the extension or the role lacks the privilege (insufficient privilege, undefined file), report them by name, and let anything else raise. Remove the unused `execute()` helper if nothing calls it.
+- evidence: filled by the agent when done
