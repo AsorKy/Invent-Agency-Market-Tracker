@@ -1384,7 +1384,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: pytest -q tests/unit/test_streamlit_validation.py (4 passed), make static, make test pass; validation API endpoints are assumed, not yet served (follow-up)
 
 ### T-112 Layer L2 review pack
-- status: todo
+- status: done
 - spec: REQ-LNS-001
 - owner: architecture-reviewer
 - depends: T-110, T-111, T-103, T-104, T-105
@@ -1393,7 +1393,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: S
 - acceptance: `make static`, `make test`, and `python ops/check_traceability.py` pass
 - note: check every L2 requirement against its evidence, list what depends on the owner (D-06 checklists), and append the L2 section to `docs/runs/RUN-<run-id>.md`. Do not start any layer L3 work.
-- evidence:
+- evidence: make static, make test (1369 passed), python ops/check_traceability.py OK; L2 section in docs/runs/RUN-r1-g-validation.md
 
 ### T-128 Spike: Supabase image as the local engine, with Studio
 - status: done
