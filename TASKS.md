@@ -1240,7 +1240,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: make static, make test (1151 passed), make coverage (95.53%), make openapi, ops/check_traceability.py, make compose-config all pass; review pack in docs/runs/RUN-r1-e.md (follow-ups F-r1e-01..12)
 
 ### T-100 Metric pack library
-- status: todo
+- status: done
 - spec: REQ-LNS-008
 - owner: second-backend-engineer
 - depends: T-080
@@ -1249,7 +1249,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_metrics_pack.py`
 - note: pure functions for AUC, PR-AUC, Brier, reliability table, lift@K, precision@K by subpopulation, NDCG@K, MAP, MRR, sMAPE, MASE, pinball loss, interval coverage, and Qini. Validate against hand-computed examples.
-- evidence:
+- evidence: pytest -q tests/unit/test_metrics_pack.py (39 passed), make static, make test (1193 passed)
 
 ### T-101 Lens contract and five-question checker
 - status: todo
