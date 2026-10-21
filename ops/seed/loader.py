@@ -20,10 +20,10 @@ The core port is injectable (``SeedCore``) so tests run with an in-memory fake;
 """
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 from typing import Any, Protocol
-from uuid import NAMESPACE_URL, uuid5
+from uuid import NAMESPACE_URL, UUID, uuid5
 
 from datagen.builder import build_dataset, build_snapshots
 from libs.domain.entity_resolution import EntityResolver, InMemoryResolutionStore, MockRuesLookup
@@ -31,6 +31,7 @@ from services.core.app.companies import CompanyUpsert, company_slug
 from services.ingest.app.to_core import HttpCoreClient, Registered, SnapshotFlow
 
 DEMO_SOURCE = "demo"
+DEMO_TENANT_ID = UUID("00000000-0000-4000-8000-0000000000a1")
 DEFAULT_SEED = 42
 DEFAULT_ORGS = 60
 DEFAULT_DAYS = 180
@@ -149,6 +150,7 @@ class SeedResult:
     skipped: int = 0
     failed: int = 0
     removed: int = 0
+    reasons: dict[str, int] = field(default_factory=dict)
 
 
 async def _register(name: str, city: str | None, nit: str | None) -> Registered:
@@ -172,6 +174,7 @@ def _flow(core: Any, failures: NullFailures, now: datetime) -> SnapshotFlow:
         failures=failures,
         resolve=resolver.resolve,
         dataset_sources={},
+        tenant_id=DEMO_TENANT_ID,
         retry_attempts=2,
         retry_base_delay_seconds=0.1,
     )
@@ -198,6 +201,9 @@ async def _run_flow(
                 result.failed += 1
             else:
                 result.skipped += 1
+    for row in failures.rows:
+        reason = str(row.get("reason") or "unknown")
+        result.reasons[reason] = result.reasons.get(reason, 0) + 1
     return result, failures
 
 

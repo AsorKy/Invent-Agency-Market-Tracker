@@ -143,7 +143,7 @@ async def upsert_company_route(
     try:
         repository: CoreRepository = request.app.state.repository
         result = await upsert_company(
-            repository.company_unit_of_work(),
+            repository.company_unit_of_work(payload.tenant_id),
             payload,
             request_id=request.headers.get("X-Request-ID"),
         )

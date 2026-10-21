@@ -34,6 +34,7 @@ class SignalCreate(BaseModel):
     strength: float = Field(default=0.5, ge=0, le=1)
     payload: dict[str, Any] = Field(default_factory=dict)
     source_external_id: str | None = None
+    tenant_id: UUID | None = None
 
 
 class BrightDataWebhook(BaseModel):

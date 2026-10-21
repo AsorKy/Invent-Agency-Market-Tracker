@@ -24,10 +24,28 @@ DEFAULT_ENVIRONMENT = {
     "LOG_LEVEL": "WARNING",
     "INTERNAL_SERVICE_TOKEN": "test-internal-token",
     "REDIS_URL": "redis://localhost:6379/15",
+    "INGEST_TENANT_ID": "00000000-0000-4000-8000-0000000000a1",
 }
 
 for _name, _value in DEFAULT_ENVIRONMENT.items():
     os.environ.setdefault(_name, _value)
+
+
+def _ignore_dotenv() -> None:
+    """Stop ``Settings`` from reading a local ``.env``.
+
+    ``make invent-tracker`` writes a ``.env`` with generated secrets and development logins. Without
+    this, the next ``make test`` loads it and 108 tests fail on values that only exist on that
+    machine. Tests that need a dotenv file pass ``_env_file`` explicitly.
+    """
+    try:
+        from libs.common.settings import Settings
+    except ModuleNotFoundError:  # runtime dependencies missing: pure-Python tests still run
+        return
+    Settings.model_config["env_file"] = None
+
+
+_ignore_dotenv()
 
 
 @pytest.fixture(autouse=True)

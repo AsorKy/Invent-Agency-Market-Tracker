@@ -1042,6 +1042,19 @@
             "minimum": 0,
             "title": "Strength",
             "type": "number"
+          },
+          "tenant_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Tenant Id"
           }
         },
         "required": [

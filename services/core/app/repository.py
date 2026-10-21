@@ -9,6 +9,7 @@ ingest retries and turns accepted changes into events.
 
 import hashlib
 import json
+import sys
 from collections.abc import AsyncIterator
 from contextlib import AbstractAsyncContextManager as AsyncContextManager
 from contextlib import asynccontextmanager
@@ -21,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 
 from libs.common.db import create_engine
 from libs.common.pagination import decode_cursor, encode_cursor
+from libs.common.tenant import set_tenant_context
 from libs.contracts.api import SignalCreate
 from services.core.app.brief_facts import read_brief_facts
 from services.core.app.event_dimensions import clean
@@ -144,11 +146,21 @@ class SqlCompanyTransaction:
 class SqlCompanyUnitOfWork:
     """Open ``engine.begin()``: commit on success, roll back on any error."""
 
-    def __init__(self, engine: AsyncEngine) -> None:
+    def __init__(self, engine: AsyncEngine, tenant_id: UUID | None = None) -> None:
         self._context = engine.begin()
+        self._tenant_id = tenant_id
 
     async def __aenter__(self) -> SqlCompanyTransaction:
-        return SqlCompanyTransaction(await self._context.__aenter__())
+        connection = await self._context.__aenter__()
+        if self._tenant_id is not None:
+            # Row level security on core.company checks app.tenant_id: set it before any read
+            # or write so a tenant-owned company is visible and insertable (REQ-SEC tenancy).
+            try:
+                await set_tenant_context(connection, self._tenant_id)
+            except BaseException:
+                await self._context.__aexit__(*sys.exc_info())
+                raise
+        return SqlCompanyTransaction(connection)
 
     async def __aexit__(
         self,
@@ -1014,10 +1026,10 @@ class CoreRepository:
     def __init__(self, database_url: str | None) -> None:
         self.engine = create_engine(database_url, pool_size=4)
 
-    def company_unit_of_work(self) -> SqlCompanyUnitOfWork:
+    def company_unit_of_work(self, tenant_id: UUID | None = None) -> SqlCompanyUnitOfWork:
         if self.engine is None:
             raise RuntimeError("DATABASE_URL is required for core writes")
-        return SqlCompanyUnitOfWork(self.engine)
+        return SqlCompanyUnitOfWork(self.engine, tenant_id)
 
     def lead_unit_of_work(self) -> SqlLeadUnitOfWork:
         if self.engine is None:
@@ -1095,11 +1107,15 @@ class CoreRepository:
         signal_id = uuid4()
         event_id = uuid4()
         source_external_id = signal.source_external_id or self._derived_external_id(signal)
-        payload = signal.model_dump(mode="json") | {
+        payload = signal.model_dump(mode="json", exclude={"tenant_id"}) | {
             "signal_id": str(signal_id),
             "source_external_id": source_external_id,
         }
         async with self.engine.begin() as connection:
+            if signal.tenant_id is not None:
+                # The event tenant is read from core.company, which row level security hides
+                # unless app.tenant_id matches.
+                await set_tenant_context(connection, signal.tenant_id)
             inserted = await connection.execute(
                 text(
                     """

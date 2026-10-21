@@ -3,6 +3,8 @@
 from typing import Any
 from uuid import uuid4
 
+import httpx
+
 from libs.common.settings import get_settings
 from ops.seed import __main__ as seed_cli
 from ops.seed import loader
@@ -98,3 +100,24 @@ async def test_cli_runs_with_injected_core(capsys: Any) -> None:
     assert "seed load: delivered=" in capsys.readouterr().out
     assert await seed_cli.run(["clear", *args], core=core) == 0
     assert "removed=4" in capsys.readouterr().out
+
+
+class RejectingCore(FakeCore):
+    """A core that answers every company upsert with HTTP 422."""
+
+    async def upsert_company(self, body: dict[str, Any]) -> dict[str, Any]:
+        request = httpx.Request("POST", "http://core/internal/core/companies/upsert")
+        response = httpx.Response(422, request=request)
+        raise httpx.HTTPStatusError("rejected", request=request, response=response)
+
+
+async def test_failed_records_report_why_they_failed(capsys: Any) -> None:
+    result = await loader.load(RejectingCore(), **SMALL)
+    assert result.delivered == 0 and result.failed > 0
+    assert result.reasons == {"core rejected request: HTTP 422": result.failed}
+
+    get_settings.cache_clear()
+    args = ["--orgs", "4", "--days", "10", "--seed", "3"]
+    assert await seed_cli.run(["load", *args], core=RejectingCore()) == 1
+    out = capsys.readouterr().out
+    assert "seed failure: core rejected request: HTTP 422 x" in out
