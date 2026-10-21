@@ -1276,7 +1276,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: pytest -q tests/unit/test_descriptive_metrics.py (10 passed), make static, make test (1203 passed), make openapi; project metrics are pure functions only, endpoint needs a read path (follow-up)
 
 ### T-103 Profiling and topics (D2, D3)
-- status: todo
+- status: done
 - spec: REQ-LNS-004
 - owner: second-backend-engineer
 - depends: T-100, T-054
@@ -1285,7 +1285,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/unit/test_profiling.py tests/unit/test_topics.py`
 - note: K-Prototypes profiling, Leiden communities, centrality, regex and dictionary tagging, YAKE, TF-IDF, and monthly LDA, publishing results to `pulse` through its API. Heavy libraries load lazily.
-- evidence:
+- evidence: pytest -q tests/unit/test_profiling.py tests/unit/test_topics.py (12 passed), make static, make test (1231 passed); pulse ingest endpoints and optional extras (kmodes, igraph, leidenalg, yake, gensim) are follow-ups
 
 ### T-104 Attribution (Dx1)
 - status: done
