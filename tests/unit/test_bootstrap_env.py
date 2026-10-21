@@ -147,3 +147,33 @@ def test_bootstrap_roles_local_profile_keeps_placeholders(
     monkeypatch.delenv("BOOTSTRAP_DATABASE_URL", raising=False)
     assert roles.main([]) == 0
     assert "CHANGE_ME_IDENTITY" in capsys.readouterr().out
+
+
+def test_identity_socio_and_redis_passwords_are_generated() -> None:
+    for key in (
+        "BOOTSTRAP_PASSWORD_IDENTITY",
+        "BOOTSTRAP_PASSWORD_SOCIO",
+        "REDIS_EDGE_PASSWORD",
+        "REDIS_DATA_PASSWORD",
+    ):
+        assert key in env.SECRET_KEYS
+
+
+def test_redis_url_follows_generated_data_password() -> None:
+    template = (
+        "REDIS_URL=redis://data:local-redis-data@redis:6379/0\n"
+        "REDIS_EDGE_PASSWORD=\nREDIS_DATA_PASSWORD=\n"
+    )
+    text = env.fill_secrets(template, _generator())
+    values = {k: v for k, _, v in (line.partition("=") for line in text.splitlines())}
+    assert values["REDIS_DATA_PASSWORD"] == "gen2"
+    assert values["REDIS_URL"] == "redis://data:gen2@redis:6379/0"
+
+
+def test_existing_env_keeps_values_for_new_keys(tmp_path: Path) -> None:
+    template = tmp_path / ".env.example"
+    target = tmp_path / ".env"
+    template.write_text("REDIS_DATA_PASSWORD=\n", encoding="utf-8")
+    target.write_text("REDIS_DATA_PASSWORD=mine\n", encoding="utf-8")
+    assert env.ensure_env(template, target, _generator()) is False
+    assert target.read_text(encoding="utf-8") == "REDIS_DATA_PASSWORD=mine\n"

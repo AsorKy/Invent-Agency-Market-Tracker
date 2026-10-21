@@ -2,7 +2,7 @@
 
 Without options the script copies ``.env.example`` to ``.env`` only when ``.env``
 is missing, and fills the local-only secrets (service token, edge secret,
-database passwords, n8n key, development user passwords) with values from
+database and Redis passwords, n8n key, development user passwords) with values from
 ``secrets``. Generated values are never printed. An existing ``.env`` is left
 untouched, so running it again is safe. With ``--wait`` it polls the gateway
 ``/ready`` endpoint until it is green and prints the service URLs. It relates to
@@ -34,6 +34,10 @@ SECRET_KEYS = (
     "BOOTSTRAP_PASSWORD_PULSE",
     "BOOTSTRAP_PASSWORD_BRIEF",
     "BOOTSTRAP_PASSWORD_ML",
+    "BOOTSTRAP_PASSWORD_IDENTITY",
+    "BOOTSTRAP_PASSWORD_SOCIO",
+    "REDIS_EDGE_PASSWORD",
+    "REDIS_DATA_PASSWORD",
     "DEV_USER_PASSWORD_ADMIN",
     "DEV_USER_PASSWORD_STRATEGIST",
     "DEV_USER_PASSWORD_INTAKE",
@@ -41,6 +45,7 @@ SECRET_KEYS = (
     "DEV_USER_PASSWORD_ANALYST",
 )
 PLACEHOLDERS = frozenset({"", "postgres", "local-development-token", "replace-me-for-local-use"})
+REDIS_URL_PASSWORD = re.compile(r"^(REDIS_URL=redis://data:)[^@]*(@)", re.MULTILINE)
 DATABASE_URL_PASSWORD = re.compile(r"^(DATABASE_URL=[^:]+://[^:@/]+:)[^@]*(@)", re.MULTILINE)
 
 
@@ -53,17 +58,22 @@ def fill_secrets(template: str, generate: Callable[[], str] = new_secret) -> str
     """Return the template text with blank or placeholder secrets replaced."""
     out: list[str] = []
     database_password = ""
+    redis_data_password = ""
     for line in template.splitlines():
         key, sep, value = line.partition("=")
         if sep and key in SECRET_KEYS and value.strip() in PLACEHOLDERS:
             value = generate()
             if key == "POSTGRES_PASSWORD":
                 database_password = value
+            if key == "REDIS_DATA_PASSWORD":
+                redis_data_password = value
             line = f"{key}={value}"
         out.append(line)
     text = "\n".join(out) + "\n"
     if database_password:
         text = DATABASE_URL_PASSWORD.sub(lambda m: m[1] + database_password + m[2], text)
+    if redis_data_password:
+        text = REDIS_URL_PASSWORD.sub(lambda m: m[1] + redis_data_password + m[2], text)
     return text
 
 
