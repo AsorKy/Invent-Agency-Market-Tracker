@@ -1420,7 +1420,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: filled by the agent when done
 
 ### T-130 Identity and socio roles in Compose and bootstrap
-- status: todo
+- status: done
 - spec: REQ-SEC-005, REQ-RUN-001
 - owner: devops-engineer
 - depends: T-125, T-123
@@ -1429,10 +1429,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_compose.py tests/unit/test_bootstrap_env.py` and `python ops/check_configuration.py`
 - note: give the identity service `POSTGRES_HOST`, `IDENTITY_DB_USER` and `IDENTITY_DB_PASSWORD` in Compose and `.env.example`; add `BOOTSTRAP_PASSWORD_IDENTITY` and `BOOTSTRAP_PASSWORD_SOCIO` to the `bootstrap-roles` service so the `identity_app` and `socio_app` roles exist; make bootstrap refuse default or empty passwords outside the local profile; extend the configuration check. The CI e2e stage runs `make invent-tracker` on this file, so keep every default working for the local profile.
-- evidence: filled by the agent when done
+- evidence: `pytest -q tests/unit/test_compose.py tests/unit/test_bootstrap_env.py` passed; `python ops/check_configuration.py` OK; make static and make test pass (1165 passed)
 
 ### T-131 Redis ACL users edge and data
-- status: todo
+- status: in_progress
 - spec: REQ-SEC-005
 - owner: lead-backend-engineer
 - depends: T-130
