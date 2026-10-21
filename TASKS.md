@@ -1408,7 +1408,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: docs/experiments/ops-supabase-engine.md (run 39503437901): superuser flow ok on PG 15 and 17; bootstrap fails as a non-superuser role; Studio boots and reaches postgres-meta, SQL editor not verified in a browser
 
 ### T-129 Retire the legacy analytics schema
-- status: todo
+- status: done
 - spec: REQ-DAT-001
 - owner: database-engineer
 - depends: T-080
@@ -1417,7 +1417,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: S
 - acceptance: `python ops/check_migrations.py` and `pytest -q tests/unit/test_schema_catalog.py tests/unit/test_migration_guard.py tests/unit/test_sql_consistency.py`
 - note: follow the retire-socioeconomic pattern: a `contract_` migration copies any `analytics` rows that have a `pulse` equivalent into `pulse`, then drops `analytics`; afterwards remove `analytics` from `LEGACY_SCHEMAS`. Commit the migration separately from any code. Do not edit the baseline migration, and do not change whether fresh databases create the legacy schema; that is the owner's decision (E2.5 items 1 and 2). Runs before T-107 in the same session because both edit `ops/schemas.py`.
-- evidence: filled by the agent when done
+- evidence: `python ops/check_migrations.py` OK; `pytest -q tests/unit/test_schema_catalog.py tests/unit/test_migration_guard.py tests/unit/test_sql_consistency.py` 64 passed; make static and make test pass (1156 passed). `analytics` stays in `LEGACY_SCHEMAS`: baseline 0001 still creates it and the guardian would reject that file otherwise (same as `socioeconomic`); see docs/runs/RUN-r1-f-schema.md
 
 ### T-130 Identity and socio roles in Compose and bootstrap
 - status: todo

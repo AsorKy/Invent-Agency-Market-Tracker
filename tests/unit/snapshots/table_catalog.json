@@ -1,6 +1,5 @@
 {
   "schemas": [
-    "analytics",
     "brief",
     "core",
     "identity",

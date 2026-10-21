@@ -53,15 +53,26 @@ def test_canonical_schemas_are_all_created() -> None:
 
 
 def test_no_unexpected_schema_besides_known_legacy() -> None:
-    assert _net_schemas() - SCHEMAS <= {"analytics"}
+    assert _net_schemas() <= SCHEMAS
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="REQ-DAT-001: migration 20261017_0001 (already applied, checksummed) creates analytics",
-)
-def test_analytics_is_never_created() -> None:
+def test_analytics_is_dropped_only_by_a_contract_migration() -> None:
+    droppers = [
+        p.name
+        for p in MIGRATIONS
+        if "analytics" in DROP_SCHEMA.findall(p.read_text(encoding="utf-8"))
+    ]
+    assert droppers
+    assert all(name.startswith("contract_") for name in droppers)
     assert "analytics" not in _net_schemas()
+
+
+def test_analytics_contract_copies_into_pulse_before_the_drop() -> None:
+    sql = next(p for p in MIGRATIONS if "retire_analytics" in p.name).read_text(encoding="utf-8")
+    for table in ("fact_signal", "fact_company_snapshot", "fact_lead_outcome"):
+        assert f"INSERT INTO pulse.{table}" in sql
+        assert f"FROM analytics.{table}" in sql
+    assert sql.index("INSERT INTO pulse") < sql.index("DROP SCHEMA IF EXISTS analytics")
 
 
 def test_roles_example_has_no_legacy_names() -> None:
