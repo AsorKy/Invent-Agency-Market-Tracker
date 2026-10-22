@@ -53,6 +53,8 @@ class FakeStore:
         is_hot: bool,
         source_version: str,
         score_version: str,
+        features: tuple[float, float, float] | None = None,
+        weights: tuple[float, float, float] | None = None,
     ) -> None:
         if self.gate is not None:
             await self.gate.wait()

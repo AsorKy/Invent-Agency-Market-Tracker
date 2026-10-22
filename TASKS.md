@@ -1651,7 +1651,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: pytest test_event_chain + test_event_chain_consumers 34 passed; check_configuration OK; make static/test pass. Unknown and chain-only types acked, never dead-lettered in relay, pulse, ml. EVENT_CHAIN_EMIT default off; helper chain_events_after returns [] when off. Gap: the six producer call sites are outside write_scope and are not wired (see RUN-r1-h-events).
 
 ### T-150 ML publisher sends the tenant to pulse
-- status: todo
+- status: done
 - spec: REQ-LNS-004, REQ-SEC-005
 - owner: second-backend-engineer
 - depends: T-135
@@ -1660,10 +1660,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: S
 - acceptance: `pytest -q tests/unit/test_ml_publisher.py tests/unit/test_attribution.py tests/unit/test_profiling.py`
 - note: the pulse ingest routes `/internal/pulse/ingest/{profiles,communities,topics,attribution}` answer 400 `tenant_required` because the ML publisher sends no tenant. Send it in `X-Tenant-Id` (the tenant of the batch, never a default) with the signed service token, and make a missing tenant raise before any call. The error text of the kmodes path in `profiling.py` still names the `ml` extra: it must name the `kmodes` extra.
-- evidence: filled by the agent when done
+- evidence: `pytest -q tests/unit/test_ml_publisher.py tests/unit/test_attribution.py tests/unit/test_profiling.py`: passed; make static, make test pass
 
 ### T-151 ML explanation route so the Brief drivers fill
-- status: todo
+- status: done
 - spec: REQ-LNS-007, REQ-BRF-001, REQ-SEC-005
 - owner: lead-backend-engineer
 - depends: T-137, T-106
@@ -1672,7 +1672,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/unit/test_ml_explanations.py tests/unit/test_brief_explanations.py tests/unit/test_explain.py` and `python ops/check_migrations.py` and `make test`
 - note: Brief asks ML for `GET /internal/ml/explanations/{company_id}` and gets nothing, so `drivers` and `counterfactual` stay null. ML cannot rebuild the drivers because it stores only the score, not the features it was computed from. Add an expand migration (the exact file name above; T-145 uses 0012) with nullable ml-owned columns that keep the three score features and the weights used on `ml.lead_score`, written by `upsert_score`; then serve the route from the stored features with the pure functions of `services/ml/app/explain.py`, answering 404 when the company has no stored features. Use the response shape that `services/brief/app/explanations.py` already parses, a per-route allow list for the service `brief` only, and no read of any other schema (INV-01). Put the route in the new module and add one `include_router` line to main.py, because T-144 edits main.py in the same wave. Add the route to `NOT_PUBLIC`.
-- evidence: filled by the agent when done
+- evidence: `pytest -q tests/unit/test_ml_explanations.py tests/unit/test_brief_explanations.py tests/unit/test_explain.py`, `python ops/check_migrations.py`, make test (1432 passed)
 
 ### T-152 Pulse writes the project snapshot and stage visit rows
 - status: done

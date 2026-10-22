@@ -37,7 +37,7 @@ def test_kmodes_missing_names_extra() -> None:
     try:
         import kmodes  # noqa: F401
     except ImportError:
-        with pytest.raises(MissingDependencyError, match="ml"):
+        with pytest.raises(MissingDependencyError, match="kmodes"):
             profiling.kmodes_clusterer([[1, "x"]], [1], 1, 42)
 
 
@@ -74,7 +74,7 @@ class FakeClient:
 def test_publisher_signs_token_and_posts() -> None:
     client = FakeClient()
     asyncio.run(
-        PulsePublisher(client, "s3cret").publish_profiles(
+        PulsePublisher(client, "s3cret", tenant_id="11111111-1111-1111-1111-111111111111").publish_profiles(
             ProfileResult(run_id="r1", assignments={"a": 0})
         )
     )
@@ -86,7 +86,7 @@ def test_publisher_signs_token_and_posts() -> None:
 
 def test_weekly_and_monthly_hooks_publish_with_fakes() -> None:
     client = FakeClient()
-    pub = PulsePublisher(client, "s3cret")
+    pub = PulsePublisher(client, "s3cret", tenant_id="11111111-1111-1111-1111-111111111111")
     edges = [("a", "b")]
     asyncio.run(
         run_weekly(

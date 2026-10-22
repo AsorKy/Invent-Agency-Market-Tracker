@@ -3,12 +3,15 @@
 Payload models live here because ``pulse`` has no ingest endpoint yet (gap
 reported to the coordinator); the paths in ``PATHS`` are the proposed contract.
 ``PulsePublisher`` signs a fresh service token per request
-(``libs/common/internal_auth.py``) and posts through an injectable client with
+(``libs/common/internal_auth.py``), sends the tenant of the batch in
+``X-Tenant-Id`` (a missing tenant raises before any call, never a default) and
+posts through an injectable client with
 ``post(path, json=, headers=)``, such as ``httpx.AsyncClient``. Non-2xx answers
 raise. It relates to ``schedule.py``.
 """
 
 from typing import Any, Protocol
+from uuid import UUID
 
 from pydantic import BaseModel, Field
 
@@ -19,6 +22,7 @@ PATHS = {
     "profiles": "/internal/pulse/ingest/profiles",
     "communities": "/internal/pulse/ingest/communities",
     "topics": "/internal/pulse/ingest/topics",
+    "attribution": "/internal/pulse/ingest/attribution",
 }
 
 
@@ -55,12 +59,18 @@ class HttpClient(Protocol):
 class PulsePublisher:
     """Post result models to pulse with a signed service token."""
 
-    def __init__(self, client: HttpClient, service_secret: str) -> None:
+    def __init__(
+        self, client: HttpClient, service_secret: str, tenant_id: UUID | str | None = None
+    ) -> None:
         self._client = client
         self._secret = service_secret
+        self._tenant_id = tenant_id
 
     async def _post(self, kind: str, body: BaseModel) -> None:
+        if not self._tenant_id:
+            raise ValueError("tenant_id is required to publish to pulse")
         headers = service_token_header(ML_SERVICE, self._secret)
+        headers["X-Tenant-Id"] = str(self._tenant_id)
         response = await self._client.post(PATHS[kind], json=body.model_dump(), headers=headers)
         response.raise_for_status()
 

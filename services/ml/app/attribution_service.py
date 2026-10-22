@@ -3,7 +3,7 @@
 Takes journeys, runs one model from ``libs.domain.attribution``, and returns
 rows shaped for ``pulse.attribution``. ``publish_attribution`` posts them to
 ``POST /internal/pulse/ingest/attribution`` with a signed ml service token and
-the tenant in the body, through an injectable client with
+the tenant in the body and in ``X-Tenant-Id``, through an injectable client with
 ``post(url, *, json, headers)``; non-2xx answers raise. It relates to
 ``libs/domain/attribution.py``.
 """
@@ -70,5 +70,6 @@ async def publish_attribution(
         ],
     }
     headers = service_token_header(ML_SERVICE, service_secret)
+    headers["X-Tenant-Id"] = str(tenant_id)
     response = await client.post(ATTRIBUTION_PATH, json=body, headers=headers)
     response.raise_for_status()

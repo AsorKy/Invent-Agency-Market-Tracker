@@ -44,6 +44,8 @@ class ScoreStore(Protocol):
         is_hot: bool,
         source_version: str,
         score_version: str,
+        features: tuple[float, float, float] | None = None,
+        weights: tuple[float, float, float] | None = None,
     ) -> None: ...
 
     async def mark_stale(self, company_id: UUID) -> None: ...
@@ -128,6 +130,7 @@ class ScoringService:
                 territory_opportunity=features.territory_opportunity,
                 weights=weights,
             )
+            used = weights or ScoreWeights()
             rules_source: RulesSource = "default" if weights is None else "tenant"
             score_version = f"{rule_version(rules_source)}:{features.source_version}"
             await self._store.upsert_score(
@@ -136,6 +139,12 @@ class ScoringService:
                 is_hot=breakdown.is_hot,
                 source_version=features.source_version,
                 score_version=score_version,
+                features=(
+                    features.icp_fit,
+                    features.signal_strength,
+                    features.territory_opportunity,
+                ),
+                weights=(used.icp_fit, used.signal_strength, used.territory),
             )
             if tenant_id is None:
                 _log.warning("score event for company %s has no tenant", features.company_id)
