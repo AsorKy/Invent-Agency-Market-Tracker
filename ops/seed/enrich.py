@@ -19,20 +19,16 @@ from uuid import UUID
 import httpx
 
 from libs.common.internal_auth import service_token_header
+from libs.domain.score_features import (
+    SCORE_SOURCE_VERSION,
+    SIGNALS_FOR_FULL_STRENGTH,
+    CompanyProfile,
+    score_features,
+)
 
-SCORE_SOURCE_VERSION = "demo-1"
-SIGNALS_FOR_FULL_STRENGTH = 6
+__all__ = ["SCORE_SOURCE_VERSION", "SIGNALS_FOR_FULL_STRENGTH", "CompanyProfile", "score_features"]
+
 MAX_ATTEMPTS = 5
-
-
-@dataclass
-class CompanyProfile:
-    """What the load delivered for one company; the input of the score features."""
-
-    city: str | None = None
-    has_website: bool = False
-    has_nit: bool = False
-    signals: int = 0
 
 
 class ScoreBriefPort(Protocol):
@@ -75,27 +71,6 @@ class TrackingCore:
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self.inner, name)
-
-
-def score_features(profiles: dict[str, CompanyProfile]) -> list[dict[str, Any]]:
-    """Deterministic bounded features per company (sorted by id), all within 0..1."""
-    per_city: dict[str, int] = {}
-    for profile in profiles.values():
-        per_city[profile.city or ""] = per_city.get(profile.city or "", 0) + 1
-    widest = max(per_city.values(), default=1)
-    rows = []
-    for company_id in sorted(profiles):
-        profile = profiles[company_id]
-        rows.append(
-            {
-                "company_id": company_id,
-                "icp_fit": 0.4 + 0.3 * profile.has_website + 0.3 * profile.has_nit,
-                "signal_strength": min(1.0, profile.signals / SIGNALS_FOR_FULL_STRENGTH),
-                "territory_opportunity": per_city[profile.city or ""] / widest,
-                "source_version": SCORE_SOURCE_VERSION,
-            }
-        )
-    return rows
 
 
 class HttpScoreBrief:

@@ -74,6 +74,7 @@ from services.core.app.retention import (
     purge_inactive_companies,
     reject_personal_identifiers,
 )
+from services.core.app.score_features import DEFAULT_LIMIT, ScoreFeaturesPage
 from services.core.app.tenant_config import (
     StaleConfigError,
     TenantConfig,
@@ -551,6 +552,26 @@ async def get_score_rules(
     try:
         repository: CoreRepository = request.app.state.repository
         return await repository.score_rules(x_tenant_id)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@app.get(
+    "/internal/core/admin/score-features",
+    response_model=ScoreFeaturesPage,
+    dependencies=[ML_READ],
+)
+async def get_score_features(
+    x_tenant_id: Annotated[UUID, Header()],
+    request: Request,
+    limit: Annotated[int, Query(ge=1)] = DEFAULT_LIMIT,
+    after: UUID | None = None,
+) -> ScoreFeaturesPage:
+    try:
+        repository: CoreRepository = request.app.state.repository
+        return ScoreFeaturesPage.model_validate(
+            await repository.score_features(x_tenant_id, limit, after)
+        )
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 

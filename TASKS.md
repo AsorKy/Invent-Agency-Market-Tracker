@@ -1834,7 +1834,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_e2e_check.py tests/unit/test_compose.py` 79 passed; `python ops/check_configuration.py` OK. `--chain` runs a driver inside the gateway container (service tokens, core internal API) because the public routes need a verified JWT tenant and the default stack has identity validation off. CI step in docs/runs/T-164-ci-workflow.diff (applies cleanly with patch). First step expected to fail: "Turn the event chain on" if `--wait` on core/ml times out, else the chain check on `project.*` types or unpublished chain events if the first real run of the T-159 SQL fails.
 
 ### T-165 Core serves the score features per tenant and ML backfills the old score rows
-- status: todo
+- status: done
 - spec: REQ-LNS-007, REQ-BRF-001, REQ-SEC-005, REQ-ML-001, REQ-COR-001
 - owner: lead-backend-engineer
 - depends: T-144, T-151
@@ -1843,7 +1843,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/unit/test_score_features.py tests/unit/test_ml_core_features.py tests/unit/test_ml_backfill.py tests/unit/test_openapi.py tests/unit/test_sql_consistency.py tests/unit/test_demo_pipeline.py tests/unit/test_ml_singleflight.py tests/unit/test_ml_explanations.py tests/integration/test_sql_score_features.py` and `make static` and `make test`
 - note: score rows written before T-151 have null features, so the explanation route answers 404 for them. The r1-j-ops attempt stopped on INV-01 (the features come only from core data, and `ml.lead_score` has no `tenant_id`); the owner chose a core internal endpoint that ML calls, the T-144 pattern. CORE: move the deterministic derivation of `icp_fit`, `signal_strength` and `territory_opportunity` out of `ops/seed/enrich.py` into the pure module `libs/domain/score_features.py` (same formula, same constants, so the seed output does not change; add a test that pins the seed output) and serve it with `GET /internal/core/admin/score-features?limit=&after=` (signed service token for `ml` with the same allow list as `/internal/core/admin/score-rules`, required `X-Tenant-Id`, answer 422 without it). The route lists the companies of that tenant ordered by id, at most `limit` (default 200, hard cap 500) after the cursor `after`, with `company_id`, the three features and `source_version`, plus `next_after`. The repository read runs under `set_tenant_context` AND filters `tenant_id = :tenant_id` in the statement; `territory_opportunity` is computed over the companies of that tenant only. Register the route in `NOT_PUBLIC`. ML: `HttpCoreFeatures` (like `HttpCoreRules`: service token, tenant header, explicit timeout, `CoreFeaturesUnavailable` on transport error or 5xx) and `python -m services.ml.app.backfill --tenant <id> --limit N`, which pages through the core answer, keeps only the companies whose stored ml row has null features (one ml read by company ids, so an id that core did not return can never be rescored), and rescores each through `ScoringService.regenerate` with the tenant weights, so the score version, the event and the stored features come out as for any new score. It is idempotent (a second run finds nothing), bounded by `--limit`, and prints only counts, never rows or tokens. ml gets no grant on the core schema (INV-01) and the backfill does not read it. ISOLATION TESTS (required): unit tests that tenant A's request returns only tenant A's companies and the statement text filters by tenant, that a missing tenant header answers 422, that a token of another service answers 403, that the ML client sends the tenant it was asked for and no other, and that the backfill never rescores a company that core did not return even when ml holds rows of another tenant; a real Postgres test in `tests/integration/test_sql_score_features.py` (as `core_app`, with two tenants' companies) that tenant A's read never returns tenant B's rows and that a read without tenant context returns none. There is no Docker in your sandbox: use a local PostgreSQL if one is available and say in the report which test you expect to fail first in CI. Note in the report that the features are the demo heuristic of the seed, a placeholder until the real feature definition is decided.
-- evidence: filled by the agent when done
+- evidence: pytest acceptance list 91 passed incl. tests/integration/test_sql_score_features.py (3 passed on local PostgreSQL 16 as core_app); make static OK; make test OK. Features are the seed demo heuristic, a placeholder until the real feature definition is decided. Wrong-service token answers 401, as for score-rules.
 
 ### T-166 Runbook for turning the event chain on
 - status: done
@@ -1882,7 +1882,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: acceptance pytest list 128 passed, 1 xfailed (integration run on local PostgreSQL 16, 19 passed in test_sql_r1_flows.py); make static OK; make test 1578 passed; see docs/runs/notes-r1-k-qualify.md
 
 ### T-169 Runbook step for the feature backfill
-- status: todo
+- status: done
 - spec: REQ-DOC-001, REQ-LNS-007
 - owner: devops-engineer
 - depends: T-165
@@ -1891,4 +1891,4 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: S
 - acceptance: `pytest -q tests/unit/test_runbook.py && python ops/check_language.py`
 - note: after T-165 lands, document the operator step for the old score rows: deploy core before ml (ml calls the new core route), run `python -m services.ml.app.backfill --tenant <id> --limit N` once per tenant inside the ml container, read the counts it prints, run it again until it reports zero (idempotent), and check that the explanation route now answers instead of 404. Cite the file for each claim and add the matching assertions to `tests/unit/test_runbook.py`. Do not invent flags: read them from `services/ml/app/backfill.py` as T-165 wrote it.
-- evidence: filled by the agent when done
+- evidence: section 16 added to docs/runbooks/go-live.md; test_backfill_section_matches_the_cli_and_cites_real_files added; pytest tests/unit/test_runbook.py 10 passed, check_language OK, make static OK, make test 1603 passed

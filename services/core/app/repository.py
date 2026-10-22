@@ -29,6 +29,7 @@ from libs.contracts.api import SignalCreate
 from libs.domain.event_chain import chain_events_after, stamp_payload
 from services.core.app.brief_facts import read_brief_facts
 from services.core.app.event_dimensions import clean
+from services.core.app.score_features import read_score_features
 from services.core.app.score_rules import read_score_rules
 
 CHAIN_PRODUCER_VERSION = "core-chain-v1"
@@ -1527,6 +1528,13 @@ class CoreRepository:
         if self.engine is None:
             raise RuntimeError("DATABASE_URL is required for core reads")
         return await read_score_rules(self.engine, tenant_id)
+
+    async def score_features(
+        self, tenant_id: UUID, limit: int, after: UUID | None
+    ) -> dict[str, object]:
+        if self.engine is None:
+            raise RuntimeError("DATABASE_URL is required for core reads")
+        return await read_score_features(self.engine, tenant_id, limit, after)
 
     async def get_lead(
         self, lead_id: UUID, tenant_id: UUID | None = None
