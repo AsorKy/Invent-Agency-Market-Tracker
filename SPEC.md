@@ -152,7 +152,7 @@ Template entry:
 - source: AGENTS.md quality gates, ADR-IMT-0001 section 17
 - statement: `make static` passes on every commit pushed by an agent.
 - verify: `make static`
-- tasks: T-000, T-001, T-007, T-080, T-141, T-161, T-162, T-164
+- tasks: T-000, T-001, T-007, T-080, T-141, T-161, T-162, T-164, T-168
 
 ### REQ-QA-002 Unit test suite exists and runs offline
 - status: accepted
@@ -494,7 +494,7 @@ Template entry:
 - source: ADR-IMT-0001 sections 5.1, E2.1
 - statement: `core` owns company (SCD2), location, person_role, signal, lead, lead_outcome, lead_activity, pipeline_stage, project, tenant_config, and audit_log. Every aggregate carries a monotonic `version`. The Brief digest is not stored in `core`.
 - verify: `python ops/check_migrations.py` plus `pytest -q tests/unit/test_core_models.py`
-- tasks: T-018, T-085, T-144, T-145
+- tasks: T-018, T-085, T-144, T-145, T-165
 
 ### REQ-COR-002 Lead state machine and optimistic concurrency
 - status: accepted
@@ -564,7 +564,7 @@ Template entry:
 - source: ADR-IMT-0001 sections E1.1, E1.6
 - statement: `core` consumes `lead.score_updated` and creates the lead (Discovered) or advances it to Qualified or Hot using `tenant_config.brief_rules` (`min_score_for_hot`, default 70, and `min_score_for_qualified`, default 50). It never moves a lead backward and never overrides a human-set status. Each automatic move writes an `audit_log` entry and new leads emit `lead.created`.
 - verify: `pytest -q tests/unit/test_auto_qualification.py`
-- tasks: T-024, T-161, T-162
+- tasks: T-024, T-161, T-162, T-168
 
 ### Events and workers
 
@@ -708,7 +708,7 @@ Template entry:
 - source: ADR-IMT-0001 sections 10.2, 10.3
 - statement: `ml` regenerates a company's score under a Redis single-flight lock. A changed `source_version` (company version plus signal versions) marks the stored score `stale` and queues regeneration. A locked company returns the previous score marked `stale`. The result is published as `lead.score_updated`.
 - verify: `pytest -q tests/unit/test_ml_singleflight.py`
-- tasks: T-053, T-144, T-145, T-158
+- tasks: T-053, T-144, T-145, T-158, T-165
 
 ### REQ-ML-002 Segmentation pipeline
 - status: accepted
@@ -812,7 +812,7 @@ Template entry:
 - source: ADR-IMT-0001 section 6.4
 - statement: Each service connects with its own `_app` role. Service-to-service calls carry a signed service token. Redis has ACL users `edge` (rate-limit keys only) and `data` (streams, cache). `/internal/*` is never routed by the gateway.
 - verify: `pytest -q tests/unit/test_internal_auth.py` and `python ops/check_configuration.py`
-- tasks: T-060, T-123, T-130, T-131, T-140, T-144, T-146, T-147, T-150, T-151, T-153, T-158, T-160, T-162, T-163, T-165
+- tasks: T-060, T-123, T-130, T-131, T-140, T-144, T-146, T-147, T-150, T-151, T-153, T-158, T-160, T-162, T-163, T-165, T-168
 
 ### REQ-CMP-001 Habeas data compliance
 - status: accepted
@@ -986,7 +986,7 @@ Template entry:
 - source: owner requirement 2026-10-18
 - statement: `docs/runbooks/go-live.md` (English) explains where credentials go (names only), how to enable each source, how to expose the webhook (tunnel) or use the polling fallback, how to adjust field mappings, how to run `make doctor` and `make verify-live`, how data reaches the API, how to point the frontend at the gateway, and a troubleshooting table.
 - verify: `pytest -q tests/unit/test_runbook.py` checks that every `SOURCE_*` and mode variable appears in both the runbook and `.env.example`.
-- tasks: T-079, T-134, T-155, T-166
+- tasks: T-079, T-134, T-155, T-166, T-169
 
 ### Public API for the frontend
 
@@ -1146,7 +1146,7 @@ All L2 requirements are `later-run`. They are specified now so that run 1 leaves
 - source: ADR-IMT-0002 section 2.2
 - statement: A nightly worker computes change points (CUSUM, EWMA) and PSI with thresholds below 0.1 stable, 0.1 to 0.25 watch, above 0.25 retrain, and alerts through n8n. SHAP drivers and counterfactuals are attached to the Brief on regeneration.
 - verify: `pytest -q tests/unit/test_drift.py tests/unit/test_explain.py`
-- tasks: T-106, T-137, T-138, T-151, T-153, T-160, T-165
+- tasks: T-106, T-137, T-138, T-151, T-153, T-160, T-165, T-169
 
 ### REQ-LNS-008 Metric pack library
 - status: accepted
