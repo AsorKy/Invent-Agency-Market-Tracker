@@ -46,6 +46,7 @@ Size is a rough token cost guide: S under 1 USD, M 1 to 3 USD, L 3 to 8 USD. Tes
 | r1-f | Long wave, four parallel sessions: layer L2 analytics T-100 to T-106 (one chain), schema T-129 and T-107, lens and cleanup T-101, T-133, T-134, platform T-132, T-130, T-131 | 14 tasks | about 55 USD |
 | r1-g | Long wave, four parallel sessions: layer L2 validation chain T-108, T-109, T-111, T-110, T-112; pulse endpoints and attribution storage T-135, T-136; ml and brief gaps T-139, T-141, T-137, T-138; platform T-140, T-143 | 14 tasks | about 55 USD |
 | r1-h | Long wave, five parallel sessions: score weights through the core API and the score stored in core T-144, T-145; funnel and validation served end to end T-146, T-147, T-148; event chain and pulse project writers T-149, T-152; ml publisher tenant and explanations T-150, T-151; compose, images, runbook, registry and SPEC lines T-153, T-154, T-156, T-157, T-155 | 14 tasks | about 100 USD |
+| r1-i | Short wave, three parallel sessions: funnel and validation served end to end T-146 to T-148 (unblocked, KILL sets the status killed); event chain producers T-159; compose core URL for ml, schedule tenant, e2e check of stored scores T-158, T-160, T-161 | 7 tasks | about 40 USD |
 | r2 | Continuation with ADR-0002: T-100 to T-112, only if budget remains after T-080; run as r1-f and r1-g | 13 tasks | about 38 USD |
 
 Total estimate for run 1 (smoke to r1-d): about 197 USD (183 USD of the v3 plan plus about 14 USD for T-090 to T-097 and about 30 USD for the v6 follow-ups), plus about 38 USD for the optional ADR-0002 continuation, to be corrected after the smoke run shows real cost per task. Blocked tasks do not consume budget. Set the session budget of each run to about 1.5 times its estimate.
@@ -1603,7 +1604,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: migration 20261022_0012 adds core.company.score, score_source_version, score_updated_at (nullable, check 0..100, table RLS inherited); worker stores the score (tenant context set, version guard in SQL: write when none stored, equal, or both integer text and stored is smaller) then qualifies as before; lead list, get_lead, brief-facts and min_score read c.score; check_migrations OK, targeted tests 105 passed, make static OK, make test 1446 passed; table_catalog snapshot regenerated
 
 ### T-146 Funnel HTTP routes and project status on a KILL decision
-- status: blocked
+- status: todo
 - spec: REQ-LNS-009, REQ-SEC-005
 - owner: lead-backend-engineer
 - depends: T-109
@@ -1611,11 +1612,11 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - context: services/core/app/funnel.py, libs/domain/funnel.py, config/funnel/, docs/runs/RUN-r1-g-validation.md
 - size: M
 - acceptance: `pytest -q tests/unit/test_funnel_routes.py tests/unit/test_funnel.py tests/unit/test_openapi.py`
-- note: the funnel engine and its audit rows exist (T-109) but nothing serves them. Add internal routes under `/internal/core/funnel/` to read the checklist state of a project and to record a gate decision, tenant scoped from the service-token headers (404 across tenants, `set_tenant_context` before every read), per-route allow list for the gateway only. A KILL decision must move the project to the closed status the existing `core.project` status values already offer; if no such value exists do not invent one or a migration: stop, mark the task blocked with the reason and list the values you found. Production keeps refusing example checklists unless `FUNNEL_ALLOW_EXAMPLE_CHECKLISTS=true`. Add every new route to `NOT_PUBLIC` in tests/unit/test_openapi.py (the gateway exposes them in T-148).
-- evidence: blocked: core.project.status is unconstrained text (migrations/20261017_0001_expand_initial_schemas.sql:178, default 'draft'); only 'draft' is ever written (services/core/app/actions.py:251,272). No closed value exists and the task forbids inventing one or a migration. Needs an owner decision: a 'killed' text value, a migration, or routes without the status change.
+- note: the funnel engine and its audit rows exist (T-109) but nothing serves them. Add internal routes under `/internal/core/funnel/` to read the checklist state of a project and to record a gate decision, tenant scoped from the service-token headers (404 across tenants, `set_tenant_context` before every read), per-route allow list for the gateway only. A KILL decision sets `core.project.status` to the plain text value `killed` (owner decision: the column is unconstrained text with default `draft`, so no migration and no CHECK constraint); define the value once as a constant next to the funnel code, write it in the same transaction as the audit row with an optimistic version check, and refuse a decision on a project that is already `killed`. Production keeps refusing example checklists unless `FUNNEL_ALLOW_EXAMPLE_CHECKLISTS=true`. Add every new route to `NOT_PUBLIC` in tests/unit/test_openapi.py (the gateway exposes them in T-148).
+- evidence: filled by the agent when done
 
 ### T-147 Validation metrics worker and read routes
-- status: blocked
+- status: todo
 - spec: REQ-LNS-010, REQ-LNS-011, REQ-SEC-005
 - owner: lead-backend-engineer
 - depends: T-108, T-110, T-146
@@ -1624,10 +1625,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/unit/test_validation_worker.py tests/unit/test_validation_routes.py tests/unit/test_validation_metrics.py tests/unit/test_openapi.py`
 - note: the V1 to V6 metrics are pure functions (T-108) and nothing computes or serves them. The `validation` schema is owned by the core role (`SHARED_ROLE_SCHEMAS`), so the worker lives in core: a function that computes the metrics per tenant and project from core data and writes them to `validation.*` with `set_tenant_context`, with a stop condition and a `python -m services.core.app.validation_worker` entry (not added to Compose). Read routes serve exactly the cards that `services/streamlit/pages/9_Validation.py` and `7_Ops.py` request (`validation/projects/<id>/<card>` and `validation/meta-ml`), under `/internal/core/validation/`, tenant scoped, gateway-only allow list, with the threshold decision of T-108 in the response. Do not read the `ml` or `pulse` schemas (INV-01): when a metric needs them, leave that card empty with a reason in the response and list it in the report. Add every new route to `NOT_PUBLIC`.
-- evidence: blocked: depends T-146 is not done.
+- evidence: filled by the agent when done
 
 ### T-148 Gateway public routes for funnel and validation
-- status: blocked
+- status: todo
 - spec: REQ-API-001, REQ-API-002, REQ-LNS-013
 - owner: second-backend-engineer
 - depends: T-146, T-147
@@ -1636,7 +1637,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_validation_gateway.py tests/unit/test_openapi.py tests/unit/test_gateway.py` and `make openapi` leaves no diff
 - note: expose the routes of T-146 and T-147 as `/api/v1/validation/...` and the funnel routes with the roles admin, strategist, analyst (read) and admin, strategist (decision), following the existing registry pattern; remove their `NOT_PUBLIC` entries because they become public. The change to the OpenAPI document is additive (`oasdiff` must report no breaking change). Streamlit page 9 must work against the real routes without a change; if a URL differs, change the page, not the route.
-- evidence: blocked: depends T-146 and T-147 are not done.
+- evidence: filled by the agent when done
 
 ### T-149 Event chain: tolerant consumers and flagged producers
 - status: done
@@ -1745,3 +1746,51 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - acceptance: `python ops/check_traceability.py` and `pytest -q tests/unit/test_spec_tasks_lines.py tests/unit/test_traceability.py`
 - note: follow-up F-r1e-09. Many requirements still say `tasks: none yet`. Derive the list from TASKS.md (a requirement's tasks are the ones whose `spec:` cites it) and write it on the requirement's `tasks:` line; where no task cites it, write why in one short clause (for example "later run" or "owner decision"). Change nothing else in SPEC.md: no statement, no `status`, no `verify`. Do not touch REQ-SEC-005 text (it waits for decisions F-r1e-03 and F-r1e-04). Add a test that every `tasks:` line is either task ids that exist in TASKS.md or a stated reason.
 - evidence: 107 tasks lines filled in SPEC.md; check_traceability OK; 11 tests passed; make static green
+
+### T-158 Give the ml service the core URL and token in Compose
+- status: todo
+- spec: REQ-DEP-001, REQ-SEC-005, REQ-ML-001
+- owner: devops-engineer
+- depends: T-144
+- write_scope: docker-compose.yml (the ml service only), .env.example (comments only), tests/unit/test_compose.py
+- context: docker-compose.yml, services/ml/app/core_rules.py, libs/common/settings.py, docs/runs/RUN-r1-h-scores.md
+- size: S
+- acceptance: `pytest -q tests/unit/test_compose.py tests/unit/test_runbook.py` and `python ops/check_configuration.py`
+- note: T-144 made ML read the tenant score weights from core, but the `ml` service has no `CORE_URL`, so in the real stack it defaults to localhost and always scores with the default weights. Check what `app_env` already provides and add only what is missing for ML to reach core (`CORE_URL: http://core:8000`) and to sign its token (the internal service secret the other callers get). Do not add a `depends_on` that makes ml wait for core if that creates a cycle (core already waits for the same gates); ML must keep working when core is down, by design. Add a test that the ml service sets `CORE_URL` and that no service other than gateway, brief, ml and the seed carries a core URL it does not use.
+- evidence: filled by the agent when done
+
+### T-159 Wire the remaining event chain producers behind the flag
+- status: todo
+- spec: REQ-LNS-012, REQ-EVT-001, REQ-EVT-005
+- owner: lead-backend-engineer
+- depends: T-149
+- write_scope: services/core/app/repository.py (the outbox writes of the producers only), services/core/app/leads.py, services/ml/app/scoring_service.py, libs/domain/event_chain.py, tests/unit/test_event_chain_producers.py
+- context: libs/domain/event_chain.py, docs/runs/RUN-r1-h-events.md, docs/runs/RUN-r1-g-validation.md, libs/common/settings.py
+- size: L
+- acceptance: `pytest -q tests/unit/test_event_chain_producers.py tests/unit/test_event_chain.py tests/unit/test_event_chain_consumers.py tests/unit/test_relay_to_consumers.py` and `make test`
+- note: T-149 proved that the relay and both consumers accept chain-only event types and added `chain_events_after(parent, steps, *, enabled)` plus the flag `EVENT_CHAIN_EMIT` (off by default). The six other producers are still not wired because their call sites are in core and ml. List them from `libs/domain/event_chain.py`, call the helper at each producer with `get_settings().event_chain_emit`, in the same transaction as the parent event. With the flag off the outbox content must be byte for byte what it is today (the CI e2e stage fails on any dead letter); prove it with a test that runs the existing pipeline flow with the flag off and compares the outbox rows, and another with the flag on that checks every chain event reaches the relay and no consumer dead-letters it.
+- evidence: filled by the agent when done
+
+### T-160 The ML schedule builds the pulse publisher with the batch tenant
+- status: todo
+- spec: REQ-LNS-004, REQ-LNS-007, REQ-SEC-005
+- owner: second-backend-engineer
+- depends: T-150, T-138
+- write_scope: services/ml/app/schedule.py, services/ml/app/drift_worker.py, tests/unit/test_ml_schedule_tenant.py
+- context: services/ml/app/publisher.py, services/ml/app/schedule.py, docs/runs/RUN-r1-h-ml.md
+- size: S
+- acceptance: `pytest -q tests/unit/test_ml_schedule_tenant.py tests/unit/test_drift_worker.py tests/unit/test_ml_publisher.py`
+- note: after T-150 `PulsePublisher` requires a tenant and raises before any call without it, but no construction site passes one, so the scheduled profiling, communities, topics and attribution publishes would raise. Build the publisher in the schedule entry with the tenant of the batch (`DRIFT_TENANT_ID`, falling back to `INGEST_TENANT_ID` as the drift worker does), never a hard coded default; a run without a tenant logs and skips instead of crashing the loop. Test both paths with the injected fakes.
+- evidence: filled by the agent when done
+
+### T-161 The e2e check requires the score in core and the stored features in ml
+- status: todo
+- spec: REQ-RUN-001, REQ-QA-001, REQ-COR-008
+- owner: qa-reviewer
+- depends: T-145, T-151
+- write_scope: ops/e2e_check.py, tests/unit/test_e2e_check.py, tests/unit/test_demo_pipeline.py
+- context: ops/e2e_check.py, ops/seed/enrich.py, docs/runs/RUN-r1-h-scores.md, docs/runs/RUN-r1-h-ml.md
+- size: S
+- acceptance: `pytest -q tests/unit/test_e2e_check.py tests/unit/test_demo_pipeline.py`
+- note: after T-145 core stores the score of each company from `lead.score_updated`, and after T-151 ML stores the features it scored with. Make `ops/e2e_check.py` require that rows in `core.company` have a non-null `score` and that `ml.lead_score` rows have the stored features (count them, not just the rows), and make the offline demo pipeline test assert the same after the seed enrichment. There is no Docker in your sandbox: the CI e2e stage is the real check, so state in the report which assertion it will exercise first.
+- evidence: filled by the agent when done
