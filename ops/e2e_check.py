@@ -5,7 +5,9 @@ as the local container superuser, so it never reads or prints a password, and it
 outbox relay and the consumers fill the projections after the seed returns. Required tables must
 hold rows (the seed scores and briefs every demo company, ``ops/seed/enrich.py``), the outbox
 must have no unpublished event, and the dead letter table must stay empty;
-the other tables are printed as information (``--strict`` requires them too). Exit code 1 means a
+every ``core.company`` row must carry a non-null ``score`` (stored by core from
+``lead.score_updated``) and every ``ml.lead_score`` row the three stored features; the other
+tables are printed as information (``--strict`` requires them too). Exit code 1 means a
 requirement failed after ``--timeout`` seconds. It relates to the Makefile, ``docker-compose.yml``,
 ``ops/seed`` and the e2e job in ``.github/workflows/ci.yml``.
 """
@@ -23,6 +25,17 @@ DEAD_LETTERS = "SELECT count(*) FROM core.outbox_dead_letter"
 DEAD_LETTER_ERRORS = (
     "SELECT left(error, 160) || ' x' || count(*) FROM core.outbox_dead_letter "
     "GROUP BY error ORDER BY count(*) DESC LIMIT 5"
+)
+# core.company.score is core's own copy of the score (migration 0012, core cannot read ml, INV-01);
+# the stored features are the three feature_* columns of ml.lead_score (migration 0013).
+COMPANIES_UNSCORED = "SELECT count(*) FROM core.company WHERE score IS NULL"
+SCORES_WITHOUT_FEATURES = (
+    "SELECT count(*) FROM ml.lead_score WHERE feature_icp_fit IS NULL "
+    "OR feature_signal_strength IS NULL OR feature_territory_opportunity IS NULL"
+)
+SCORES_WITH_FEATURES = (
+    "SELECT count(*) FROM ml.lead_score WHERE feature_icp_fit IS NOT NULL "
+    "AND feature_signal_strength IS NOT NULL AND feature_territory_opportunity IS NOT NULL"
 )
 
 
@@ -78,6 +91,9 @@ def collect(query: Query, tables: Sequence[Table]) -> dict[str, int]:
     counts = {table.name: query(f"SELECT count(*) FROM {table.name}") for table in tables}
     counts["outbox pending"] = query(PENDING_OUTBOX)
     counts["outbox dead letters"] = query(DEAD_LETTERS)
+    counts["companies unscored"] = query(COMPANIES_UNSCORED)
+    counts["scores without features"] = query(SCORES_WITHOUT_FEATURES)
+    counts["scores with features"] = query(SCORES_WITH_FEATURES)
     return counts
 
 
@@ -92,6 +108,14 @@ def failures(counts: dict[str, int], tables: Sequence[Table], *, strict: bool) -
         problems.append(f"{counts['outbox pending']} outbox events are still unpublished")
     if counts["outbox dead letters"]:
         problems.append(f"{counts['outbox dead letters']} events went to the dead letter table")
+    if counts["companies unscored"]:
+        problems.append(f"{counts['companies unscored']} core.company rows have no score")
+    if counts["scores without features"]:
+        problems.append(
+            f"{counts['scores without features']} ml.lead_score rows have no stored features"
+        )
+    if counts["ml.lead_score"] and not counts["scores with features"]:
+        problems.append("no ml.lead_score row has stored features")
     return problems
 
 
@@ -121,6 +145,9 @@ def run(
         print(f"{table.name}: {counts[table.name]} ({needed})")
     print(f"outbox pending: {counts['outbox pending']}")
     print(f"outbox dead letters: {counts['outbox dead letters']}")
+    print(f"core.company without score: {counts['companies unscored']}")
+    print(f"ml.lead_score with features: {counts['scores with features']}")
+    print(f"ml.lead_score without features: {counts['scores without features']}")
     if counts["outbox dead letters"]:
         for line in errors():
             print(f"dead letter error: {line}")
