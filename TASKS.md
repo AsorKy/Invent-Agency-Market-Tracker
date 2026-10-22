@@ -106,7 +106,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 ## Tasks
 
 ### T-000 Smoke test
-- status: todo
+- status: done
 - spec: REQ-QA-001
 - owner: coordinator
 - depends: none
@@ -115,7 +115,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: S
 - acceptance: `make static`
 - note: create `docs/runs/RUN-smoke.md` with one line per check performed (git branch, commit, push, `make static` result). If `make static` cannot run because tools are missing, record exactly which ones. Also record the Python version and whether `pip install .[dev]` works.
-- evidence:
+- evidence: docs/runs/RUN-smoke.md written; make static OK, make test 1607 passed, Python 3.12.3, pip install of the extras works.
 
 ### T-001 Test tooling and make targets
 - status: done
@@ -1895,7 +1895,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: section 16 added to docs/runbooks/go-live.md; test_backfill_section_matches_the_cli_and_cites_real_files added; pytest tests/unit/test_runbook.py 10 passed, check_language OK, make static OK, make test 1603 passed
 
 ### T-170 Publish the Postgres and Redis ports on the loopback only
-- status: todo
+- status: done
 - spec: REQ-SEC-005, REQ-RUN-001
 - owner: devops-engineer
 - depends: T-154
@@ -1904,7 +1904,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: S
 - acceptance: `pytest -q tests/unit/test_compose.py && python ops/check_configuration.py`
 - note: `docker-compose.yml` publishes `5432:5432` and `6379:6379` on every interface, so a developer machine on a shared network exposes the database and the Redis data user. Publish them as `${POSTGRES_BIND:-127.0.0.1}:5432:5432` and `${REDIS_BIND:-127.0.0.1}:6379:6379` (host tools, `make invent-tracker`, `psql` from the host and the CI jobs keep working through `127.0.0.1`; containers use the Compose network and are not affected). Add a test that no `ports:` entry of postgres or redis lacks an explicit bind address, and document the two variables in `.env.example` as commented overrides. Do not touch the other services' ports.
-- evidence: filled by the agent when done
+- evidence: `pytest -q tests/unit/test_compose.py` 56 passed; `python ops/check_configuration.py` OK (106 variables); make static and make test green. Bind variables are listed uncommented in .env.example (value equals the default) because the configuration guard ignores commented lines.
 
 ### T-171 The e2e check proves that scored companies become leads and that the backfill runs
 - status: todo
@@ -1919,7 +1919,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: filled by the agent when done
 
 ### T-172 Close the smoke task and fix the lint the gate does not cover
-- status: todo
+- status: done
 - spec: REQ-QA-001
 - owner: coordinator
 - depends: none
@@ -1928,7 +1928,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: S
 - acceptance: `make static`
 - note: `T-000` is the only L1 task still `todo` (F-r1e-12). Do what its note asks, now that the repository is mature: write `docs/runs/RUN-smoke.md` with one line per check performed (git branch, commit, `make static` result, `make test` result, Python version, whether `pip install '.[dev,streamlit,identity,sqltest]'` works) and set `T-000` to `done` with that evidence. Do not push from the smoke check; the wave branch push is the push. Also fix the ruff line length finding at about line 133 of `tests/unit/test_runbook.py`, which `make static` does not cover; if a lint command outside `make static` finds more in `tests/`, list them in the report and fix only the ones in files this wave created, then say what else exists.
-- evidence: filled by the agent when done
+- evidence: `make static` OK; docs/runs/RUN-smoke.md written, T-000 done, E501 in tests/unit/test_runbook.py fixed; other `ruff check tests` findings listed in docs/runs/RUN-r1-l-platform.md.
 
 ### T-173 The doctor can report the pipeline health
 - status: todo
