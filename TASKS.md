@@ -1748,7 +1748,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: 107 tasks lines filled in SPEC.md; check_traceability OK; 11 tests passed; make static green
 
 ### T-158 Give the ml service the core URL and token in Compose
-- status: todo
+- status: done
 - spec: REQ-DEP-001, REQ-SEC-005, REQ-ML-001
 - owner: devops-engineer
 - depends: T-144
@@ -1757,7 +1757,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: S
 - acceptance: `pytest -q tests/unit/test_compose.py tests/unit/test_runbook.py` and `python ops/check_configuration.py`
 - note: T-144 made ML read the tenant score weights from core, but the `ml` service has no `CORE_URL`, so in the real stack it defaults to localhost and always scores with the default weights. Check what `app_env` already provides and add only what is missing for ML to reach core (`CORE_URL: http://core:8000`) and to sign its token (the internal service secret the other callers get). Do not add a `depends_on` that makes ml wait for core if that creates a cycle (core already waits for the same gates); ML must keep working when core is down, by design. Add a test that the ml service sets `CORE_URL` and that no service other than gateway, brief, ml and the seed carries a core URL it does not use.
-- evidence: filled by the agent when done
+- evidence: ml service sets CORE_URL http://core:8000, token from app_env, no depends_on core; pytest test_compose+test_runbook 59 passed; check_configuration OK
 
 ### T-159 Wire the remaining event chain producers behind the flag
 - status: todo
@@ -1772,7 +1772,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: filled by the agent when done
 
 ### T-160 The ML schedule builds the pulse publisher with the batch tenant
-- status: todo
+- status: done
 - spec: REQ-LNS-004, REQ-LNS-007, REQ-SEC-005
 - owner: second-backend-engineer
 - depends: T-150, T-138
@@ -1781,10 +1781,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: S
 - acceptance: `pytest -q tests/unit/test_ml_schedule_tenant.py tests/unit/test_drift_worker.py tests/unit/test_ml_publisher.py`
 - note: after T-150 `PulsePublisher` requires a tenant and raises before any call without it, but no construction site passes one, so the scheduled profiling, communities, topics and attribution publishes would raise. Build the publisher in the schedule entry with the tenant of the batch (`DRIFT_TENANT_ID`, falling back to `INGEST_TENANT_ID` as the drift worker does), never a hard coded default; a run without a tenant logs and skips instead of crashing the loop. Test both paths with the injected fakes.
-- evidence: filled by the agent when done
+- evidence: schedule.build_publisher uses DRIFT_TENANT_ID/INGEST_TENANT_ID or logs and skips; pytest test_ml_schedule_tenant, test_drift_worker, test_ml_publisher 14 passed
 
 ### T-161 The e2e check requires the score in core and the stored features in ml
-- status: todo
+- status: done
 - spec: REQ-RUN-001, REQ-QA-001, REQ-COR-008
 - owner: qa-reviewer
 - depends: T-145, T-151
@@ -1793,4 +1793,4 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: S
 - acceptance: `pytest -q tests/unit/test_e2e_check.py tests/unit/test_demo_pipeline.py`
 - note: after T-145 core stores the score of each company from `lead.score_updated`, and after T-151 ML stores the features it scored with. Make `ops/e2e_check.py` require that rows in `core.company` have a non-null `score` and that `ml.lead_score` rows have the stored features (count them, not just the rows), and make the offline demo pipeline test assert the same after the seed enrichment. There is no Docker in your sandbox: the CI e2e stage is the real check, so state in the report which assertion it will exercise first.
-- evidence: filled by the agent when done
+- evidence: e2e_check requires core.company.score non-null and ml.lead_score feature_* stored; demo test asserts same offline; 19 passed; CI e2e is the real check

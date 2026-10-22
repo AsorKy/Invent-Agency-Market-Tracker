@@ -19,6 +19,7 @@ pytest.importorskip("fakeredis")
 pytest.importorskip("structlog")
 pytest.importorskip("sqlalchemy")
 
+import support_pipeline  # noqa: E402
 from support_pipeline import (  # noqa: E402
     EVENTS_STREAM,
     TENANT_ID,
@@ -97,8 +98,30 @@ async def test_seed_scores_and_briefs_every_demo_company(world: World) -> None:
 
 
 async def test_scores_reach_core_and_the_outbox_drains_without_dead_letters(
-    world: World,
+    world: World, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    # The shared fakes drop two things the real repositories keep: the ml features and the core
+    # company score. Record both here, as the CI e2e check requires them in Postgres.
+    features: dict[Any, tuple[float, float, float] | None] = {}
+    ml_repository = world.ml_app.state.repository
+    store_in_ml = ml_repository.upsert_score
+
+    async def keep_features(**kwargs: Any) -> None:
+        features[kwargs["company_id"]] = kwargs.get("features")
+        await store_in_ml(**kwargs)
+
+    monkeypatch.setattr(ml_repository, "upsert_score", keep_features)
+
+    async def store_company_score(*, company_id: Any, score: int, **_rest: Any) -> bool:
+        world.core_store.companies[company_id]["score"] = score
+        return True
+
+    real_build = support_pipeline.build_handlers
+    monkeypatch.setattr(
+        support_pipeline,
+        "build_handlers",
+        lambda factory: real_build(factory, store_score=store_company_score),
+    )
     loaded, _ = await _seed(world)
 
     relayed = await world.run_relay()
@@ -115,6 +138,13 @@ async def test_scores_reach_core_and_the_outbox_drains_without_dead_letters(
     assert {lead["company_id"] for lead in store.leads.values()} <= {
         company for company in store.companies
     }
+    for company_id, company in store.companies.items():
+        assert company["score"] == store.scores[company_id]["score"]
+    assert len(store.companies) == len(loaded.profiles)
+    assert len(features) == len(loaded.profiles)
+    for stored in features.values():
+        assert stored is not None and len(stored) == 3
+        assert all(0 <= value <= 1 for value in stored)
     entries = await world.redis.xrange(EVENTS_STREAM)
     scored = [fields for _id, fields in entries if fields["event_type"] == "lead.score_updated"]
     assert len(scored) == len(loaded.profiles)

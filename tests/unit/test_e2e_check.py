@@ -18,6 +18,12 @@ def scripted(counts: dict[str, int]) -> Callable[[str], int]:
             return counts.get("pending", 0)
         if sql == e2e_check.DEAD_LETTERS:
             return counts.get("dead", 0)
+        if sql == e2e_check.COMPANIES_UNSCORED:
+            return counts.get("unscored", 0)
+        if sql == e2e_check.SCORES_WITHOUT_FEATURES:
+            return counts.get("no_features", 0)
+        if sql == e2e_check.SCORES_WITH_FEATURES:
+            return counts.get("with_features", counts.get("ml.lead_score", 0))
         return counts.get(sql.rsplit(" ", 1)[-1], 0)
 
     return query
@@ -42,6 +48,8 @@ def test_passes_when_core_is_filled_and_the_outbox_is_drained(
     assert "core.company: 60 (required)" in out
     assert "ml.lead_score: 60 (required)" in out
     assert "brief.record_digest: 60 (required)" in out
+    assert "core.company without score: 0" in out
+    assert "ml.lead_score with features: 60" in out
     assert "core.brief: 0 (info)" in out
     assert "ingest.raw_snapshot: 0 (info)" in out
     assert "e2e data check: OK" in out
@@ -62,6 +70,32 @@ def test_fails_when_a_downstream_table_is_empty(
     counts = {**FILLED, table: 0}
     assert e2e_check.run(["--timeout", "0"], query=scripted(counts), sleep=lambda _s: None) == 1
     assert f"FAIL: {table} is empty" in capsys.readouterr().err
+
+
+def test_fails_when_companies_have_no_score(capsys: pytest.CaptureFixture[str]) -> None:
+    counts = {**FILLED, "unscored": 4}
+    assert e2e_check.run(["--timeout", "0"], query=scripted(counts), sleep=lambda _s: None) == 1
+    assert "FAIL: 4 core.company rows have no score" in capsys.readouterr().err
+
+
+def test_fails_when_scores_lack_stored_features(capsys: pytest.CaptureFixture[str]) -> None:
+    counts = {**FILLED, "no_features": 2, "with_features": 58}
+    assert e2e_check.run(["--timeout", "0"], query=scripted(counts), sleep=lambda _s: None) == 1
+    assert "FAIL: 2 ml.lead_score rows have no stored features" in capsys.readouterr().err
+
+
+def test_fails_when_no_score_has_features(capsys: pytest.CaptureFixture[str]) -> None:
+    counts = {**FILLED, "with_features": 0}
+    assert e2e_check.run(["--timeout", "0"], query=scripted(counts), sleep=lambda _s: None) == 1
+    assert "FAIL: no ml.lead_score row has stored features" in capsys.readouterr().err
+
+
+def test_score_checks_read_the_columns_the_migrations_add() -> None:
+    assert "score IS NULL" in e2e_check.COMPANIES_UNSCORED
+    assert "FROM core.company" in e2e_check.COMPANIES_UNSCORED
+    for column in ("feature_icp_fit", "feature_signal_strength", "feature_territory_opportunity"):
+        assert column in e2e_check.SCORES_WITHOUT_FEATURES
+        assert column in e2e_check.SCORES_WITH_FEATURES
 
 
 def test_fails_on_pending_events_and_dead_letters(capsys: pytest.CaptureFixture[str]) -> None:
@@ -90,7 +124,11 @@ def test_waits_until_the_projections_fill() -> None:
     def query(sql: str) -> int:
         if sql == e2e_check.PENDING_OUTBOX:
             return 2 if state["polls"] < 2 else 0
-        if sql == e2e_check.DEAD_LETTERS:
+        if sql in (
+            e2e_check.DEAD_LETTERS,
+            e2e_check.COMPANIES_UNSCORED,
+            e2e_check.SCORES_WITHOUT_FEATURES,
+        ):
             return 0
         return 5
 

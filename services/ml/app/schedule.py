@@ -32,8 +32,22 @@ from services.ml.app.publisher import (
 )
 
 
+def build_publisher(
+    client: Any, service_secret: str, tenant: str | None = None
+) -> PulsePublisher | None:
+    """Build the pulse publisher for the batch tenant, or None (logged) without one.
+
+    The tenant comes from ``DRIFT_TENANT_ID`` or ``INGEST_TENANT_ID``; there is no default.
+    """
+    batch_tenant = tenant if tenant is not None else drift_worker.optional_tenant_id()
+    if not batch_tenant:
+        logger.error("no batch tenant (DRIFT_TENANT_ID or INGEST_TENANT_ID): publishes skipped")
+        return None
+    return PulsePublisher(client, service_secret, batch_tenant)
+
+
 async def run_weekly(
-    publisher: PulsePublisher,
+    publisher: PulsePublisher | None,
     *,
     run_id: str,
     rows: Sequence[dict[str, Any]],
@@ -44,7 +58,10 @@ async def run_weekly(
     clusterer: profiling.Clusterer = profiling.kmodes_clusterer,
     community_finder: Callable[..., dict[str, int]] = communities.leiden_communities,
 ) -> None:
-    """Profile companies, detect communities, and publish both."""
+    """Profile companies, detect communities, and publish both (skip without a publisher)."""
+    if publisher is None:
+        logger.error("weekly run %s skipped: no publisher", run_id)
+        return
     assignments = profiling.profile_companies(
         rows, numeric=numeric, categorical=categorical, k=k, clusterer=clusterer
     )
@@ -59,7 +76,7 @@ async def run_weekly(
 
 
 async def run_monthly(
-    publisher: PulsePublisher,
+    publisher: PulsePublisher | None,
     *,
     run_id: str,
     period: str,
@@ -68,6 +85,9 @@ async def run_monthly(
     lda: Callable[..., list[list[str]]] = topics.monthly_lda,
 ) -> None:
     """Compute TF-IDF top terms and LDA topics for ``period`` and publish them."""
+    if publisher is None:
+        logger.error("monthly run %s skipped: no publisher", run_id)
+        return
     await publisher.publish_topics(
         TopicResult(
             run_id=run_id,
@@ -121,13 +141,15 @@ async def main() -> None:
     """Start the nightly drift loop with real pulse and webhook clients."""
     settings = get_settings()
     hour = int(os.environ.get(NIGHTLY_HOUR_ENV, DEFAULT_RUN_HOUR_UTC))
+    tenant = drift_worker.optional_tenant_id()
+    if tenant is None:
+        logger.error("no batch tenant (DRIFT_TENANT_ID or INGEST_TENANT_ID): ml schedule skipped")
+        return
     async with (
         httpx.AsyncClient(base_url=settings.pulse_url, timeout=HTTP_TIMEOUT_SECONDS) as pulse,
         httpx.AsyncClient(timeout=HTTP_TIMEOUT_SECONDS) as webhook,
     ):
-        loader = drift_worker.PulseSeriesLoader(
-            pulse, settings.internal_service_token, drift_worker.tenant_id()
-        )
+        loader = drift_worker.PulseSeriesLoader(pulse, settings.internal_service_token, tenant)
         await run_nightly(loader, webhook, hour=hour, max_runs=None)
 
 
