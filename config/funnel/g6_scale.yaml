@@ -1,0 +1,16 @@
+# EXAMPLE checklist for gate G6 Scale. Decision D-06: the owner replaces it.
+# Production refuses to load it unless FUNNEL_ALLOW_EXAMPLE_CHECKLISTS=true.
+# type: kill (fails => KILL), required (missing => WAIT, fails => PIVOT),
+# score (weighted share of passed items must reach rules.advance_min_score).
+version: 1
+example: true
+gate: G6
+name: Scale
+items:
+  - {id: nrr, description: "Net revenue retention", op: gte, threshold: 1.0, type: required, weight: 1}
+  - {id: cac_payback_months, description: "CAC payback in months", op: lte, threshold: 12, type: score, weight: 1}
+  - {id: win_rate, description: "Win rate", op: gte, threshold: 0.2, type: score, weight: 1}
+  - {id: burn_multiple_critical, description: "Burn multiple above 3 (0 or 1)", op: eq, threshold: 0, type: kill, weight: 1}
+rules:
+  advance_min_score: 0.5
+  max_pivots: 3

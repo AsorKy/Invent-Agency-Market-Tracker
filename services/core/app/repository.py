@@ -422,6 +422,56 @@ class SqlActionUnitOfWork(SqlCompanyUnitOfWork):
         return SqlActionTransaction(await self._context.__aenter__())
 
 
+class SqlFunnelTransaction(SqlActionTransaction):
+    """Project lookup and gate-decision audit bound to one open connection."""
+
+    async def get_project(
+        self, project_id: UUID, tenant_id: UUID | None
+    ) -> dict[str, object] | None:
+        result = await self.connection.execute(
+            text(
+                """
+                SELECT id, tenant_id FROM core.project
+                WHERE id = :id AND (CAST(:tenant_id AS uuid) IS NULL OR tenant_id = :tenant_id)
+                """
+            ),
+            {"id": project_id, "tenant_id": tenant_id},
+        )
+        row = result.mappings().first()
+        return dict(row) if row else None
+
+    async def add_audit(
+        self,
+        *,
+        action: str,
+        project_id: UUID,
+        tenant_id: UUID | None,
+        payload: dict[str, object],
+    ) -> None:
+        await self.connection.execute(
+            text(
+                """
+                INSERT INTO core.audit_log
+                    (actor, action, aggregate_type, aggregate_id, tenant_id, payload)
+                VALUES ('core', :action, 'project', :id, :tenant_id, CAST(:payload AS jsonb))
+                """
+            ),
+            {
+                "action": action,
+                "id": project_id,
+                "tenant_id": tenant_id,
+                "payload": json.dumps(payload, default=str),
+            },
+        )
+
+
+class SqlFunnelUnitOfWork(SqlCompanyUnitOfWork):
+    """Same commit-or-rollback boundary, yielding funnel operations."""
+
+    async def __aenter__(self) -> SqlFunnelTransaction:  # type: ignore[override]
+        return SqlFunnelTransaction((await super().__aenter__()).connection)
+
+
 class SqlConfigTransaction:
     """Tenant configuration writes bound to one open connection."""
 

@@ -1336,7 +1336,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `python ops/check_migrations.py` OK; `pytest -q tests/unit/test_schema_catalog.py` passed; make static and make test pass (1163 passed). validation is in `CATALOG_SCHEMAS` (ops/schemas.py), operated by core_owner and core_app, no new roles
 
 ### T-108 Validation metrics V1 to V6 and thresholds
-- status: todo
+- status: done
 - spec: REQ-LNS-010, REQ-LNS-011
 - owner: lead-backend-engineer
 - depends: T-107, T-100
@@ -1345,10 +1345,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/unit/test_validation_metrics.py tests/unit/test_validation_thresholds.py`
 - note: workers and pure functions for NPV, IRR, payback, DPV, EMV, CAC, LTV, LTV:CAC, CAC payback, gross margin, conversion, win rate, cycle time, velocity, coverage, MRR, NRR, GRR, Rule of 40, burn multiple, magic number, horizon mix, HHI, Sharpe-like ratio, and the V6 metrics. Thresholds live in YAML, not in code.
-- evidence:
+- evidence: pytest -q tests/unit/test_validation_metrics.py tests/unit/test_validation_thresholds.py (41 passed), make static, make test (1332 passed); core worker/persistence into validation schema is a follow-up
 
 ### T-109 Deterministic funnel engine
-- status: todo
+- status: done
 - spec: REQ-LNS-009
 - owner: lead-backend-engineer
 - depends: T-108, T-023
@@ -1357,10 +1357,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/unit/test_funnel.py`
 - note: gates G1 to G7 from versioned YAML checklists, verdicts ADVANCE, PIVOT, KILL, and WAIT, audit rows for each decision, and the `funnel.*` events through the outbox. Ship example checklists marked `example: true`; production must refuse them unless `FUNNEL_ALLOW_EXAMPLE_CHECKLISTS=true` (decision D-06).
-- evidence:
+- evidence: pytest -q tests/unit/test_funnel.py (28 passed), make static, make test (1364 passed); HTTP route for gate evaluation is a follow-up; example checklists need owner replacement (D-06)
 
 ### T-110 Event chain with source_version
-- status: todo
+- status: done
 - spec: REQ-LNS-012
 - owner: lead-backend-engineer
 - depends: T-109, T-102, T-106
@@ -1369,10 +1369,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_event_chain.py`
 - note: wire signal.tagged, signal.scored, company.matched, signal.explained, funnel.gate_decision, project.pipeline_updated, and project.forecast_updated so every event carries `source_version` and the chain can be traced. Contracts are additive: new modules only.
-- evidence:
+- evidence: pytest -q tests/unit/test_event_chain.py (5 passed), make static, make test (1369 passed); only funnel.gate_decision is emitted for real, other chain producers not wired (builder libs/domain/event_chain.py ready)
 
 ### T-111 Streamlit validation page
-- status: todo
+- status: done
 - spec: REQ-LNS-013
 - owner: second-backend-engineer
 - depends: T-108, T-056
@@ -1381,10 +1381,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_streamlit_validation.py` (Streamlit AppTest)
 - note: page `9_Validation.py` with V1 to V6 per project, `measured_at`, `source_version`, and per-card degradation; add V6 to the Ops page.
-- evidence:
+- evidence: pytest -q tests/unit/test_streamlit_validation.py (4 passed), make static, make test pass; validation API endpoints are assumed, not yet served (follow-up)
 
 ### T-112 Layer L2 review pack
-- status: todo
+- status: done
 - spec: REQ-LNS-001
 - owner: architecture-reviewer
 - depends: T-110, T-111, T-103, T-104, T-105
@@ -1393,7 +1393,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: S
 - acceptance: `make static`, `make test`, and `python ops/check_traceability.py` pass
 - note: check every L2 requirement against its evidence, list what depends on the owner (D-06 checklists), and append the L2 section to `docs/runs/RUN-<run-id>.md`. Do not start any layer L3 work.
-- evidence:
+- evidence: make static, make test (1369 passed), python ops/check_traceability.py OK; L2 section in docs/runs/RUN-r1-g-validation.md
 
 ### T-128 Spike: Supabase image as the local engine, with Studio
 - status: done

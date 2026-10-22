@@ -1,0 +1,79 @@
+# Decision thresholds for validation metrics V1 to V6 (REQ-LNS-011).
+# Each metric has ordered bands. A band matches when value < lt (or value <= le);
+# the last band has no bound. A metric may carry per-key variants (for example
+# the horizon). Statuses: healthy, watch, kill, under_investing, relaxed.
+version: 1
+metrics:
+  npv_p10:
+    bands:
+      - {le: 0, status: watch}
+      - {status: healthy}
+  irr:
+    bands:
+      - {lt: 0.15, status: watch}
+      - {status: healthy}
+  payback_months:
+    variants:
+      H1:
+        bands:
+          - {lt: 18, status: healthy}
+          - {status: watch}
+      H2:
+        bands:
+          - {lt: 24, status: healthy}
+          - {status: watch}
+      H3:
+        bands:
+          - {status: relaxed}
+  ltv_cac:
+    bands:
+      - {lt: 1, status: kill}
+      - {lt: 3, status: watch}
+      - {le: 5, status: healthy}
+      - {status: under_investing}
+  cac_payback_months:
+    bands:
+      - {lt: 12, status: healthy}
+      - {le: 18, status: watch}
+      - {status: kill}
+  pipeline_coverage:
+    bands:
+      - {lt: 3, status: watch}
+      - {le: 4, status: healthy}
+      - {status: healthy}
+  burn_multiple:
+    bands:
+      - {lt: 1, status: healthy}
+      - {lt: 2, status: healthy}
+      - {le: 3, status: watch}
+      - {status: kill}
+  nrr:
+    bands:
+      - {lt: 1.0, status: watch}
+      - {status: healthy}
+  grr:
+    bands:
+      - {lt: 0.9, status: watch}
+      - {status: healthy}
+  rule_of_40:
+    bands:
+      - {lt: 40, status: watch}
+      - {status: healthy}
+  magic_number:
+    bands:
+      - {le: 1, status: watch}
+      - {status: healthy}
+  psi:
+    bands:
+      - {lt: 0.1, status: healthy}
+      - {le: 0.25, status: watch}
+      - {status: kill}
+  horizon_mix_deviation:
+    bands:
+      - {le: 0.1, status: healthy}
+      - {le: 0.2, status: watch}
+      - {status: kill}
+horizon_mix_target:
+  H1: 0.6
+  H2: 0.3
+  H3: 0.1

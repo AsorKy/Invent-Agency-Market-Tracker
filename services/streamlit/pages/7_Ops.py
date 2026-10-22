@@ -14,6 +14,7 @@ from services.streamlit.app import ui
 from services.streamlit.pages import _common
 
 OPS_ROLES = ("admin", "strategist", "analyst")
+V6_FIELDS = ("model_utility", "decision_latency_days", "psi", "precision_at_k", "funnel_lift")
 
 filters = _common.start_page("Ops", OPS_ROLES)
 
@@ -54,3 +55,10 @@ ui.card("ops-health", _common.api_url("pulse/ops/health", filters), _ops, title=
 with st.container(border=True):
     st.subheader("Latency and Bright Data usage")
     st.info("Per-service latency and Bright Data usage are not available yet.")
+
+ui.card(
+    "ops-v6",
+    _common.api_url("validation/meta-ml", filters),
+    lambda data: _common.render_validation(data, V6_FIELDS),
+    title="V6 Meta-ML",
+)

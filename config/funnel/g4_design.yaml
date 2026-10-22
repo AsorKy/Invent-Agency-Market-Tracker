@@ -1,0 +1,16 @@
+# EXAMPLE checklist for gate G4 Design. Decision D-06: the owner replaces it.
+# Production refuses to load it unless FUNNEL_ALLOW_EXAMPLE_CHECKLISTS=true.
+# type: kill (fails => KILL), required (missing => WAIT, fails => PIVOT),
+# score (weighted share of passed items must reach rules.advance_min_score).
+version: 1
+example: true
+gate: G4
+name: Design
+items:
+  - {id: brief_approved, description: "Brief approved (0 or 1)", op: eq, threshold: 1, type: required, weight: 1}
+  - {id: prototype_feedback_score, description: "Prototype feedback score", op: gte, threshold: 0.7, type: score, weight: 1}
+  - {id: budget_within_plan, description: "Budget within plan (0 or 1)", op: eq, threshold: 1, type: score, weight: 1}
+  - {id: scope_infeasible, description: "Scope feasible (1) or infeasible (0)", op: eq, threshold: 1, type: kill, weight: 1}
+rules:
+  advance_min_score: 0.5
+  max_pivots: 3

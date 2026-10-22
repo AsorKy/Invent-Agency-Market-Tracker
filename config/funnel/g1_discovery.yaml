@@ -1,0 +1,16 @@
+# EXAMPLE checklist for gate G1 Discovery. Decision D-06: the owner replaces it.
+# Production refuses to load it unless FUNNEL_ALLOW_EXAMPLE_CHECKLISTS=true.
+# type: kill (fails => KILL), required (missing => WAIT, fails => PIVOT),
+# score (weighted share of passed items must reach rules.advance_min_score).
+version: 1
+example: true
+gate: G1
+name: Discovery
+items:
+  - {id: market_signal_count, description: "Enough market signals observed", op: gte, threshold: 5, type: required, weight: 1}
+  - {id: icp_match_score, description: "ICP match score", op: gte, threshold: 0.6, type: score, weight: 1}
+  - {id: sector_growth_rate, description: "Sector growth rate", op: gte, threshold: 0.0, type: score, weight: 1}
+  - {id: regulatory_blocker, description: "No regulatory blocker (0 or 1)", op: eq, threshold: 0, type: kill, weight: 1}
+rules:
+  advance_min_score: 0.5
+  max_pivots: 3

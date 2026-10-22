@@ -1,0 +1,16 @@
+# EXAMPLE checklist for gate G5 Launch. Decision D-06: the owner replaces it.
+# Production refuses to load it unless FUNNEL_ALLOW_EXAMPLE_CHECKLISTS=true.
+# type: kill (fails => KILL), required (missing => WAIT, fails => PIVOT),
+# score (weighted share of passed items must reach rules.advance_min_score).
+version: 1
+example: true
+gate: G5
+name: Launch
+items:
+  - {id: launch_checklist_done, description: "Launch checklist done (0 or 1)", op: eq, threshold: 1, type: required, weight: 1}
+  - {id: pipeline_coverage, description: "Pipeline coverage multiple", op: gte, threshold: 3, type: score, weight: 1}
+  - {id: conversion_rate, description: "Lead to meeting conversion", op: gte, threshold: 0.1, type: score, weight: 1}
+  - {id: compliance_ok, description: "Compliance cleared (1) or not (0)", op: eq, threshold: 1, type: kill, weight: 1}
+rules:
+  advance_min_score: 0.5
+  max_pivots: 3
