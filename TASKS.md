@@ -47,6 +47,7 @@ Size is a rough token cost guide: S under 1 USD, M 1 to 3 USD, L 3 to 8 USD. Tes
 | r1-g | Long wave, four parallel sessions: layer L2 validation chain T-108, T-109, T-111, T-110, T-112; pulse endpoints and attribution storage T-135, T-136; ml and brief gaps T-139, T-141, T-137, T-138; platform T-140, T-143 | 14 tasks | about 55 USD |
 | r1-h | Long wave, five parallel sessions: score weights through the core API and the score stored in core T-144, T-145; funnel and validation served end to end T-146, T-147, T-148; event chain and pulse project writers T-149, T-152; ml publisher tenant and explanations T-150, T-151; compose, images, runbook, registry and SPEC lines T-153, T-154, T-156, T-157, T-155 | 14 tasks | about 100 USD |
 | r1-i | Short wave, three parallel sessions: funnel and validation served end to end T-146 to T-148 (unblocked, KILL sets the status killed); event chain producers T-159; compose core URL for ml, schedule tenant, e2e check of stored scores T-158, T-160, T-161 | 7 tasks | about 40 USD |
+| r1-j | Short wave, three parallel sessions: real Postgres tests for the new SQL and funnel decision lock T-162, T-163; e2e with the event chain on and ml feature backfill T-164, T-165; event chain runbook and SPEC tasks lines T-166, T-167 | 6 tasks | about 40 USD |
 | r2 | Continuation with ADR-0002: T-100 to T-112, only if budget remains after T-080; run as r1-f and r1-g | 13 tasks | about 38 USD |
 
 Total estimate for run 1 (smoke to r1-d): about 197 USD (183 USD of the v3 plan plus about 14 USD for T-090 to T-097 and about 30 USD for the v6 follow-ups), plus about 38 USD for the optional ADR-0002 continuation, to be corrected after the smoke run shows real cost per task. Blocked tasks do not consume budget. Set the session budget of each run to about 1.5 times its estimate.
@@ -1794,3 +1795,75 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - acceptance: `pytest -q tests/unit/test_e2e_check.py tests/unit/test_demo_pipeline.py`
 - note: after T-145 core stores the score of each company from `lead.score_updated`, and after T-151 ML stores the features it scored with. Make `ops/e2e_check.py` require that rows in `core.company` have a non-null `score` and that `ml.lead_score` rows have the stored features (count them, not just the rows), and make the offline demo pipeline test assert the same after the seed enrichment. There is no Docker in your sandbox: the CI e2e stage is the real check, so state in the report which assertion it will exercise first.
 - evidence: e2e_check requires core.company.score non-null and ml.lead_score feature_* stored; demo test asserts same offline; 19 passed; CI e2e is the real check
+
+### T-162 Real Postgres tests for the SQL added since wave r1-g
+- status: todo
+- spec: REQ-QA-001, REQ-SEC-005, REQ-COR-008
+- owner: qa-reviewer
+- depends: T-145, T-146, T-147, T-151, T-152, T-159
+- write_scope: tests/integration/test_sql_r1_flows.py (new), tests/integration/support_sql_pg.py (helpers only)
+- context: tests/integration/test_sql_postgres.py, tests/integration/support_sql_pg.py, docs/runs/RUN-r1-h-scores.md, docs/runs/RUN-r1-i-validation.md, docs/runs/RUN-r1-i-events.md
+- size: L
+- acceptance: `pytest -q tests/integration/test_sql_r1_flows.py tests/integration/test_sql_postgres.py` (they need `TEST_DATABASE_URL`; the CI integration job is the real check)
+- note: the integration tier only prepares statements today (`test_every_statement_prepares`); the SQL of T-145, T-146, T-147, T-151, T-152 and T-159 has never run against Postgres, and the run reports list it as an unresolved risk (jsonb_set, FOR UPDATE, row level security on audit_log). Add one test per flow that RUNS the statement on the scratch database after the migrations: a KILL decision sets `core.project.status` to `killed`, bumps the version in `metadata` and writes the audit row; `lead.score_updated` stores `core.company.score` and a second delivery changes nothing; the ML score upsert stores the feature columns; `insert_chain_events` writes the outbox rows with the parent links; the pulse project snapshot upsert is idempotent; a read of a tenant table as the app role without `set_tenant_context` returns no rows and with it returns the tenant rows. Use the app roles from `bootstrap_roles`, not the superuser, wherever the code under test runs as an app role. If a test exposes a defect, do not weaken the test: fix it only when the fix is one statement inside the owning service's SQL, otherwise stop that flow and put the exact failure in the report. There is no Docker in your sandbox: say in the report which test you expect to fail first in CI.
+- evidence: filled by the agent when done
+
+### T-163 Serialize funnel decisions on a project
+- status: todo
+- spec: REQ-LNS-009, REQ-SEC-005
+- owner: lead-backend-engineer
+- depends: T-146
+- write_scope: services/core/app/funnel.py, tests/unit/test_funnel_routes.py
+- context: services/core/app/funnel.py, docs/runs/RUN-r1-i-validation.md
+- size: S
+- acceptance: `pytest -q tests/unit/test_funnel_routes.py tests/unit/test_openapi.py tests/unit/test_sql_consistency.py`
+- note: the T-146 run report says that a concurrent ADVANCE and KILL on the same project both succeed. Take the project row lock (`SELECT ... FOR UPDATE`, inside the tenant context) before reading the status for every decision, and answer 409 with a stable error code when the project is already `killed`. Keep the version rule as T-146 left it (only KILL bumps it). Prove the statement order with the fake transaction used by the existing tests (lock first, then read, then write) and add the 409 case. Do not change the routes or the OpenAPI snapshot except to document the new 409 response; if the snapshot changes, regenerate it with `make openapi`.
+- evidence: filled by the agent when done
+
+### T-164 The e2e check can run with the event chain on
+- status: todo
+- spec: REQ-RUN-001, REQ-QA-001, REQ-EVT-001
+- owner: devops-engineer
+- depends: T-159, T-161
+- write_scope: ops/e2e_check.py, tests/unit/test_e2e_check.py, docker-compose.yml (only to pass `EVENT_CHAIN_EMIT` to core and ml with default false), tests/unit/test_compose.py (only the matching assertion), docs/runs/T-164-ci-workflow.diff (new)
+- context: ops/e2e_check.py, .github/workflows/ci.yml, docs/runs/T-064-ci-workflow.diff, docs/runs/RUN-r1-i-events.md, libs/domain/event_chain.py
+- size: M
+- acceptance: `pytest -q tests/unit/test_e2e_check.py tests/unit/test_compose.py && python ops/check_configuration.py`
+- note: T-159 ships the six chain producers behind `EVENT_CHAIN_EMIT`, off by default, and its new SQL ran only on fakes. Pass the flag through Compose (default false, `.env.example` stays `EVENT_CHAIN_EMIT=false`, which `ops/check_configuration.py` enforces). Add a `--chain` mode to `ops/e2e_check.py`: after the normal checks it creates one signal and moves one lead status through the public routes, then requires that the outbox holds the chain event types (`signal.tagged`, `company.matched`, `signal.explained`, `project.pipeline_updated`, `project.forecast_updated`) all published and that the dead letter count is zero. Agents cannot edit `.github/workflows/`: write the extra CI step (a second pass with `EVENT_CHAIN_EMIT=true`, after the normal e2e) as a diff in `docs/runs/T-164-ci-workflow.diff`, as T-064 did, for the owner to apply. State in the report which step you expect to fail first.
+- evidence: filled by the agent when done
+
+### T-165 Backfill the stored features of old score rows
+- status: todo
+- spec: REQ-LNS-007, REQ-BRF-001, REQ-SEC-005
+- owner: second-backend-engineer
+- depends: T-151
+- write_scope: services/ml/app/backfill.py (new), services/ml/app/repository.py (one read of the rows without features), tests/unit/test_ml_backfill.py
+- context: services/ml/app/explanations_routes.py, services/ml/app/scoring_service.py, docs/runs/RUN-r1-h-ml.md
+- size: M
+- acceptance: `pytest -q tests/unit/test_ml_backfill.py tests/unit/test_ml_singleflight.py tests/unit/test_ml_explanations.py`
+- note: score rows written before T-151 have null features, so the explanation route answers 404 for them until they are rescored. Add a command (`python -m services.ml.app.backfill --tenant <id> --limit N`) that lists the rows of one tenant without features, oldest first, and rescores each through the normal `ScoringService` path, so the score version, the event and the stored features come out as for any new score. It is idempotent (a second run finds nothing), bounded by `--limit`, and prints only counts, never rows. Use only data the ml service already owns or receives through its API (INV-01): if the inputs of a rescore cannot be rebuilt from ml alone, stop and mark the task `blocked` with the reason instead of reading another schema.
+- evidence: filled by the agent when done
+
+### T-166 Runbook for turning the event chain on
+- status: todo
+- spec: REQ-DOC-001, REQ-EVT-001
+- owner: devops-engineer
+- depends: T-159
+- write_scope: docs/runbooks/event-chain-rollout.md (new), docs/runbooks/go-live.md (one link line), tests/unit/test_runbook.py
+- context: docs/runbooks/go-live.md, docs/runs/RUN-r1-i-events.md, docs/runs/RUN-r1-h-events.md, libs/domain/event_chain.py
+- size: S
+- acceptance: `pytest -q tests/unit/test_runbook.py && python ops/check_language.py`
+- note: write the operator procedure for setting `EVENT_CHAIN_EMIT=true`: consumers first (T-149 already accept the chain types), then producers; the checks to run before and after (outbox backlog, dead letter count zero, the `--chain` mode of `ops/e2e_check.py` that T-164 adds, `trace_chain` gaps); how to roll back (set the flag to false; chain events already written stay valid and are ignored by old consumers); and the known limit that three chain links use deterministic reference ids that no event carries, so `trace_chain` reports those gaps by design until the contract carries the parent event id. Add the matching assertions to `tests/unit/test_runbook.py`. Do not invent behavior the code lacks: cite the file for each claim.
+- evidence: filled by the agent when done
+
+### T-167 Fill the SPEC tasks lines for the tasks added since T-157
+- status: todo
+- spec: REQ-TRC-001
+- owner: qa-reviewer
+- depends: T-157
+- write_scope: SPEC.md (only the `tasks:` lines), tests/unit/test_spec_tasks_lines.py
+- context: SPEC.md, TASKS.md, ops/check_traceability.py
+- size: S
+- acceptance: `python ops/check_traceability.py` and `pytest -q tests/unit/test_spec_tasks_lines.py tests/unit/test_traceability.py`
+- note: T-158 to T-166 and T-144 to T-157 cite requirements whose `tasks:` lines may not list them. Rebuild every `tasks:` line from the `spec:` lines of TASKS.md (a requirement's tasks are the ones that cite it), keep the stated reasons where no task cites a requirement, and change nothing else in SPEC.md: no statement, no `status`, no `verify`, and not the REQ-SEC-005 text. The existing test must keep passing and gain one case that fails when a task cites a requirement whose `tasks:` line omits it.
+- evidence: filled by the agent when done
