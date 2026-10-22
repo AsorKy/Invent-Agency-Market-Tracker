@@ -69,13 +69,21 @@ def webhook_headers() -> dict[str, str]:
     return {name: value}
 
 
-def tenant_id() -> str:
-    """Return the tenant the worker reads for, from the environment."""
+def optional_tenant_id() -> str | None:
+    """Return the batch tenant from the environment, or None when none is set."""
     for env in TENANT_ENVS:
         value = os.environ.get(env, "").strip()
         if value:
             return value
-    raise DriftConfigError(f"{TENANT_ENVS[0]} must be set")
+    return None
+
+
+def tenant_id() -> str:
+    """Return the tenant the worker reads for, from the environment."""
+    value = optional_tenant_id()
+    if value is None:
+        raise DriftConfigError(f"{TENANT_ENVS[0]} must be set")
+    return value
 
 
 class PulseSeriesLoader:
