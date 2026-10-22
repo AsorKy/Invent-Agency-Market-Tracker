@@ -1882,7 +1882,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: filled by the agent when done
 
 ### T-169 Runbook step for the feature backfill
-- status: todo
+- status: done
 - spec: REQ-DOC-001, REQ-LNS-007
 - owner: devops-engineer
 - depends: T-165
@@ -1891,4 +1891,4 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: S
 - acceptance: `pytest -q tests/unit/test_runbook.py && python ops/check_language.py`
 - note: after T-165 lands, document the operator step for the old score rows: deploy core before ml (ml calls the new core route), run `python -m services.ml.app.backfill --tenant <id> --limit N` once per tenant inside the ml container, read the counts it prints, run it again until it reports zero (idempotent), and check that the explanation route now answers instead of 404. Cite the file for each claim and add the matching assertions to `tests/unit/test_runbook.py`. Do not invent flags: read them from `services/ml/app/backfill.py` as T-165 wrote it.
-- evidence: filled by the agent when done
+- evidence: section 16 added to docs/runbooks/go-live.md; test_backfill_section_matches_the_cli_and_cites_real_files added; pytest tests/unit/test_runbook.py 10 passed, check_language OK, make static OK, make test 1603 passed

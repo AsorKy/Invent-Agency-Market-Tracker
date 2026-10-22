@@ -136,3 +136,29 @@ def test_event_chain_runbook_covers_procedure_and_cites_real_files() -> None:
 
 def test_go_live_links_the_event_chain_runbook() -> None:
     assert "docs/runbooks/event-chain-rollout.md" in RUNBOOK.read_text(encoding="ascii")
+
+
+def test_backfill_section_matches_the_cli_and_cites_real_files() -> None:
+    text = RUNBOOK.read_text(encoding="ascii")
+    section = text.split("## 16. Backfill the features of old score rows", 1)[1]
+    source = (ROOT / "services" / "ml" / "app" / "backfill.py").read_text(encoding="utf-8")
+    for needle in (
+        "python -m services.ml.app.backfill --tenant <uuid> --limit N",
+        "backfill tenant=<uuid> pages=P examined=E missing=M rescored=R skipped=S failed=F",
+        "backfill stopped: tenant score rules unavailable",
+        "backfill stopped: core score features unavailable",
+        "missing=0 rescored=0",
+        "/internal/core/admin/score-features",
+        "/internal/ml/explanations/{company_id}",
+        "Deploy `core` before `ml`",
+        "placeholder",
+        "idempotent",
+    ):
+        assert needle.lower() in section.lower(), needle
+    for flag in ("--tenant", "--limit"):
+        assert f'"{flag}"' in source
+    for message in ("tenant score rules unavailable", "core score features unavailable"):
+        assert message in source
+    pattern = r"`((?:services|libs|ops|docs|tests)/[\w./-]+\.\w+)`"
+    for path in sorted(set(re.findall(pattern, section))):
+        assert (ROOT / path).is_file(), path

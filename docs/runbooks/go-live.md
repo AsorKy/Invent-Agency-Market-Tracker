@@ -191,3 +191,16 @@ The ADR is silent on some band boundaries, so the code uses values chosen by the
 Record the confirmed values in the run report; a change is an edit of the threshold configuration plus a rebuild of the image that reads it.
 
 To turn the event chain on after go-live, follow `docs/runbooks/event-chain-rollout.md`.
+
+## 16. Backfill the features of old score rows
+
+Score rows written before the features were stored have null features, so the explanation route answers 404 for them. The backfill rescores them. Facts below come from `services/ml/app/backfill.py` unless another file is named.
+
+1. Deploy `core` before `ml`. The backfill asks core for `GET /internal/core/admin/score-features` (`services/core/app/main.py`, `services/core/app/score_features.py`), because ml has no grant on the core schema.
+2. Run once per tenant inside the ml container: `python -m services.ml.app.backfill --tenant <uuid> --limit N`. Both flags are required, `--tenant` is a uuid, and `--limit` must be at least 1; it is the maximum number of companies rescored in one run.
+3. Read the single line it prints: `backfill tenant=<uuid> pages=P examined=E missing=M rescored=R skipped=S failed=F`, exit code 0. `skipped` counts companies whose single-flight score lock was busy; `failed` counts companies whose rescore raised an error.
+4. Run it again until it prints `missing=0 rescored=0`. It is idempotent: a rescored row has features, so a later run finds nothing to do.
+5. Exit code 1 means a stop: `backfill stopped: tenant score rules unavailable` or `backfill stopped: core score features unavailable`. Check that core is deployed and reachable, then rerun.
+6. Check that `GET /internal/ml/explanations/{company_id}` (`services/ml/app/explanations_routes.py`) now answers for a backfilled company instead of 404 `explanation_not_found`.
+
+The features are a demo heuristic placeholder until the real feature definition is decided (`services/core/app/score_features.py`).
