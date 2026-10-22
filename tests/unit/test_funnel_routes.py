@@ -16,7 +16,7 @@ pytest.importorskip("fastapi")
 pytest.importorskip("structlog")
 pytest.importorskip("sqlalchemy")
 testclient = pytest.importorskip("fastapi.testclient")
-from support_cov_services import FakeEngine  # noqa: E402
+from support_cov_services import FakeEngine, FakeResult  # noqa: E402
 
 from services.core.app import funnel as funnel_module  # noqa: E402
 from services.core.app import main as core  # noqa: E402
@@ -255,9 +255,49 @@ async def test_sql_unit_of_work_sets_tenant_before_any_statement() -> None:
         await tx.get_project(uuid4(), TENANT)
     statements = [call[0] for call in engine.connection.calls]
     assert "set_config('app.tenant_id'" in statements[0]
-    assert "FROM core.project" in statements[1]
+    assert "FROM core.project" in statements[1] and "FOR UPDATE" in statements[1]
 
 
 def test_funnel_unit_of_work_needs_a_database() -> None:
     with pytest.raises(RuntimeError):
         funnel_module.funnel_unit_of_work(None, TENANT)
+
+
+def _project_row(status: str) -> dict[str, Any]:
+    return {"id": PROJECT, "tenant_id": TENANT, "name": "Pilot", "status": status, "version": 1}
+
+
+async def test_decision_statement_order_is_lock_read_write() -> None:
+    script = [FakeResult(), FakeResult([{"id": PROJECT}]), FakeResult([_project_row("draft")])]
+    engine = FakeEngine([*script, *[FakeResult() for _ in range(4)], FakeResult(rowcount=1)])
+    uow = funnel_module.funnel_unit_of_work(engine, TENANT)  # type: ignore[arg-type]
+    await funnel_module.evaluate_project_gate(
+        uow, PROJECT, "G3", kill_inputs(), tenant_id=TENANT, apply_kill=True, expected_version=1
+    )
+    statements = [call[0] for call in engine.connection.calls]
+    assert "set_config('app.tenant_id'" in statements[0]
+    assert "FOR UPDATE" in statements[1] and "FROM core.project" in statements[1]
+    assert "FOR UPDATE" not in statements[2] and "SELECT" in statements[2]
+    assert "INSERT INTO core.audit_log" in statements[3]
+    assert statements[-1].startswith("UPDATE core.project")
+    assert sum("FOR UPDATE" in s for s in statements) == 1
+
+
+async def test_killed_project_is_refused_after_the_lock_without_writes() -> None:
+    engine = FakeEngine(
+        [FakeResult(), FakeResult([{"id": PROJECT}]), FakeResult([_project_row("killed")])]
+    )
+    uow = funnel_module.funnel_unit_of_work(engine, TENANT)  # type: ignore[arg-type]
+    with pytest.raises(funnel_module.ProjectKilledError):
+        await funnel_module.evaluate_project_gate(uow, PROJECT, "G3", {}, tenant_id=TENANT)
+    statements = [call[0] for call in engine.connection.calls]
+    assert len(statements) == 3 and "FOR UPDATE" in statements[1]
+    assert not any(s.startswith(("INSERT", "UPDATE")) for s in statements)
+
+
+async def test_missing_project_stops_at_the_lock() -> None:
+    engine = FakeEngine()
+    uow = funnel_module.funnel_unit_of_work(engine, TENANT)  # type: ignore[arg-type]
+    with pytest.raises(funnel_module.ProjectNotFoundError):
+        await funnel_module.evaluate_project_gate(uow, PROJECT, "G3", {}, tenant_id=TENANT)
+    assert len(engine.connection.calls) == 2

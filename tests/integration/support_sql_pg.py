@@ -112,3 +112,52 @@ def tables_with_tenant_id(conn: Any) -> list[str]:
         """
     ).fetchall()
     return [row[0] for row in rows]
+
+
+def role_url(base_url: str, role: str, password: str) -> str:
+    """Return ``base_url`` with the user and password replaced (keeps the URL form)."""
+    return (
+        make_url(base_url)
+        .set(username=role, password=password)
+        .render_as_string(hide_password=False)
+    )
+
+
+def bootstrap_app_roles(url: str, password: str) -> dict[str, str]:
+    """Create the owner and app roles on the migrated database; map schema to app role name.
+
+    Skips the calling test when the server user may not create roles (not a superuser).
+    """
+    import psycopg
+    from psycopg import sql
+
+    from ops.bootstrap_roles import generate_sql
+    from ops.schemas import SCHEMAS, app_role
+
+    try:
+        with psycopg.connect(url, autocommit=True) as connection:
+            connection.execute(
+                generate_sql(passwords={schema: password for schema in SCHEMAS}, extensions=())
+            )
+            # Roles are cluster wide and generate_sql only creates them when missing, so an
+            # earlier test may have made them with another password.
+            for schema in SCHEMAS:
+                connection.execute(
+                    sql.SQL("ALTER ROLE {} PASSWORD {}").format(
+                        sql.Identifier(app_role(schema)), sql.Literal(password)
+                    )
+                )
+    except psycopg.errors.InsufficientPrivilege:
+        import pytest
+
+        pytest.skip("the test user cannot create roles or change schema owners")
+    return {schema: app_role(schema) for schema in SCHEMAS}
+
+
+def admin_execute(url: str, sql_text: str, params: tuple[Any, ...] = ()) -> list[tuple[Any, ...]]:
+    """Run one statement as the server user (outside row level security); return its rows."""
+    import psycopg
+
+    with psycopg.connect(url, autocommit=True) as connection:
+        cursor = connection.execute(sql_text, params)
+        return cursor.fetchall() if cursor.description else []

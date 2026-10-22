@@ -1797,7 +1797,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: e2e_check requires core.company.score non-null and ml.lead_score feature_* stored; demo test asserts same offline; 19 passed; CI e2e is the real check
 
 ### T-162 Real Postgres tests for the SQL added since wave r1-g
-- status: todo
+- status: done
 - spec: REQ-QA-001, REQ-SEC-005, REQ-COR-008
 - owner: qa-reviewer
 - depends: T-145, T-146, T-147, T-151, T-152, T-159
@@ -1806,10 +1806,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/integration/test_sql_r1_flows.py tests/integration/test_sql_postgres.py` (they need `TEST_DATABASE_URL`; the CI integration job is the real check)
 - note: the integration tier only prepares statements today (`test_every_statement_prepares`); the SQL of T-145, T-146, T-147, T-151, T-152 and T-159 has never run against Postgres, and the run reports list it as an unresolved risk (jsonb_set, FOR UPDATE, row level security on audit_log). Add one test per flow that RUNS the statement on the scratch database after the migrations: a KILL decision sets `core.project.status` to `killed`, bumps the version in `metadata` and writes the audit row; `lead.score_updated` stores `core.company.score` and a second delivery changes nothing; the ML score upsert stores the feature columns; `insert_chain_events` writes the outbox rows with the parent links; the pulse project snapshot upsert is idempotent; a read of a tenant table as the app role without `set_tenant_context` returns no rows and with it returns the tenant rows. Use the app roles from `bootstrap_roles`, not the superuser, wherever the code under test runs as an app role. If a test exposes a defect, do not weaken the test: fix it only when the fix is one statement inside the owning service's SQL, otherwise stop that flow and put the exact failure in the report. There is no Docker in your sandbox: say in the report which test you expect to fail first in CI.
-- evidence: filled by the agent when done
+- evidence: `pytest -q tests/integration/test_sql_r1_flows.py tests/integration/test_sql_postgres.py` against local Postgres 16: 23 passed; make static and make test OK. Defect found outside the listed flows: qualification unit of work has no tenant context (see docs/runs/RUN-r1-j-sql.md).
 
 ### T-163 Serialize funnel decisions on a project
-- status: todo
+- status: done
 - spec: REQ-LNS-009, REQ-SEC-005
 - owner: lead-backend-engineer
 - depends: T-146
@@ -1818,7 +1818,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: S
 - acceptance: `pytest -q tests/unit/test_funnel_routes.py tests/unit/test_openapi.py tests/unit/test_sql_consistency.py`
 - note: the T-146 run report says that a concurrent ADVANCE and KILL on the same project both succeed. Take the project row lock (`SELECT ... FOR UPDATE`, inside the tenant context) before reading the status for every decision, and answer 409 with a stable error code when the project is already `killed`. Keep the version rule as T-146 left it (only KILL bumps it). Prove the statement order with the fake transaction used by the existing tests (lock first, then read, then write) and add the 409 case. Do not change the routes or the OpenAPI snapshot except to document the new 409 response; if the snapshot changes, regenerate it with `make openapi`.
-- evidence: filled by the agent when done
+- evidence: `pytest -q tests/unit/test_funnel_routes.py tests/unit/test_openapi.py tests/unit/test_sql_consistency.py`: 52 passed; make static OK.
 
 ### T-164 The e2e check can run with the event chain on
 - status: done
