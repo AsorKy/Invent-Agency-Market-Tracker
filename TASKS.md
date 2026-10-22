@@ -1711,7 +1711,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: Dockerfile.python copies config/ and sets PYTHONPATH=/app; pytest test_images_ship_runtime_files + test_compose 55 passed; make static green
 
 ### T-155 Go-live runbook items for the lens and validation wave
-- status: todo
+- status: done
 - spec: REQ-DOC-001, REQ-LNS-009, REQ-LNS-011
 - owner: devops-engineer
 - depends: T-153, T-154
@@ -1720,7 +1720,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: S
 - acceptance: `pytest -q tests/unit/test_runbook.py`
 - note: append new numbered sections after the existing last one (11, nightly backups); do not renumber and keep "## 10. Troubleshooting" as it is, because tests read it. Cover, each as a checkable item: create the n8n credentials `pulse-internal-header` and `drift-alert-header` (names only, never values) and the fact that n8n service tokens live 60 seconds while a static-header credential does not, so the socioeconomic refresh workflow needs the owner's decision; the drift worker profile and its variables (T-153); `FUNNEL_ALLOW_EXAMPLE_CHECKLISTS` must stay false in production and the owner replaces the example checklists in `config/funnel/` (decision D-06); the owner confirms the threshold bands the ADR is silent about (LTV:CAC 5, burn multiple 2 to 3, CAC payback 12 to 18, and the invented `horizon_mix_deviation` bands). Every variable cited must exist in `.env.example` or in the allow sets of tests/unit/test_runbook.py.
-- evidence: filled by the agent when done
+- evidence: pytest test_runbook 6 passed; make static green; go-live sections 12-15 added
 
 ### T-156 Remove the leftovers of the retired analytics service
 - status: done

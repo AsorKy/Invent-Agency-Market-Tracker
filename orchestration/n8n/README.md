@@ -28,3 +28,8 @@ Other workflows:
 
 Schedules: linkedin companies monthly, linkedin jobs weekly, instagram weekly, RUES
 weekly, socioeconomic monthly, ops health hourly.
+
+Go-live: create the n8n credentials `pulse-internal-header` and `drift-alert-header`
+(names only; values never enter the repository). n8n service tokens live 60 seconds
+and a static-header credential does not, so `wf_socioeco_refresh` needs an owner
+decision before it is activated. See `docs/runbooks/go-live.md`, sections 12 to 15.

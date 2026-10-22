@@ -155,3 +155,37 @@ The `backups` workflow stays disabled until its four repository secrets exist; w
 1. Add the secrets `BACKUP_SOURCE_URL`, `BACKUP_EPHEMERAL_ADMIN_URL`, `BACKUP_EPHEMERAL_PASSWORD`, and `BACKUP_AGE_RECIPIENT` (names only here; never write their values in the repository).
 2. Start the workflow once by hand (`gh workflow run backups`) and confirm that the job runs, the restore check passes, and the `backups-age` artifact holds only `.age` files.
 3. Confirm that the next scheduled nightly run (03:17 UTC) also passes.
+
+## 12. Create the n8n credentials for pulse and drift alerts
+
+Create these two credentials in n8n (names only here; never write their values in the repository or in a commit):
+
+1. `pulse-internal-header`, a header-auth credential used by the workflow `wf_socioeco_refresh` to call the pulse refresh route.
+2. `drift-alert-header`, a header-auth credential used by the webhook of `wf_drift_alert`. Its header name and value must equal `DRIFT_ALERT_HEADER_NAME` and `DRIFT_ALERT_HEADER_VALUE` on the drift worker.
+
+Owner decision needed: the n8n service tokens live 60 seconds, while a static-header credential does not expire. The socioeconomic refresh workflow therefore needs the owner to decide how it authenticates (a static header credential accepted by pulse, or a short-lived token minted before each run). Do not activate `wf_socioeco_refresh` until the owner decides. Checkable: both credentials exist in n8n and the decision is recorded.
+
+## 13. Start the drift worker
+
+The drift worker is outside the default stack. It is the Compose profile `lens`:
+
+1. Set `DRIFT_ALERT_WEBHOOK_URL` to the production webhook of `wf_drift_alert` (empty means the worker only logs), and set `DRIFT_ALERT_HEADER_NAME` and `DRIFT_ALERT_HEADER_VALUE` to match the credential `drift-alert-header`.
+2. Set `DRIFT_TENANT_ID` to the tenant whose series are checked, and `DRIFT_RUN_HOUR_UTC` to the hour (UTC) of the nightly run (default 7).
+3. Start it with `docker compose --profile lens up -d drift-worker`, then read `docker compose logs drift-worker`. The image copies `config/` and sets `PYTHONPATH=/app`, so rebuild it (`docker compose --profile lens build drift-worker`) after any change to the thresholds.
+
+## 14. Replace the example funnel checklists
+
+1. `FUNNEL_ALLOW_EXAMPLE_CHECKLISTS` must stay `false` in production. With `true`, the engine loads the example checklists, which is for tests and demos only.
+2. The files `config/funnel/g1_discovery.yaml` to `config/funnel/g7_sunset.yaml` are marked `example: true`. The owner replaces them with the real checklists of each gate (decision D-06) and removes the marker. Until then production refuses to load them.
+3. Checkable: no file in `config/funnel/` still contains `example: true`.
+
+## 15. Confirm the validation threshold bands
+
+The ADR is silent on some band boundaries, so the code uses values chosen by the team. The owner confirms or changes them before real use:
+
+1. LTV:CAC at 5.
+2. Burn multiple between 2 and 3.
+3. CAC payback between 12 and 18 months.
+4. The `horizon_mix_deviation` bands, which are invented and have no source in the ADR.
+
+Record the confirmed values in the run report; a change is an edit of the threshold configuration plus a rebuild of the image that reads it.

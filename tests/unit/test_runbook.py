@@ -20,6 +20,8 @@ BACKUP_SECRETS = {
     "BACKUP_EPHEMERAL_PASSWORD",
     "BACKUP_AGE_RECIPIENT",
 }
+# Read by libs/domain/funnel.py only; deliberately not listed in .env.example.
+RUNTIME_ONLY = {"FUNNEL_ALLOW_EXAMPLE_CHECKLISTS"}
 PLACEHOLDER = re.compile(r"SOURCE_<NAME>_(ENABLED|DATASET_ID)")
 
 
@@ -39,7 +41,7 @@ def test_runbook_is_ascii() -> None:
 def test_runbook_cites_only_known_variables() -> None:
     text = PLACEHOLDER.sub("", RUNBOOK.read_text(encoding="ascii"))
     cited = set(re.findall(r"`([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+)(?:=[^`]*)?`", text))
-    unknown = cited - _env_names() - OVERRIDES - BACKUP_SECRETS
+    unknown = cited - _env_names() - OVERRIDES - BACKUP_SECRETS - RUNTIME_ONLY
     assert not unknown, f"variables not in .env.example: {sorted(unknown)}"
     assert cited & _env_names()
 
@@ -84,3 +86,21 @@ def test_troubleshooting_table_has_rows() -> None:
     section = text.split("## 10. Troubleshooting", 1)[1]
     rows = [line for line in section.splitlines() if line.startswith("| ")]
     assert len(rows) >= 8
+
+
+def test_lens_wave_sections_are_present() -> None:
+    text = RUNBOOK.read_text(encoding="ascii")
+    assert "## 10. Troubleshooting" in text
+    for number in range(11, 16):
+        assert f"\n## {number}. " in text, number
+    for needle in (
+        "pulse-internal-header",
+        "drift-alert-header",
+        "60 seconds",
+        "--profile lens",
+        "DRIFT_TENANT_ID",
+        "FUNNEL_ALLOW_EXAMPLE_CHECKLISTS",
+        "horizon_mix_deviation",
+        "LTV:CAC",
+    ):
+        assert needle in text, needle
