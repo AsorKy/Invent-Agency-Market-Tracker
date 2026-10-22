@@ -1268,7 +1268,7 @@ class CoreRepository:
             "service_line": (service_line, "l.service_line = :service_line"),
             "city": (city, "l.city = :city"),
             "segment": (segment, "c.sector_code = :segment"),
-            "min_score": (min_score, "s.score >= :min_score"),
+            "min_score": (min_score, "CAST(NULL AS integer) >= :min_score"),
             "tenant_id": (tenant_id, "l.tenant_id = :tenant_id"),
         }
         for name, (value, clause) in filters.items():
@@ -1286,11 +1286,10 @@ class CoreRepository:
                 text(
                     f"""
                     SELECT l.id, l.company_id, c.legal_name, l.service_line, l.stage, l.city,
-                           c.sector_code AS segment, s.score, l.version,
+                           c.sector_code AS segment, CAST(NULL AS integer) AS score, l.version,
                            l.created_at, l.updated_at
                     FROM core.lead l
                     JOIN core.company c ON c.id = l.company_id
-                    LEFT JOIN ml.lead_score s ON s.company_id = l.company_id
                     {where}
                     ORDER BY l.updated_at DESC, l.id DESC
                     LIMIT :limit
@@ -1328,10 +1327,10 @@ class CoreRepository:
                     """
                     SELECT l.id, l.company_id, c.legal_name, l.service_line, l.stage, l.city,
                            l.source, l.qualification_reason, c.sector_code AS segment,
-                           s.score, l.version, l.last_transition_at, l.created_at, l.updated_at
+                           CAST(NULL AS integer) AS score, l.version, l.last_transition_at,
+                           l.created_at, l.updated_at
                     FROM core.lead l
                     JOIN core.company c ON c.id = l.company_id
-                    LEFT JOIN ml.lead_score s ON s.company_id = l.company_id
                     WHERE l.id = :id AND (CAST(:tenant_id AS uuid) IS NULL
                                           OR l.tenant_id = :tenant_id)
                     """

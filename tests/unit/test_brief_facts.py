@@ -118,3 +118,12 @@ def test_kanban_as_of_is_real_timestamp(client) -> None:
     body = client.get("/internal/core/pipeline/kanban").json()
     assert isinstance(body["as_of"], str)
     assert datetime.fromisoformat(body["as_of"]).tzinfo is not None
+
+
+def test_core_sql_never_reads_the_ml_schema() -> None:
+    """INV-01: ``core_app`` has no grant on ``ml``, so a JOIN there answers 500 in a real stack."""
+    from pathlib import Path
+
+    for name in ("brief_facts.py", "repository.py"):
+        source = (Path(__file__).resolve().parents[2] / "services/core/app" / name).read_text()
+        assert "ml.lead_score" not in source, name

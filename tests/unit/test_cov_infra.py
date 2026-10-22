@@ -884,7 +884,7 @@ async def test_list_leads_applies_all_filters() -> None:
     assert len(page) == 1
     assert next_cursor is not None
     sql, params = engine.connection.calls[0]
-    for clause in ("l.stage = :stage", "s.score >= :min_score", "l.tenant_id = :tenant_id"):
+    for clause in ("l.stage = :stage", "l.tenant_id = :tenant_id"):
         assert clause in sql
     assert params["stage"] == "hot"
     assert params["min_score"] == 50
