@@ -27,12 +27,17 @@ def test_grant_is_version_gated_and_skipped_for_superuser() -> None:
 
 
 class _Err(Exception):
-    pass
+    sqlstate: str | None = None
+
+    def __init__(self, msg: str = "", sqlstate: str | None = None) -> None:
+        super().__init__(msg)
+        self.sqlstate = sqlstate
 
 
 class _Conn:
-    def __init__(self, log: list[str]) -> None:
+    def __init__(self, log: list[str], sqlstate: str | None = "42501") -> None:
         self.log = log
+        self.sqlstate = sqlstate
 
     def __enter__(self) -> "_Conn":
         return self
@@ -43,7 +48,7 @@ class _Conn:
     def execute(self, sql: str) -> None:
         self.log.append(sql)
         if "pg_cron" in sql and sql.startswith("CREATE EXTENSION"):
-            raise _Err("not allowed")
+            raise _Err("not allowed", self.sqlstate)
 
 
 def test_unavailable_extension_is_reported_not_fatal(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -55,3 +60,20 @@ def test_unavailable_extension_is_reported_not_fatal(monkeypatch: pytest.MonkeyP
     assert "CREATE EXTENSION IF NOT EXISTS vector" in log[0]
     assert "CREATE EXTENSION" not in log[-1]
     assert "ALTER SCHEMA" in log[-1]
+
+
+@pytest.mark.parametrize("sqlstate", ["42501", "58P01"])
+def test_tolerated_sqlstates_are_reported(monkeypatch: pytest.MonkeyPatch, sqlstate: str) -> None:
+    log: list[str] = []
+    fake = types.SimpleNamespace(connect=lambda *a, **k: _Conn(log, sqlstate), Error=_Err)
+    monkeypatch.setitem(sys.modules, "psycopg", fake)
+    assert bootstrap_roles.execute_tolerant("postgresql://x", {}) == ["pg_cron"]
+
+
+def test_other_database_errors_raise(monkeypatch: pytest.MonkeyPatch) -> None:
+    log: list[str] = []
+    fake = types.SimpleNamespace(connect=lambda *a, **k: _Conn(log, "08006"), Error=_Err)
+    monkeypatch.setitem(sys.modules, "psycopg", fake)
+    with pytest.raises(_Err):
+        bootstrap_roles.execute_tolerant("postgresql://x", {})
+    assert not any("ALTER SCHEMA" in q for q in log)

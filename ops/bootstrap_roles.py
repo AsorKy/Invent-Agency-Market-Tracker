@@ -135,12 +135,7 @@ def passwords_from_env(schemas: Iterable[str] = SCHEMAS) -> dict[str, str]:
     return found
 
 
-def execute(db_url: str, sql: str) -> None:
-    """Run the SQL on ``db_url`` with psycopg (imported lazily, optional)."""
-    import psycopg  # type: ignore[import-not-found,unused-ignore]
-
-    with psycopg.connect(db_url, autocommit=True) as conn:
-        conn.execute(sql)
+TOLERATED_EXTENSION_SQLSTATES = frozenset({"42501", "58P01"})
 
 
 def execute_tolerant(
@@ -148,8 +143,9 @@ def execute_tolerant(
 ) -> list[str]:
     """Create extensions one by one, then run the role SQL; return missing extensions.
 
-    A platform that does not let this role create an extension (hosted Postgres) gets
-    the name reported instead of a crash; the platform must enable it in its dashboard.
+    Only "insufficient privilege" (42501) and "undefined file" (58P01, the platform
+    does not ship the extension) are tolerated and reported by name; the platform must
+    enable it in its dashboard. Any other database error is raised.
     """
     import psycopg  # type: ignore[import-not-found,unused-ignore]
 
@@ -158,7 +154,9 @@ def execute_tolerant(
         for ext in extensions:
             try:
                 conn.execute(f"CREATE EXTENSION IF NOT EXISTS {validate_identifier(ext)}")
-            except psycopg.Error:
+            except psycopg.Error as exc:
+                if getattr(exc, "sqlstate", None) not in TOLERATED_EXTENSION_SQLSTATES:
+                    raise
                 missing.append(ext)
         conn.execute(generate_sql(passwords=passwords, extensions=()))
     return missing
