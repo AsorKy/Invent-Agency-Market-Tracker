@@ -29,6 +29,12 @@ NOT_PUBLIC = {
     ("GET", "/internal/core/companies/{company_id}/brief-facts"): "brief service only, never public",
     ("POST", "/internal/core/compliance/opt-out"): "n8n and ops only, never public",
     ("POST", "/internal/core/compliance/purge"): "n8n and ops only, never public",
+    ("POST", "/internal/pulse/ingest/profiles"): "ml service only, never public",
+    ("POST", "/internal/pulse/ingest/communities"): "ml service only, never public",
+    ("POST", "/internal/pulse/ingest/topics"): "ml service only, never public",
+    ("POST", "/internal/pulse/ingest/attribution"): "ml service only, never public",
+    ("GET", "/internal/pulse/projects/metrics"): "lens service calls only, never public",
+    ("POST", "/internal/pulse/socioeconomic/refresh"): "n8n only, never public",
 }
 SERVICES = ["core", "identity", "pulse", "brief", "ml"]
 STATIC_INTERNAL = {"/internal/metrics"}
