@@ -163,7 +163,7 @@ Create these two credentials in n8n (names only here; never write their values i
 1. `pulse-internal-header`, a header-auth credential used by the workflow `wf_socioeco_refresh` to call the pulse refresh route.
 2. `drift-alert-header`, a header-auth credential used by the webhook of `wf_drift_alert`. Its header name and value must equal `DRIFT_ALERT_HEADER_NAME` and `DRIFT_ALERT_HEADER_VALUE` on the drift worker.
 
-Owner decision needed: the n8n service tokens live 60 seconds, while a static-header credential does not expire. The socioeconomic refresh workflow therefore needs the owner to decide how it authenticates (a static header credential accepted by pulse, or a short-lived token minted before each run). Do not activate `wf_socioeco_refresh` until the owner decides. Checkable: both credentials exist in n8n and the decision is recorded.
+Decision D-33 (owner, 2026-10-22): the n8n service tokens live 60 seconds, so `wf_socioeco_refresh` authenticates with a short-lived service token minted before each run, not with a static header credential, which does not expire. The workflow stays inactive until task T-185 delivers that mint step; do not activate it before. The credential `pulse-internal-header` above is replaced by that step and is not created. Checkable: the credential `drift-alert-header` exists in n8n and `wf_socioeco_refresh` is inactive.
 
 ## 13. Start the drift worker
 
@@ -204,3 +204,20 @@ Score rows written before the features were stored have null features, so the ex
 6. Check that `GET /internal/ml/explanations/{company_id}` (`services/ml/app/explanations_routes.py`) now answers for a backfilled company instead of 404 `explanation_not_found`.
 
 The features are a demo heuristic placeholder until the real feature definition is decided (`services/core/app/score_features.py`).
+
+## 17. Owners, target date and prerequisites
+
+Decision D-34 (owner, 2026-10-22):
+
+- Technical owner: lead-backend-engineer.
+- Data and credentials owner: the owner.
+- Target date: not set yet. The owner writes it here before go-live: ____-__-__.
+
+Do not declare go-live until the first two prerequisites are resolved. Each item is checkable:
+
+1. Identity database wiring (finding F-r1e-02). `docker-compose.yml` passes `POSTGRES_HOST`, `IDENTITY_DB_USER` and `IDENTITY_DB_PASSWORD` (taken from `BOOTSTRAP_PASSWORD_IDENTITY`) to the identity service, and `python ops/check_configuration.py` checks them. The wiring is in the repository; the Docker run of item 3 confirms it.
+2. The `make verify-live` port caveat of section 7: task T-186 publishes the ingest and core ports on the loopback so the defaults work. Until it is merged, set `VERIFY_LIVE_INGEST_URL` and `VERIFY_LIVE_CORE_URL`.
+3. A Docker run of the integration tier and the e2e (decision D-32, task T-187): the owner or qa-reviewer runs `make test-integration`, `make invent-tracker` and `make doctor` and records the result in `docs/runs/RUN-golive-docker.md`.
+4. The four backup secrets of section 11 exist and the nightly run (03:17 UTC) is green. The owner configures them.
+5. The credential `drift-alert-header` exists in n8n and `wf_socioeco_refresh` stays inactive (section 12).
+6. The example funnel checklists are replaced (section 14, decision D-06). This is business content and an owner task; production refuses the examples while `FUNNEL_ALLOW_EXAMPLE_CHECKLISTS` is `false`.
