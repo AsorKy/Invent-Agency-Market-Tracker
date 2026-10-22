@@ -1574,3 +1574,29 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - acceptance: `pytest -q tests/unit/test_bootstrap_roles_privileges.py tests/unit/test_bootstrap_env.py`
 - note: `execute_tolerant` swallows every `psycopg.Error` on extension creation; tolerate only the errors that mean the platform does not offer the extension or the role lacks the privilege (insufficient privilege, undefined file), report them by name, and let anything else raise. Remove the unused `execute()` helper if nothing calls it.
 - evidence: pytest -q tests/unit/test_bootstrap_roles_privileges.py tests/unit/test_bootstrap_env.py: 21 passed; make static and make test green. Only SQLSTATE 42501 and 58P01 tolerated; unused execute() removed.
+
+### T-144 Core serves the per-tenant score weights and ML calls it
+- status: todo
+- spec: REQ-ML-001, REQ-SEC-005, REQ-COR-001
+- owner: lead-backend-engineer
+- depends: T-085, T-123
+- write_scope: services/core/app/ (a new module `score_rules.py` and its route in main.py), services/ml/app/ (a new module `core_rules.py`, main.py, repository.py), tests/unit/test_score_rules.py, tests/unit/test_ml_core_rules.py, tests/unit/test_openapi.py (NOT_PUBLIC entry only), tests/unit/test_cov_services.py (the load_weights tests only)
+- context: services/core/app/brief_facts.py, services/brief/app/core_source.py, services/ml/app/repository.py, services/ml/app/scoring_service.py, libs/domain/scoring.py, docs/runs/RUN-r1-g-ml.md
+- size: M
+- acceptance: `pytest -q tests/unit/test_score_rules.py tests/unit/test_ml_core_rules.py tests/unit/test_ml_singleflight.py tests/unit/test_cov_services.py` and `make test`
+- note: `ml_app` has no grant on the `core` schema and must not get one (INV-01), so `MlRepository.load_weights` cannot read `core.lead_score_rule`; today it falls back to default weights and reports `rules_source` `default` with `score_version` `rule-f1-default:<source>`. Same pattern and service-token auth as T-085 (`brief-facts`). Core part: add `GET /internal/core/admin/score-rules` returning the active rules of the tenant in `X-Tenant-Id` as `{rules: [{rule_name, weight, active}], version}`, allowed for the service `ml` only (per-route allow list in services/core/app/main.py), reading inside a transaction that calls `set_tenant_context`; an unknown tenant answers an empty rule list, never another tenant's rows. ML part: an `HttpCoreRules` client (explicit 2 second timeout, signed token for service `ml`, `X-Tenant-Id`) behind a small protocol, wired in `services/ml/app/main.py`; `load_weights` resolves the rows with `resolve_weights` and returns tenant weights, and returns `None` (default weights, `rules_source` `default`, a warning) when core is unreachable or answers 5xx, never an HTTP 500. Delete the direct SQL on `core.lead_score_rule` and the `DBAPIError` branch from ML. Add the route to `NOT_PUBLIC` in tests/unit/test_openapi.py and keep the OpenAPI and contract snapshots in step (additive).
+- acceptance tests: (1) core: rules of tenant A never appear for tenant B, a token of service `brief` or `seed` gets 403, an unsigned call gets 401, and the response validates against the model the ML client parses; (2) ML: with the client faked to return rules the response has `rules_source` `tenant` and `score_version` `rule-f1:<source>`, with the client raising `CoreRulesUnavailable` it has `default` and `rule-f1-default:<source>`, and a score never answers 500 because of core; (3) a guard test fails if any file under services/ml mentions `core.` as a SQL schema, and bootstrap still emits no cross-schema grant (`tests/unit/test_bootstrap_roles_privileges.py` unchanged and green).
+- evidence: filled by the agent when done
+
+### T-145 Core stores the score it receives and stops needing the ml schema
+- status: todo
+- spec: REQ-COR-001, REQ-ML-001, REQ-DAT-001
+- owner: database-engineer
+- depends: T-144
+- write_scope: migrations/ (one new expand file with the next free number), services/core/app/ (the qualification worker, repository.py reads of leads and brief facts), tests/unit/test_core_score_column.py, tests/unit/test_brief_facts.py, tests/unit/test_cov_infra.py (the lead filter tests only)
+- context: services/core/app/brief_facts.py, services/core/app/repository.py, services/core/app/worker.py, services/ml/app/scoring_service.py, docs/runs/RUN-r1-g-ml.md
+- size: M
+- acceptance: `python ops/check_migrations.py` and `pytest -q tests/unit/test_core_score_column.py tests/unit/test_brief_facts.py tests/unit/test_auto_qualification.py` and `make test`
+- note: PR #50 removed the joins on `ml.lead_score` from core (INV-01: `core_app` has no grant on `ml`), so `score` is `null` in `brief-facts`, in the lead list and in `get_lead`, and the `min_score` filter of the lead list matches nothing. The `lead.score_updated` event already carries `score`, `is_hot`, `source_version` and the tenant, and the core worker consumes it for auto-qualification. Store the score in core: an expand migration adds nullable `score` (0 to 100), `score_source_version` and `score_updated_at` to `core.company` (same RLS as the table), the worker writes them when it handles the event (never lowering a newer `source_version`), and the three reads and the `min_score` filter use that column instead of the join. Remove the `CAST(NULL AS integer)` placeholders and the T-145 pointer in `brief_facts.py`. Backfill is not needed: the next score event fills it.
+- acceptance tests: (1) migration passes `check_migrations.py` and RLS isolates the column per tenant; (2) after a `lead.score_updated` event the lead list, `get_lead` and `brief-facts` return that score and `min_score` filters by it; an older `source_version` does not overwrite a newer one; (3) the guard test `test_core_sql_never_reads_the_ml_schema` still passes.
+- evidence: filled by the agent when done
