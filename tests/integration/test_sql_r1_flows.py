@@ -554,3 +554,51 @@ async def test_forced_rls_pulse_table_hides_rows_without_context(
     async with engines["pulse"].connect() as connection:
         await set_tenant_context(connection, TENANT)
         assert (await connection.execute(query, {"p": project})).scalar_one() == 1
+
+
+# --- T-168: qualification applies the tenant of the score event --------------------------
+
+
+def _score_fields(company: UUID, score: int, tenant: UUID, event_id: UUID | None = None) -> Any:
+    return {
+        "event_id": str(event_id or uuid4()),
+        "event_type": "lead.score_updated",
+        "aggregate_id": str(company),
+        "score": str(score),
+        "tenant_id": str(tenant),
+    }
+
+
+_LEAD_ROWS = "SELECT tenant_id, company_id, stage, version FROM core.lead WHERE company_id = %s"
+
+
+async def test_score_event_creates_then_advances_the_lead_of_the_event_tenant(db: Db) -> None:
+    from services.core.app.worker import build_handlers
+
+    company = _company(db, TENANT)
+    repository = _core_repository(db)
+    handler = build_handlers(repository.qualification_unit_of_work)["lead.score_updated"]
+    try:
+        first = _score_fields(company, 10, TENANT)
+        await handler(first)
+        assert db.one(_LEAD_ROWS, company) == (TENANT, company, "discovered", 1)
+        await handler(_score_fields(company, 95, TENANT))
+        advanced = db.one(_LEAD_ROWS, company)
+        await handler(first)  # second delivery of the first event
+        assert db.one(_LEAD_ROWS, company) == advanced
+    finally:
+        await repository.close()
+    assert advanced == (TENANT, company, "hot", 3)
+
+
+async def test_score_event_of_another_tenant_creates_no_lead(db: Db) -> None:
+    from services.core.app.worker import build_handlers
+
+    company = _company(db, TENANT)
+    repository = _core_repository(db)
+    handler = build_handlers(repository.qualification_unit_of_work)["lead.score_updated"]
+    try:
+        await handler(_score_fields(company, 95, OTHER))
+    finally:
+        await repository.close()
+    assert db.rows(_LEAD_ROWS, company) == []

@@ -661,6 +661,9 @@ class SqlConfigUnitOfWork(SqlCompanyUnitOfWork):
 class SqlQualificationTransaction(SqlLeadTransaction):
     """Inbox, lookups, and lead writes for automatic qualification."""
 
+    async def set_tenant_context(self, tenant_id: UUID) -> None:
+        await set_tenant_context(self.connection, tenant_id)
+
     async def mark_processed(self, event_id: UUID) -> bool:
         result = await self.connection.execute(
             text(
