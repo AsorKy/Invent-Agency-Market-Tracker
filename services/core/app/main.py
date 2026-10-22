@@ -79,6 +79,7 @@ from services.core.app.tenant_config import (
 # send the tenant in the request body instead.
 GATEWAY_ONLY = Depends(require_service_token(GATEWAY_SERVICE))
 INGEST_WRITE = Depends(require_service_token(GATEWAY_SERVICE, "ingest", "seed"))
+ML_READ = Depends(require_service_token("ml"))
 BRIEF_READ = Depends(require_service_token(GATEWAY_SERVICE, "brief"))
 GATEWAY_OR_SEED = Depends(require_service_token(GATEWAY_SERVICE, "seed"))
 GATEWAY_OR_VERIFY = Depends(require_service_token(GATEWAY_SERVICE, "verify_live"))
@@ -418,6 +419,17 @@ async def projects(
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     return {"data": data, "next_cursor": next_cursor}
+
+
+@app.get("/internal/core/admin/score-rules", dependencies=[ML_READ])
+async def get_score_rules(
+    x_tenant_id: Annotated[UUID, Header()], request: Request
+) -> dict[str, object]:
+    try:
+        repository: CoreRepository = request.app.state.repository
+        return await repository.score_rules(x_tenant_id)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
 @app.get("/internal/core/admin/tenant-config", dependencies=[BRIEF_READ])

@@ -26,6 +26,7 @@ from libs.common.tenant import set_tenant_context
 from libs.contracts.api import SignalCreate
 from services.core.app.brief_facts import read_brief_facts
 from services.core.app.event_dimensions import clean
+from services.core.app.score_rules import read_score_rules
 
 
 class SqlCompanyTransaction:
@@ -1365,6 +1366,11 @@ class CoreRepository:
         if self.engine is None:
             raise RuntimeError("DATABASE_URL is required for core reads")
         return await read_brief_facts(self.engine, company_id, tenant_id)
+
+    async def score_rules(self, tenant_id: UUID) -> dict[str, object]:
+        if self.engine is None:
+            raise RuntimeError("DATABASE_URL is required for core reads")
+        return await read_score_rules(self.engine, tenant_id)
 
     async def get_lead(
         self, lead_id: UUID, tenant_id: UUID | None = None
