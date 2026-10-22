@@ -11,11 +11,12 @@ import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
-from typing import Annotated
+from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel, ConfigDict, Field
 
 from libs.common.db import check_database
 from libs.common.internal_auth import GATEWAY_SERVICE, require_service_token
@@ -25,6 +26,7 @@ from libs.common.redis_client import check_redis
 from libs.common.request_id import RequestIdMiddleware
 from libs.common.settings import get_settings
 from libs.contracts.api import SignalCreate
+from libs.domain.funnel import GATES, ChecklistError, ExampleChecklistRefusedError
 from libs.domain.pipeline import PipelineStage, group_by_stage
 from services.core.app.actions import (
     ActivityCreate,
@@ -37,6 +39,14 @@ from services.core.app.actions import (
     record_outcome,
 )
 from services.core.app.companies import CompanyUpsert, upsert_company
+from services.core.app.funnel import (
+    ProjectKilledError,
+    ProjectNotFoundError,
+    StaleProjectVersionError,
+    evaluate_project_gate,
+    funnel_unit_of_work,
+    read_funnel_state,
+)
 from services.core.app.hot_alert import HotAlertNotifier
 from services.core.app.imports import (
     MAX_BYTES,
@@ -71,6 +81,14 @@ from services.core.app.tenant_config import (
     parse_etag,
     read_config,
     update_config,
+)
+from services.core.app.validation_reads import (
+    CardNotFoundError,
+    read_card,
+    validation_reader,
+)
+from services.core.app.validation_reads import (
+    ProjectNotFoundError as ValidationProjectNotFoundError,
 )
 
 # Per-route-group allow lists of calling services (REQ-SEC-005). Routes that
@@ -419,6 +437,111 @@ async def projects(
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     return {"data": data, "next_cursor": next_cursor}
+
+
+class FunnelDecision(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    inputs: dict[str, Any]
+    expected_version: int = Field(ge=1)
+
+
+def _funnel_tenant(x_tenant_id: UUID | None) -> UUID:
+    if x_tenant_id is None:
+        raise HTTPException(status_code=400, detail="tenant_required")
+    return x_tenant_id
+
+
+@app.get("/internal/core/funnel/projects/{project_id}", dependencies=[GATEWAY_ONLY])
+async def funnel_state_route(
+    project_id: UUID,
+    request: Request,
+    x_tenant_id: Annotated[UUID | None, Header()] = None,
+) -> dict[str, object]:
+    tenant = _funnel_tenant(x_tenant_id)
+    try:
+        repository: CoreRepository = request.app.state.repository
+        return await read_funnel_state(
+            funnel_unit_of_work(repository.engine, tenant), project_id, tenant
+        )
+    except ProjectNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="project_not_found") from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@app.post(
+    "/internal/core/funnel/projects/{project_id}/gates/{gate}/decision",
+    dependencies=[GATEWAY_ONLY],
+)
+async def funnel_decision_route(
+    project_id: UUID,
+    gate: str,
+    payload: FunnelDecision,
+    request: Request,
+    x_tenant_id: Annotated[UUID | None, Header()] = None,
+) -> dict[str, object]:
+    tenant = _funnel_tenant(x_tenant_id)
+    if gate not in GATES:
+        raise HTTPException(status_code=404, detail="gate_not_found")
+    try:
+        repository: CoreRepository = request.app.state.repository
+        decision = await evaluate_project_gate(
+            funnel_unit_of_work(repository.engine, tenant),
+            project_id,
+            gate,
+            payload.inputs,
+            tenant_id=tenant,
+            request_id=request.headers.get("X-Request-ID"),
+            apply_kill=True,
+            expected_version=payload.expected_version,
+        )
+    except ProjectNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="project_not_found") from exc
+    except ProjectKilledError as exc:
+        raise HTTPException(status_code=409, detail="project_killed") from exc
+    except StaleProjectVersionError as exc:
+        raise HTTPException(status_code=409, detail="stale_project_version") from exc
+    except ExampleChecklistRefusedError as exc:
+        raise HTTPException(status_code=422, detail="example_checklist_refused") from exc
+    except ChecklistError as exc:
+        raise HTTPException(status_code=503, detail="checklist_unavailable") from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return decision.model_dump(mode="json")
+
+
+async def _validation_card(
+    request: Request, tenant: UUID, card: str, project_id: UUID | None
+) -> dict[str, object]:
+    try:
+        repository: CoreRepository = request.app.state.repository
+        return await read_card(
+            validation_reader(repository.engine, tenant), tenant, card, project_id
+        )
+    except CardNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="card_not_found") from exc
+    except ValidationProjectNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="project_not_found") from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@app.get("/internal/core/validation/meta-ml", dependencies=[GATEWAY_ONLY])
+async def validation_meta_ml_route(
+    request: Request, x_tenant_id: Annotated[UUID | None, Header()] = None
+) -> dict[str, object]:
+    return await _validation_card(request, _funnel_tenant(x_tenant_id), "meta-ml", None)
+
+
+@app.get("/internal/core/validation/projects/{project_id}/{card}", dependencies=[GATEWAY_ONLY])
+async def validation_card_route(
+    project_id: UUID,
+    card: str,
+    request: Request,
+    x_tenant_id: Annotated[UUID | None, Header()] = None,
+) -> dict[str, object]:
+    return await _validation_card(request, _funnel_tenant(x_tenant_id), card, project_id)
 
 
 @app.get("/internal/core/admin/score-rules", dependencies=[ML_READ])

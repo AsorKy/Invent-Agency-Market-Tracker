@@ -224,6 +224,8 @@ def _authorize(request: Request, route: Route, claims: Claims) -> JSONResponse |
     """Apply role and scope rules; cross-scope access looks like a missing resource."""
     if route.admin_only and claims.role != "admin":
         return JSONResponse(status_code=403, content={"detail": "forbidden"})
+    if route.allowed_roles is not None and claims.role not in route.allowed_roles:
+        return JSONResponse(status_code=403, content={"detail": "forbidden"})
     params = request.query_params
     if not scope_allows(claims, params.get("city"), params.get("service_line")):
         return JSONResponse(status_code=404, content={"detail": "not_found"})

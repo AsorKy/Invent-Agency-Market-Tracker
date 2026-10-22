@@ -17,8 +17,6 @@ from libs.common.settings import Settings
 NOT_IN_LAYER: frozenset[str] = frozenset(
     {
         "lens",
-        "funnel",
-        "validation",
         "attribution",
         "causal",
         "drift",
@@ -49,6 +47,8 @@ _IDENTITY_ROUTES: dict[str, frozenset[str]] = {
 IDENTITY_PUBLIC_PATHS: frozenset[str] = frozenset(_IDENTITY_ROUTES)
 
 _CORE_RESOURCES = frozenset({"companies", "leads", "pipeline", "projects", "signals"})
+_READ_ROLES = frozenset({"admin", "strategist", "analyst"})
+_DECIDE_ROLES = frozenset({"admin", "strategist"})
 _PULSE_RESOURCES = frozenset({"market", "segments"})
 
 
@@ -61,6 +61,7 @@ class Route:
     timeout_key: str
     public_path: str
     admin_only: bool = False
+    allowed_roles: frozenset[str] | None = None
 
 
 class NotInLayer:
@@ -74,12 +75,38 @@ def _join(base: str, path: str) -> str:
     return base.rstrip("/") + path
 
 
+def _lens_route(path: str, method: str, settings: Settings) -> Resolution:
+    """Resolve the funnel and validation routes (T-146, T-147); other paths do not resolve."""
+    parts = path.split("/")
+    internal = f"/internal/core/{path}"
+    if parts[0] == "validation" and method.upper() == "GET":
+        known = (len(parts) == 2 and parts[1] == "meta-ml") or (
+            len(parts) == 4 and parts[1] == "projects"
+        )
+        roles = _READ_ROLES
+    elif parts[0] == "funnel" and len(parts) == 3 and parts[1] == "projects":
+        known = method.upper() == "GET"
+        roles = _READ_ROLES
+    elif (
+        parts[0] == "funnel" and len(parts) == 6 and parts[1] == "projects" and parts[3] == "gates"
+    ):
+        known = parts[5] == "decision" and method.upper() == "POST"
+        roles = _DECIDE_ROLES
+    else:
+        return None
+    if not known:
+        return None
+    return Route(_join(settings.core_url, internal), "core", "core", path, allowed_roles=roles)
+
+
 def resolve(path: str, method: str, settings: Settings) -> Resolution:
     """Resolve ``path`` (without ``/api/v1/``) and ``method`` to a route."""
     path = path.strip("/")
     first, _, suffix = path.partition("/")
     if first in NOT_IN_LAYER:
         return NotInLayer()
+    if first in {"funnel", "validation"}:
+        return _lens_route(path, method, settings)
     if path in _IDENTITY_ROUTES:
         if method.upper() not in _IDENTITY_ROUTES[path]:
             return "method_not_allowed"
