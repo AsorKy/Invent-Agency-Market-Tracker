@@ -5,8 +5,8 @@ returns the plain dict that ``services/brief/app/core_source.py`` merges into
 ``CompanyFacts``. A company of another tenant yields ``None`` so the route can
 answer 404. Relates to ``main.py`` (route) and ``repository.py`` (engine owner).
 RUES, quarantine, certificate, and enrichment facts are read from the company
-``source_flags`` document; no task table exists, so ``overdue_tasks`` is 0. ``score`` is always
-``None``: core does not read the ``ml`` schema (INV-01) until it stores the score itself (T-145).
+``source_flags`` document; no task table exists, so ``overdue_tasks`` is 0. ``score`` is the value
+core stores on ``core.company`` from ``lead.score_updated`` events (``None`` until the first one).
 """
 
 from datetime import UTC, datetime
@@ -94,7 +94,7 @@ async def read_brief_facts(
                     text(
                         """
                         SELECT c.version, c.nit, c.sector_code, c.city, c.source_flags,
-                               CAST(NULL AS integer) AS score
+                               c.score
                         FROM core.company c
                         WHERE c.id = :company_id AND c.valid_to IS NULL
                           AND (CAST(:tenant_id AS uuid) IS NULL OR c.tenant_id = :tenant_id)

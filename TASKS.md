@@ -1590,7 +1590,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: pytest -q tests/unit/test_score_rules.py tests/unit/test_ml_core_rules.py tests/unit/test_ml_singleflight.py tests/unit/test_cov_services.py tests/unit/test_openapi.py tests/unit/test_bootstrap_roles_privileges.py tests/unit/test_sql_consistency.py: 108 passed; make static and make test green. Core route GET /internal/core/admin/score-rules (service ml only), ML HttpCoreRules with 2 s timeout, direct SQL on core removed from ml.
 
 ### T-145 Core stores the score it receives and stops needing the ml schema
-- status: todo
+- status: done
 - spec: REQ-COR-001, REQ-ML-001, REQ-DAT-001
 - owner: database-engineer
 - depends: T-144
@@ -1600,7 +1600,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - acceptance: `python ops/check_migrations.py` and `pytest -q tests/unit/test_core_score_column.py tests/unit/test_brief_facts.py tests/unit/test_auto_qualification.py` and `make test`
 - note: PR #50 removed the joins on `ml.lead_score` from core (INV-01: `core_app` has no grant on `ml`), so `score` is `null` in `brief-facts`, in the lead list and in `get_lead`, and the `min_score` filter of the lead list matches nothing. The `lead.score_updated` event already carries `score`, `is_hot`, `source_version` and the tenant, and the core worker consumes it for auto-qualification. Store the score in core: an expand migration `migrations/20261022_0012_core_company_score.sql` (this exact name; T-151 uses 0013) adds nullable `score` (0 to 100), `score_source_version` and `score_updated_at` to `core.company` (same RLS as the table), the worker writes them when it handles the event (never lowering a newer `source_version`), and the three reads and the `min_score` filter use that column instead of the join. Remove the `CAST(NULL AS integer)` placeholders and the T-145 pointer in `brief_facts.py`. Backfill is not needed: the next score event fills it.
 - acceptance tests: (1) migration passes `check_migrations.py` and RLS isolates the column per tenant; (2) after a `lead.score_updated` event the lead list, `get_lead` and `brief-facts` return that score and `min_score` filters by it; an older `source_version` does not overwrite a newer one; (3) the guard test `test_core_sql_never_reads_the_ml_schema` still passes.
-- evidence: filled by the agent when done
+- evidence: migration 20261022_0012 adds core.company.score, score_source_version, score_updated_at (nullable, check 0..100, table RLS inherited); worker stores the score (tenant context set, version guard in SQL: write when none stored, equal, or both integer text and stored is smaller) then qualifies as before; lead list, get_lead, brief-facts and min_score read c.score; check_migrations OK, targeted tests 105 passed, make static OK, make test 1446 passed; table_catalog snapshot regenerated
 
 ### T-146 Funnel HTTP routes and project status on a KILL decision
 - status: todo
