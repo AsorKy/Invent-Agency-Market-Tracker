@@ -13,7 +13,7 @@ the contract has no model the response is a generic JSON object.
 from dataclasses import dataclass, field
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from libs.contracts.api import (
     BriefResponse,
@@ -44,6 +44,15 @@ class JsonObject(BaseModel):
     """Free-form JSON object for responses the frozen contract does not model."""
 
     model_config = ConfigDict(extra="allow")
+
+
+class FunnelDecisionRequest(BaseModel):
+    """Body of a funnel gate decision (checklist inputs and optimistic version)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    inputs: dict[str, Any]
+    expected_version: int = Field(ge=1)
 
 
 class Page(BaseModel):
@@ -392,6 +401,39 @@ def _build() -> tuple[PublicRoute, ...]:
             "/scores/{company_id}",
             "Read the latest score of a company",
             "scores",
+            response=JsonObject,
+            errors=(*c, 404),
+        ),
+        PublicRoute(
+            "GET",
+            "/funnel/projects/{project_id}",
+            "Funnel checklist state of a project (admin, strategist, analyst)",
+            "funnel",
+            response=JsonObject,
+            errors=(*c, 404),
+        ),
+        PublicRoute(
+            "POST",
+            "/funnel/projects/{project_id}/gates/{gate}/decision",
+            "Record a funnel gate decision (admin, strategist)",
+            "funnel",
+            response=JsonObject,
+            request=FunnelDecisionRequest,
+            errors=(*c, 404, 409, 422),
+        ),
+        PublicRoute(
+            "GET",
+            "/validation/projects/{project_id}/{card}",
+            "Validation metrics card of a project (admin, strategist, analyst)",
+            "validation",
+            response=JsonObject,
+            errors=(*c, 404),
+        ),
+        PublicRoute(
+            "GET",
+            "/validation/meta-ml",
+            "Tenant meta-ML validation card (admin, strategist, analyst)",
+            "validation",
             response=JsonObject,
             errors=(*c, 404),
         ),

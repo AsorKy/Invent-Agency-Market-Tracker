@@ -1604,7 +1604,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: migration 20261022_0012 adds core.company.score, score_source_version, score_updated_at (nullable, check 0..100, table RLS inherited); worker stores the score (tenant context set, version guard in SQL: write when none stored, equal, or both integer text and stored is smaller) then qualifies as before; lead list, get_lead, brief-facts and min_score read c.score; check_migrations OK, targeted tests 105 passed, make static OK, make test 1446 passed; table_catalog snapshot regenerated
 
 ### T-146 Funnel HTTP routes and project status on a KILL decision
-- status: todo
+- status: done
 - spec: REQ-LNS-009, REQ-SEC-005
 - owner: lead-backend-engineer
 - depends: T-109
@@ -1613,10 +1613,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_funnel_routes.py tests/unit/test_funnel.py tests/unit/test_openapi.py`
 - note: the funnel engine and its audit rows exist (T-109) but nothing serves them. Add internal routes under `/internal/core/funnel/` to read the checklist state of a project and to record a gate decision, tenant scoped from the service-token headers (404 across tenants, `set_tenant_context` before every read), per-route allow list for the gateway only. A KILL decision sets `core.project.status` to the plain text value `killed` (owner decision: the column is unconstrained text with default `draft`, so no migration and no CHECK constraint); define the value once as a constant next to the funnel code, write it in the same transaction as the audit row with an optimistic version check, and refuse a decision on a project that is already `killed`. Production keeps refusing example checklists unless `FUNNEL_ALLOW_EXAMPLE_CHECKLISTS=true`. Add every new route to `NOT_PUBLIC` in tests/unit/test_openapi.py (the gateway exposes them in T-148).
-- evidence: filled by the agent when done
+- evidence: core funnel routes GET /internal/core/funnel/projects/{id} and POST .../gates/{gate}/decision; KILL sets status 'killed' (KILLED_STATUS) in the same transaction with version check in metadata->>'version'; 15 route tests; make static OK, make test 1510 passed
 
 ### T-147 Validation metrics worker and read routes
-- status: todo
+- status: done
 - spec: REQ-LNS-010, REQ-LNS-011, REQ-SEC-005
 - owner: lead-backend-engineer
 - depends: T-108, T-110, T-146
@@ -1625,10 +1625,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/unit/test_validation_worker.py tests/unit/test_validation_routes.py tests/unit/test_validation_metrics.py tests/unit/test_openapi.py`
 - note: the V1 to V6 metrics are pure functions (T-108) and nothing computes or serves them. The `validation` schema is owned by the core role (`SHARED_ROLE_SCHEMAS`), so the worker lives in core: a function that computes the metrics per tenant and project from core data and writes them to `validation.*` with `set_tenant_context`, with a stop condition and a `python -m services.core.app.validation_worker` entry (not added to Compose). Read routes serve exactly the cards that `services/streamlit/pages/9_Validation.py` and `7_Ops.py` request (`validation/projects/<id>/<card>` and `validation/meta-ml`), under `/internal/core/validation/`, tenant scoped, gateway-only allow list, with the threshold decision of T-108 in the response. Do not read the `ml` or `pulse` schemas (INV-01): when a metric needs them, leave that card empty with a reason in the response and list it in the report. Add every new route to `NOT_PUBLIC`.
-- evidence: filled by the agent when done
+- evidence: validation_worker.py (--tenant, --passes) and validation_reads.py; routes GET /internal/core/validation/projects/{id}/{card} and /internal/core/validation/meta-ml with threshold decisions; psi, model_utility, decision_latency empty (INV-01/missing sources); make test 1531 passed
 
 ### T-148 Gateway public routes for funnel and validation
-- status: todo
+- status: done
 - spec: REQ-API-001, REQ-API-002, REQ-LNS-013
 - owner: second-backend-engineer
 - depends: T-146, T-147
@@ -1637,7 +1637,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_validation_gateway.py tests/unit/test_openapi.py tests/unit/test_gateway.py` and `make openapi` leaves no diff
 - note: expose the routes of T-146 and T-147 as `/api/v1/validation/...` and the funnel routes with the roles admin, strategist, analyst (read) and admin, strategist (decision), following the existing registry pattern; remove their `NOT_PUBLIC` entries because they become public. The change to the OpenAPI document is additive (`oasdiff` must report no breaking change). Streamlit page 9 must work against the real routes without a change; if a URL differs, change the page, not the route.
-- evidence: filled by the agent when done
+- evidence: gateway routes /api/v1/funnel/projects/{id}, .../gates/{gate}/decision, /api/v1/validation/projects/{id}/{card}, /api/v1/validation/meta-ml with Route.allowed_roles; openapi additive; make static OK, make test 1543 passed
 
 ### T-149 Event chain: tolerant consumers and flagged producers
 - status: done

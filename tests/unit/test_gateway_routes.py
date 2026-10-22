@@ -74,9 +74,7 @@ def test_route_resolves_to_owning_service(
     assert httpx.URL(route.url).port == PORTS[service]
 
 
-@pytest.mark.parametrize(
-    "path", ["lens/metrics", "funnel/gates", "validation/runs", "predictions/7", "forecasts"]
-)
+@pytest.mark.parametrize("path", ["lens/metrics", "predictions/7", "forecasts"])
 def test_l2_and_l3_resources_are_not_in_layer(path: str) -> None:
     assert isinstance(resolve(path, "GET", get_settings()), NotInLayer)
 
