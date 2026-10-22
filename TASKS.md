@@ -1687,7 +1687,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: pytest project_projection, pulse_lens_routes, pulse_consumer, sql_consistency 43 passed; make static ok; make test 1453 passed. Pulse consumer projects signal.converted_to_project into project_snapshot (stage draft) and first stage visit, idempotent. Gap: no later-stage, score or burn events exist in the catalog.
 
 ### T-153 Compose entry for the drift worker, behind a profile
-- status: todo
+- status: done
 - spec: REQ-DEP-001, REQ-LNS-007, REQ-SEC-005
 - owner: devops-engineer
 - depends: T-138
@@ -1696,10 +1696,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: S
 - acceptance: `pytest -q tests/unit/test_compose.py tests/unit/test_runbook.py` and `python ops/check_configuration.py`
 - note: add a `drift-worker` service (command `python -m services.ml.app.schedule`, the shared app environment, `depends_on` pulse healthy and the usual migrate and bootstrap gates) under a Compose profile `lens`, so `make invent-tracker` does not start it and the CI e2e stack is unchanged; add it to `EXPECTED` in tests/unit/test_compose.py as a profile-gated helper like pgadmin. Document `DRIFT_ALERT_WEBHOOK_URL`, `DRIFT_ALERT_HEADER_NAME`, `DRIFT_ALERT_HEADER_VALUE`, `DRIFT_TENANT_ID` and `DRIFT_RUN_HOUR_UTC` in `.env.example` with empty or safe defaults (never a real value), and make the configuration check know them. Redis users must follow `test_every_redis_client_uses_an_acl_user`.
-- evidence: filled by the agent when done
+- evidence: drift-worker under compose profile lens; DRIFT_* vars in .env.example; pytest test_compose/test_runbook/test_guards 64 passed; check_configuration OK; make static green
 
 ### T-154 Docker images ship the validation and funnel files
-- status: todo
+- status: done
 - spec: REQ-DEP-001, REQ-LNS-009, REQ-LNS-011
 - owner: devops-engineer
 - depends: T-108, T-109
@@ -1708,10 +1708,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: S
 - acceptance: `pytest -q tests/unit/test_images_ship_runtime_files.py tests/unit/test_compose.py`
 - note: `config/funnel/*.yaml` and `libs/domain/validation_thresholds.yaml` are read by repository path and are not package data. Verify from the Dockerfile and `.dockerignore` that the image copies them to where the code looks (read how `libs/domain/validation.py` and `funnel.py` build the path), fix the Dockerfile if not, and add a test that parses the Dockerfile and `.dockerignore` and fails when a file read at runtime by path is not copied or is ignored.
-- evidence: filled by the agent when done
+- evidence: Dockerfile.python copies config/ and sets PYTHONPATH=/app; pytest test_images_ship_runtime_files + test_compose 55 passed; make static green
 
 ### T-155 Go-live runbook items for the lens and validation wave
-- status: todo
+- status: done
 - spec: REQ-DOC-001, REQ-LNS-009, REQ-LNS-011
 - owner: devops-engineer
 - depends: T-153, T-154
@@ -1720,10 +1720,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: S
 - acceptance: `pytest -q tests/unit/test_runbook.py`
 - note: append new numbered sections after the existing last one (11, nightly backups); do not renumber and keep "## 10. Troubleshooting" as it is, because tests read it. Cover, each as a checkable item: create the n8n credentials `pulse-internal-header` and `drift-alert-header` (names only, never values) and the fact that n8n service tokens live 60 seconds while a static-header credential does not, so the socioeconomic refresh workflow needs the owner's decision; the drift worker profile and its variables (T-153); `FUNNEL_ALLOW_EXAMPLE_CHECKLISTS` must stay false in production and the owner replaces the example checklists in `config/funnel/` (decision D-06); the owner confirms the threshold bands the ADR is silent about (LTV:CAC 5, burn multiple 2 to 3, CAC payback 12 to 18, and the invented `horizon_mix_deviation` bands). Every variable cited must exist in `.env.example` or in the allow sets of tests/unit/test_runbook.py.
-- evidence: filled by the agent when done
+- evidence: pytest test_runbook 6 passed; make static green; go-live sections 12-15 added
 
 ### T-156 Remove the leftovers of the retired analytics service
-- status: todo
+- status: done
 - spec: REQ-ARC-002, REQ-DAT-001
 - owner: second-backend-engineer
 - depends: T-129
@@ -1732,10 +1732,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: S
 - acceptance: `pytest -q tests/unit/test_registry.py` and `make static`
 - note: follow-up F-r1e-07: remove `legacy_paths: services/analytics/` from `.codex/agent-registry.yaml` and from whatever profile sync reads it (find it with `git grep legacy_paths`), and reword the docstrings and comments in `libs/common` and `libs/contracts` that still say analytics for what is now pulse. Change text only; do not touch `LEGACY_SCHEMAS` in ops/schemas.py (the baseline still creates those schemas) and do not edit services/ (other sessions of this wave own those files).
-- evidence: filled by the agent when done
+- evidence: registry already free of legacy_paths (done under T-134); test_registry 5 passed; make static clean
 
 ### T-157 Fill the tasks lines of the SPEC requirements
-- status: todo
+- status: done
 - spec: REQ-TRC-001
 - owner: qa-reviewer
 - depends: T-080
@@ -1744,4 +1744,4 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: S
 - acceptance: `python ops/check_traceability.py` and `pytest -q tests/unit/test_spec_tasks_lines.py tests/unit/test_traceability.py`
 - note: follow-up F-r1e-09. Many requirements still say `tasks: none yet`. Derive the list from TASKS.md (a requirement's tasks are the ones whose `spec:` cites it) and write it on the requirement's `tasks:` line; where no task cites it, write why in one short clause (for example "later run" or "owner decision"). Change nothing else in SPEC.md: no statement, no `status`, no `verify`. Do not touch REQ-SEC-005 text (it waits for decisions F-r1e-03 and F-r1e-04). Add a test that every `tasks:` line is either task ids that exist in TASKS.md or a stated reason.
-- evidence: filled by the agent when done
+- evidence: 107 tasks lines filled in SPEC.md; check_traceability OK; 11 tests passed; make static green

@@ -47,8 +47,7 @@ def _owners() -> dict[str, str]:
 
 def test_every_service_dir_has_owner() -> None:
     owners = _owners()
-    legacy = {Path(e["path"]).name for e in _registry().get("legacy_paths", [])}
-    missing = _service_dirs() - set(owners) - legacy
+    missing = _service_dirs() - set(owners)
     assert not missing, f"services without owner: {sorted(missing)}"
 
 
@@ -62,10 +61,8 @@ def test_analytics_not_owned() -> None:
     assert "analytics" not in _owners()
 
 
-def test_legacy_entries_map_to_pulse_owner() -> None:
-    for entry in _registry().get("legacy_paths", []):
-        assert entry["merged_into"] == "services/pulse/"
-        assert _owners()["pulse"] == entry["owner"]
+def test_registry_has_no_legacy_paths() -> None:
+    assert "legacy_paths" not in _registry()
 
 
 def test_profiles_exist_and_match_registry() -> None:
