@@ -77,7 +77,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_BIND:-127.0.0.1}:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -97,7 +97,7 @@ services:
     volumes:
       - ./deploy/redis:/etc/redis-acl:ro
     ports:
-      - "6379:6379"
+      - "${REDIS_BIND:-127.0.0.1}:6379:6379"
     healthcheck:
       test: ["CMD-SHELL", "redis-cli --no-auth-warning --user data --pass \"$$REDIS_DATA_PASSWORD\" ping | grep -q PONG"]
       interval: 5s
