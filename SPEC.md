@@ -152,7 +152,7 @@ Template entry:
 - source: AGENTS.md quality gates, ADR-IMT-0001 section 17
 - statement: `make static` passes on every commit pushed by an agent.
 - verify: `make static`
-- tasks: T-000, T-001, T-007, T-080, T-141, T-161, T-162, T-164, T-168, T-171, T-172
+- tasks: T-000, T-001, T-007, T-080, T-141, T-161, T-162, T-164, T-168, T-171, T-172, T-187
 
 ### REQ-QA-002 Unit test suite exists and runs offline
 - status: accepted
@@ -274,9 +274,9 @@ Template entry:
 - phase: F1
 - scope: run1
 - source: ADR-IMT-0001 section 5.4
-- statement: Row-level security is enabled on `core.company`, `core.lead`, and `core.project` by `tenant_id`; the Supabase Data API is not used; connections require SSL verification; the service_role key never reaches the frontend or the gateway.
+- statement: Row-level security is enabled on `core.company`, `core.lead`, `core.project`, `core.signal`, `core.location`, and `core.lead_outcome` by `tenant_id` (D-29); the infrastructure tables `core.outbox_event`, `core.outbox_dead_letter`, `core.processed_event`, `ml.processed_event`, and `core.audit_log` are exempt with a recorded reason; the Supabase Data API is not used; connections require SSL verification; the service_role key never reaches the frontend or the gateway.
 - verify: `python ops/check_migrations.py` asserts `ENABLE ROW LEVEL SECURITY` and tenant policies for the three tables.
-- tasks: T-018, T-093, T-094, T-095, T-125, T-132, T-143
+- tasks: T-018, T-082, T-093, T-094, T-095, T-125, T-132, T-143
 
 ### REQ-DAT-006 Extensions and roles bootstrap
 - status: accepted
@@ -350,7 +350,7 @@ Template entry:
 - source: ADR-IMT-0001 section E1.1
 - statement: The identity service (Django and DRF) manages users, tenants, scopes by city and service line, and five roles (`admin`, `strategist`, `intake`, `bd_rep`, `analyst`) with the permissions of E1.1. It publishes a JWKS and issues service tokens. Its Django admin is reachable only on the internal network, never through the gateway.
 - verify: `pytest -q tests/unit/test_identity_rbac.py`
-- tasks: T-030, T-083
+- tasks: T-030, T-083, T-179
 
 ### REQ-IDN-002 Session lifecycle
 - status: accepted
@@ -576,7 +576,7 @@ Template entry:
 - source: ADR-IMT-0001 section 7
 - statement: Core persists a signal and its outbox event atomically, and the relay publishes unpublished events to Redis Streams without losing any on restart.
 - verify: `pytest -q tests/unit/test_outbox.py`
-- tasks: T-005, T-090, T-091, T-092, T-159, T-164, T-166
+- tasks: T-005, T-090, T-091, T-092, T-159, T-164, T-166, T-176
 
 ### REQ-EVT-002 Idempotent consumers
 - status: accepted
@@ -616,7 +616,7 @@ Template entry:
 - source: ADR-IMT-0001 sections 7.3, E1.4, E2.3
 - statement: `libs/contracts/events.py` defines the L1 events (`signal.created`, `company.updated`, `lead.created`, `lead.outcome_recorded`, `lead.score_updated`, `ingest.quarantine`, `tenant.config_updated`, `signal.activity_logged`, `signal.converted_to_project`) with a common envelope (`event_id`, `event_type`, `aggregate_type`, `aggregate_id`, `version`, `source_version`, `created_at`, optional `replay`, and `tenant_id`, which the relay always publishes as its own stream field and never leaves to the payload). Event logs never include full payloads.
 - verify: `pytest -q tests/unit/test_contracts.py`
-- tasks: T-011, T-014, T-088, T-090, T-120, T-121, T-159
+- tasks: T-011, T-014, T-088, T-090, T-120, T-121, T-159, T-174
 
 ### REQ-EVT-006 Process supervisor
 - status: accepted
@@ -637,6 +637,16 @@ Template entry:
 - statement: Each service stops accepting requests, waits up to 25 seconds for active ones, flushes the outbox relay, acknowledges the current consumer batch, and closes pools.
 - verify: `pytest -q tests/unit/test_lifespan.py`
 - tasks: T-062, T-124
+
+### REQ-EVT-008 Typed chain event payloads
+- status: accepted
+- layer: L2
+- phase: R2
+- scope: later-run
+- source: ADR-IMT-0002 section 2.6
+- statement: Each chain event (`signal.tagged`, `signal.scored`, `company.matched`, `signal.explained`, `project.pipeline_updated`, `project.forecast_updated`) has a typed payload in `libs/contracts/events.py` with `extra="forbid"` and a `schema_version`; the envelope stays `DomainEvent` (`version`, `source_version`). `parent_event_id` is mandatory in the payload (a UUID or null). Canonical payloads: tagged `{signal_id, company_id, tags{source, signal_type}, parent_event_id}`; scored `{signal_id, company_id, score, score_version, parent_event_id}`; matched `{company_id, lead_id, rues_matched, parent_event_id}`; explained `{lead_id, company_id, qualification_reason, parent_event_id}`; pipeline_updated `{lead_id, project_id or null, from, to, version, parent_event_id}`; forecast_updated `{lead_id, project_id or null, stage, parent_event_id}`.
+- verify: `pytest -q tests/unit/test_contracts.py`
+- tasks: T-174, T-175, T-176
 
 ### Pulse, Brief, and ML (L1 part)
 
@@ -669,6 +679,17 @@ Template entry:
 - statement: The dbt project builds the dimensions (company, location, sector, service_line, source, date, territory) and facts (signal, company_snapshot, lead_outcome, lead_score, territory_indicator) in `pulse` as `mart_dim_<name>` and `mart_fact_<name>` (the `mart` component keeps them apart from the `fact_*` projection tables written by the pulse consumer), defines measures once in MetricFlow YAML, and materializes Parquet to the volume shared with Streamlit.
 - verify: `dbt parse --project-dir transform`
 - tasks: T-055, T-097
+
+
+### REQ-PUL-004 Project stage projection
+- status: accepted
+- layer: L2
+- phase: R2
+- scope: later-run
+- source: ADR-IMT-0002 section 2.6
+- statement: `pulse` consumes `project.pipeline_updated` and `project.forecast_updated` idempotently: it updates `pulse.project_snapshot` (stage) and closes the open `pulse.project_stage_visit` row (`exited_at`). The events reflect the stage transition of the lead; no project forecast model with value or burn exists yet (D-35).
+- verify: `pytest -q tests/unit/test_project_projection.py`
+- tasks: T-177
 
 ### REQ-BRF-001 Brief cache with stale-while-revalidate
 - status: accepted
@@ -738,7 +759,7 @@ Template entry:
 - source: ADR-IMT-0001 sections 11, 4.4, E2.1
 - statement: The `pulse` socio worker loads indicator files (municipality or comuna level, DANE-style CSV fixtures under `tests/fixtures/socio/`) into `socio.indicator_raw` and `socio.indicator_normalized`, computes z-scores within each city, and builds the composite indices IPET (economic power), IMD (digital maturity), and IOP = IPET high x IMD low x prospect density, with weights from PCA or entropy and a `method_version`. `GET /api/v1/territory/opportunity` returns the ranked territories with `as_of`, `method_version`, and `low_sample`. Live DANE, DNP, and OSM connectors are deferred; the loader reads files from a configured directory.
 - verify: `pytest -q tests/unit/test_socio_indices.py`
-- tasks: T-059
+- tasks: T-059, T-185
 
 ### REQ-ALR-001 Hot lead alert
 - status: accepted
@@ -810,9 +831,9 @@ Template entry:
 - phase: F1
 - scope: run1
 - source: ADR-IMT-0001 section 6.4
-- statement: Each service connects with its own `_app` role. Service-to-service calls carry a signed service token. Redis has ACL users `edge` (rate-limit keys only) and `data` (streams, cache). `/internal/*` is never routed by the gateway.
+- statement: Each service connects with its own `_app` role. Service-to-service calls carry a signed service token. Redis has ACL users `edge` (rate-limit keys only) and `data` (streams, cache). `/internal/*` is never routed by the gateway. Service tokens are signed with HMAC-SHA256 and one shared key (`INTERNAL_SERVICE_TOKEN`), live 60 seconds, and each route has an allow list of services. Per-service keys (one per issuer, rotatable) are planned L2 work (D-28); asymmetric tokens are rejected as not worth their cost at this team size. The caller names `seed` and `verify_live` are accepted only outside production.
 - verify: `pytest -q tests/unit/test_internal_auth.py` and `python ops/check_configuration.py`
-- tasks: T-060, T-123, T-130, T-131, T-140, T-144, T-146, T-147, T-150, T-151, T-153, T-158, T-160, T-162, T-163, T-165, T-168, T-170
+- tasks: T-060, T-082, T-123, T-130, T-131, T-140, T-144, T-146, T-147, T-150, T-151, T-153, T-158, T-160, T-162, T-163, T-165, T-168, T-170, T-179, T-183, T-184, T-185
 
 ### REQ-CMP-001 Habeas data compliance
 - status: accepted
@@ -926,7 +947,7 @@ Template entry:
 - source: owner requirement 2026-10-18; ADR-IMT-0001 section 16
 - statement: `make invent-tracker` is the single command that starts the whole application. It creates `.env` from `.env.example` when missing (generating local-only secrets without printing them), builds the images, runs migrations, starts every service and worker, loads demo data on the first run, waits until the gateway `/ready` is green, and prints the service URLs and next steps. Running it again is safe. `make invent-tracker-down` stops it and `make invent-tracker-reset` removes volumes after confirmation.
 - verify: `make -n invent-tracker` lists the steps; `pytest -q tests/unit/test_make_targets.py` parses the Makefile. The owner runs it once with Docker.
-- tasks: T-074, T-125, T-130, T-140, T-141, T-161, T-164, T-170, T-171, T-173
+- tasks: T-074, T-125, T-130, T-140, T-141, T-161, T-164, T-170, T-171, T-173, T-187
 
 ### REQ-RUN-002 Migration runner
 - status: accepted
@@ -966,7 +987,7 @@ Template entry:
 - source: owner requirement 2026-10-18; secrets policy
 - statement: `make doctor` reports, by variable name only, which credentials and settings are set, which sources are active and in which mode, the health of each service, and whether the configured webhook URL is reachable. It never prints a value.
 - verify: `pytest -q tests/unit/test_doctor.py` plants a sentinel secret and asserts it never appears in the output.
-- tasks: T-075
+- tasks: T-075, T-186
 
 ### REQ-RUN-006 Live verification command
 - status: accepted
@@ -986,7 +1007,7 @@ Template entry:
 - source: owner requirement 2026-10-18
 - statement: `docs/runbooks/go-live.md` (English) explains where credentials go (names only), how to enable each source, how to expose the webhook (tunnel) or use the polling fallback, how to adjust field mappings, how to run `make doctor` and `make verify-live`, how data reaches the API, how to point the frontend at the gateway, and a troubleshooting table.
 - verify: `pytest -q tests/unit/test_runbook.py` checks that every `SOURCE_*` and mode variable appears in both the runbook and `.env.example`.
-- tasks: T-079, T-134, T-155, T-166, T-169, T-173
+- tasks: T-079, T-134, T-155, T-166, T-169, T-173, T-185, T-186
 
 ### Public API for the frontend
 
@@ -1006,9 +1027,9 @@ Template entry:
 - phase: F2
 - scope: run1
 - source: ADR-IMT-0001 sections 12.4, E1.1, E1.5, E2.2
-- statement: The gateway exposes the endpoints the frontend screens need: `POST /auth/session`, `GET /me`, `POST /logout`; `GET /leads` (filters state, service_line, city, segment, min_score, cursor), `POST /leads`, `GET /leads/{id}`, `PATCH /leads/{id}/status`, `POST /leads/{id}/activities`, `GET /leads/{id}/brief`; `GET /pipeline/kanban`; `GET /companies`, `GET /signals`; `GET /projects`, `POST /projects`; `GET /pulse/*`; `GET /ops/health`; `GET /territory/opportunity`; imports and jobs; `GET` and `PUT /admin/tenant-config`. Routes of L2 and L3 resources return 404 `not_in_layer` until their run. No route points to `analytics`.
+- statement: The gateway exposes the endpoints the frontend screens need: `POST /auth/session`, `GET /me`, `POST /logout`; `GET /leads` (filters state, service_line, city, segment, min_score, cursor), `POST /leads`, `GET /leads/{id}`, `PATCH /leads/{id}/status`, `POST /leads/{id}/activities`, `GET /leads/{id}/brief`; `GET /pipeline/kanban`; `GET /companies`, `GET /signals`; `GET /projects`, `POST /projects`; `GET /pulse/*`; `GET /ops/health`; `GET /territory/opportunity`; imports and jobs; `GET` and `PUT /admin/tenant-config`. Routes of L2 and L3 resources return 404 `not_in_layer` until their run. No route points to `analytics`. Authorization answers are a contract: a wrong role answers 403 `forbidden`; a city or service line outside the caller's scope, or a resource of another tenant, answers 404 `not_found` (cross-scope access looks like a missing resource); a resource of a layer that is not launched answers 404 `not_in_layer`. The roles `bd_rep` and `intake` receive 403 on the funnel and validation routes (D-27).
 - verify: `pytest -q tests/unit/test_gateway_routes.py` and `pytest -q tests/unit/test_openapi.py`
-- tasks: T-032, T-148
+- tasks: T-032, T-148, T-180
 
 ### REQ-API-003 Local profile for a browser frontend
 - status: accepted
@@ -1144,9 +1165,9 @@ All L2 requirements are `later-run`. They are specified now so that run 1 leaves
 - phase: R2
 - scope: later-run
 - source: ADR-IMT-0002 section 2.2
-- statement: A nightly worker computes change points (CUSUM, EWMA) and PSI with thresholds below 0.1 stable, 0.1 to 0.25 watch, above 0.25 retrain, and alerts through n8n. SHAP drivers and counterfactuals are attached to the Brief on regeneration.
+- statement: A nightly worker computes change points (CUSUM, EWMA) and PSI with thresholds below 0.1 stable, 0.1 to 0.25 watch, above 0.25 retrain, and alerts through n8n. SHAP drivers and counterfactuals are attached to the Brief on regeneration. `icp_fit`, `signal_strength`, and `territory_opportunity` have a deterministic baseline derivation (`source_version` `demo-1`, `libs/domain/score_features.py`) that is never switched off; any supervised definition enters as an L3 component with an experiment sheet and runs in shadow next to the baseline (D-23).
 - verify: `pytest -q tests/unit/test_drift.py tests/unit/test_explain.py`
-- tasks: T-106, T-137, T-138, T-151, T-153, T-160, T-165, T-169
+- tasks: T-106, T-137, T-138, T-151, T-153, T-160, T-165, T-169, T-178
 
 ### REQ-LNS-008 Metric pack library
 - status: accepted
@@ -1164,7 +1185,7 @@ All L2 requirements are `later-run`. They are specified now so that run 1 leaves
 - phase: R2
 - scope: later-run
 - source: ADR-IMT-0002 sections 2.4, 2.7; ADR-IMT-0001 section E2.2
-- statement: `core` evaluates gates G1 Discovery, G2 Qualify, G3 Validate, G4 Design, G5 Launch, G6 Scale, and G7 Sunset from versioned YAML checklists and returns ADVANCE, PIVOT, KILL, or WAIT. It emits `funnel.gate_decision`, `funnel.pivot_requested`, `funnel.project_killed`, and `funnel.kill_trigger_event` through the outbox and stores each decision with its inputs. There is no separate funnel service.
+- statement: `core` evaluates gates G1 Discovery, G2 Qualify, G3 Validate, G4 Design, G5 Launch, G6 Scale, and G7 Sunset from versioned YAML checklists and returns ADVANCE, PIVOT, KILL, or WAIT. It emits `funnel.gate_decision`, `funnel.pivot_requested`, `funnel.project_killed`, and `funnel.kill_trigger_event` through the outbox and stores each decision with its inputs. There is no separate funnel service. Only a KILL decision raises `project.version`; ADVANCE, PIVOT, and WAIT stay in the gate audit log without a version (D-27).
 - verify: `pytest -q tests/unit/test_funnel.py`
 - tasks: T-109, T-146, T-154, T-155, T-163
 - note: blocked by decision D-06 (checklist content per gate).
@@ -1177,7 +1198,8 @@ All L2 requirements are `later-run`. They are specified now so that run 1 leaves
 - source: ADR-IMT-0002 sections 2.5, 2.7
 - statement: The `validation` schema (operated by `core` roles) holds `financial_run`, `unit_economics`, `funnel_metric`, `growth_metric`, `portfolio_snapshot`, and `meta_ml_metric`, each with `source_version`, `project_id`, and `measured_at`. Workers compute NPV, IRR, payback, discounted payback, and EMV (V1); CAC, LTV, LTV:CAC, CAC payback, and gross margin (V2); conversion, win rate, cycle time, velocity, and coverage (V3); MRR, NRR, GRR, Rule of 40, burn multiple, and magic number (V4); horizon mix, HHI, and Sharpe-like ratio (V5); model utility, decision latency, PSI, precision@K, and funnel lift (V6).
 - verify: `pytest -q tests/unit/test_validation_metrics.py`
-- tasks: T-107, T-108, T-147
+- tasks: T-107, T-108, T-147, T-181
+- note: until REQ-LNS-015 lands the funnel metrics are computed per service line, not per project. The V6 fields that need data owned by `ml` or `pulse` stay empty with a reason until REQ-LNS-016 lands (INV-01).
 
 ### REQ-LNS-011 Validation decision thresholds
 - status: accepted
@@ -1195,9 +1217,9 @@ All L2 requirements are `later-run`. They are specified now so that run 1 leaves
 - phase: R2
 - scope: later-run
 - source: ADR-IMT-0002 section 2.6
-- statement: A `signal.created` traverses signal.tagged, signal.scored, company.matched, signal.explained, funnel.gate_decision, project.pipeline_updated, and project.forecast_updated. Every event carries `source_version`, so one decision can be traced end to end.
+- statement: A `signal.created` traverses signal.tagged, signal.scored, company.matched, signal.explained, funnel.gate_decision, project.pipeline_updated, and project.forecast_updated. Every event carries `source_version` and a `parent_event_id` (REQ-EVT-008), and `signal.scored` leaves `ml` through its outbox like every other domain event, so one decision can be traced end to end: `trace_chain` closes the chain once the producers propagate the parent id (D-21). `project.pipeline_updated` and `project.forecast_updated` reflect the stage transition of the lead; Pulse projects them (REQ-PUL-004). No project forecast model with value or burn exists yet (D-35).
 - verify: `pytest -q tests/unit/test_event_chain.py`
-- tasks: T-110, T-149, T-159
+- tasks: T-110, T-149, T-159, T-175, T-176, T-177
 
 ### REQ-LNS-013 Validation page
 - status: accepted
@@ -1208,6 +1230,36 @@ All L2 requirements are `later-run`. They are specified now so that run 1 leaves
 - statement: Streamlit page `9_Validation.py` shows V1 to V6 per project with `measured_at`, `source_version`, and per-card degradation. V6 is also shown in `7_Ops.py`.
 - verify: Streamlit `AppTest` for page 9.
 - tasks: T-111, T-148
+
+### REQ-LNS-014 Validation inputs API
+- status: accepted
+- layer: L2
+- phase: R2
+- scope: later-run
+- source: ADR-IMT-0002 section 2.5
+- statement: `PUT /internal/core/projects/{id}/validation-inputs` (roles `strategist` and `admin`, tenant scoped, ETag as for `tenant_config`) validates and stores the object that V1, V2, V4, and V5 read in `core.project.metadata->'validation'`. A strategist writes it by hand; there is no automatic worker. Without input, each card answers empty with the reason `needs_strategist_input` (D-24).
+- verify: `pytest -q tests/unit/test_validation_inputs.py`
+- tasks: T-179, T-180
+
+### REQ-LNS-015 Funnel metrics per project
+- status: accepted
+- layer: L2
+- phase: R2
+- scope: later-run
+- source: ADR-IMT-0002 section 2.7
+- statement: `core.lead.project_id` (a nullable foreign key to `core.project`, added by an expand migration with an index) is filled when a lead is converted to a project, and the funnel queries of `validation_worker` filter by `project_id` instead of `service_line`. Until then the funnel metrics are per service line (D-26).
+- verify: `pytest -q tests/unit/test_validation_worker.py`
+- tasks: T-181
+
+### REQ-LNS-016 Meta-ML metrics through events
+- status: accepted
+- layer: L2
+- phase: R2
+- scope: later-run
+- source: ADR-IMT-0002 section 2.5
+- statement: `ml` and `pulse` emit the inputs of `psi`, `model_utility`, and `decision_latency_days` (`drift_score`, `model_utility_run`, `decision_latency_event`) through their outbox, and a `core` worker aggregates them into `validation.meta_ml_metric`. No service reads another service's schema (INV-01). Until then those fields stay null with their reason (D-25).
+- verify: `pytest -q tests/unit/test_meta_ml_events.py`
+- tasks: T-182
 
 ## 4.3 Layer L3 - ADR-IMT-0003-PRED (predictive, run 3)
 
@@ -1384,20 +1436,36 @@ An agent must not resolve open decisions. A task that depends on one stays `bloc
 | D-03 | Service count | 7 services plus Streamlit (gateway, identity, ingest, core, pulse, brief, ml); there is no `funnel` service. Source: ADR-IMT-0001 section E2.2 and ADR-IMT-0002 section 2.7. | closed 2026-10-18 |
 | D-04 | Ownership of identity, brief, pulse, streamlit, mocks | identity and brief: lead-backend-engineer. pulse and streamlit: second-backend-engineer. mocks: qa-reviewer. Source: proposal in `AGENTS.md`, section 3.1 of this file. | closed 2026-10-18 |
 | D-05 | Supabase tier and VPS provider for the MVP | Recommendation in ADR-IMT-0001 section 22: Supabase Free until F3 and Hetzner CPX21. Not decided. | open, does not block run 1 |
-| D-06 | Checklist content for gates G1 to G7 | The mechanism is specified (REQ-LNS-009); the checklists are agency knowledge to be authored by the owner. The engine ships with clearly marked example checklists (`example: true`) that production refuses to load unless `FUNNEL_ALLOW_EXAMPLE_CHECKLISTS=true`. The owner must replace them before real use. | open, does not block the L2 code |
+| D-06 | Checklist content for gates G1 to G7 | The mechanism is specified (REQ-LNS-009); the checklists are agency knowledge to be authored by the owner. The engine ships with clearly marked example checklists (`example: true`) that production refuses to load unless `FUNNEL_ALLOW_EXAMPLE_CHECKLISTS=true`. The owner must replace them with the real checklists of the agency and remove the marker before real use (business content, an owner task; `docs/runbooks/go-live.md` section 14). | open, owner task, does not block the L2 code |
 | D-07 | Retention window of `core.outbox_event` | Default 90 days; run 1 uses the default. | open, default applies |
 | D-08 | Version `tenant_config` history (SCD2) | Recommended yes. Run 1 stores a `version` and keeps the previous row in an audit table; full SCD2 waits for the decision. | open, default applies |
 | D-09 | Semantic summarizer for Brief in F3 | Recommended multilingual-e5 plus rules. Run 1 ships the rule-based summarizer behind a replaceable interface. | open, default applies |
 | D-10 | Job runner: Celery or arq | ADR recommends Celery (already used by `procs.toml`). Run 1 keeps asyncio workers and the supervisor and does not add Celery. | open, default applies |
 | D-11 | Habeas data detail (ADR-IMT-0006-HABEAS) | Pending ADR. REQ-CMP-001 carries the minimum. | open |
 | D-12 | Frontend visual specification | Pending separate ADR (ADR-IMT-0004-LOOK is `proposed`). Frontend is out of scope for run 1. | open, does not block run 1 |
-| D-13 | Bright Data dataset IDs and sample payloads | The owner supplies dataset IDs through `.env`. Samples are optional: mappings stay `unverified` until `make verify-live` captures redacted records from the first real snapshot and `ops/verify_mappings.py` passes on them (T-096). Synthetic fixtures never count as verification. | open, owner input (dataset IDs only) |
+| D-13 | Bright Data dataset IDs and sample payloads | The owner supplies dataset IDs through `.env`. Samples are optional: mappings stay `unverified` until `make verify-live` captures redacted records from the first real snapshot and `ops/verify_mappings.py` passes on them (T-096). Synthetic fixtures never count as verification. The owner captures the snapshots with `make verify-live` per source on a machine with real credentials (`ops/verify_mappings.py --capture` redacts up to three records per source into `tests/fixtures/brightdata/captured/`), and confirms the real Computrabajo dataset ID in `.env` (`SOURCE_COMPUTRABAJO_DATASET_ID`) before that source is enabled. Verification is the owner's responsibility; the mock keeps serving run 1. | open, owner input (dataset IDs and live captures) |
 | D-14 | Identity framework | Django plus DRF (ADR-IMT-0001 section E1.2, decision E1-D2). If Django proves impractical in the sandbox after three focused attempts, mark the identity tasks `blocked`; do not substitute another framework without an owner decision. | closed 2026-10-18 |
 | D-15 | Live RUES connector | No official API is available to the sandbox. Run 1 delivers the interface and a mock; a live adapter is added when the owner provides access details. | open, does not block run 1 |
 | D-16 | Tenant on the event stream | The relay publishes `tenant_id` as its own stream field on every event; a row without tenant goes to the dead letter queue with `missing_tenant_id`. Consumers read the field first. See T-090. | closed 2026-10-18 |
-| D-17 | Single outbox relay | The dead letter loop is the only relay; `outbox_relay.main` delegates to it and the legacy loop is deleted. See T-091. | closed 2026-10-18 |
+| D-17 | Single outbox relay | The dead letter loop is the only relay. There is a single relay IMPLEMENTATION (shared code, `libs/messaging/relay.py`); one INSTANCE may run per schema that has an outbox (`core` and, since D-21, `ml`), each with its own unit of work. A second relay implementation or a parallel legacy loop is not allowed. `outbox_relay.main` delegates to the shared loop and the legacy loop is deleted. See T-091 and T-176. | closed 2026-10-18, clarified 2026-10-22 |
 | D-18 | SQL consistency tests | Two tiers: offline parsing with `pglast` against the schema built from migrations (T-094), and PostgreSQL checks with psycopg 3 using `PREPARE` (T-095), run by the owner or in the sandbox when an embedded PostgreSQL starts. | closed 2026-10-18 |
 | D-19 | Naming of pulse tables | Projections `fact_*`, rollups `*_rollup`, dbt staging `stg_<source>__<entity>`, dbt marts `mart_dim_*` and `mart_fact_*`. See T-097. | closed 2026-10-18 |
+| D-20 | Typed chain event payloads | The six chain events have typed payloads in `libs/contracts/events.py` (`extra="forbid"`, `schema_version` per type, envelope `DomainEvent`), each with a mandatory `parent_event_id`. See REQ-EVT-008 and T-174. | closed 2026-10-22 |
+| D-21 | Parent ids and `signal.scored` through the outbox | The contract carries `parent_event_id` and `ml` publishes `signal.scored` through an outbox, because a domain event outside the outbox breaks the outbox rule and `trace_chain` must close the chain (REQ-LNS-012). The gap by design is no longer accepted. This does not violate D-17: one relay implementation, one instance per outbox schema (see the clarification in D-17). `ml.outbox_event` is infrastructure: no RLS (D-29), owned by `ml_app`, same columns as `core.outbox_event`, written in the same transaction as the score; the `ml` relay instance reads only `ml.*` (INV-01). L2 work, it does not block go-live L1. See T-175 and T-176. | closed 2026-10-22 |
+| D-22 | Project stage events | A lead stage change is `project.pipeline_updated` plus `project.forecast_updated`, with no figures; Pulse consumes both. See REQ-PUL-004 and T-177. | closed 2026-10-22 |
+| D-23 | Scoring feature definition | The current derivation is frozen as the permanent audited baseline `demo-1` (INV-18) and is never deleted. The production definition is L3 work with an experiment sheet (INV-19), owned by second-backend-engineer, and runs in shadow next to the baseline. A formula change bumps `source_version` as `features-<major>.<minor>` by pull request, and a test pins the seed output. See T-178. | closed 2026-10-22 |
+| D-24 | Validation inputs V1, V2, V4, V5 | A strategist writes `core.project.metadata->'validation'` by hand through a core route; there is no automatic worker. See REQ-LNS-014, T-179, and T-180. | closed 2026-10-22 |
+| D-25 | Meta-ML metrics through events, not cross-schema reads | `psi`, `model_utility`, and `decision_latency_days` are fed by events from `ml` and `pulse` aggregated by a `core` worker (INV-01 forbids crossing schemas). Deferred to R2; null with a reason until then. See REQ-LNS-016 and T-182. | closed 2026-10-22 |
+| D-26 | Funnel metrics per project | The model is per project: `core.lead.project_id`, filled on conversion, and per-project queries. L2 data model change, it does not block L1. Metrics are per service line until then. See REQ-LNS-015 and T-181. | closed 2026-10-22 |
+| D-27 | Funnel decision versioning and 403 versus 404 | Only KILL raises `project.version`. A wrong role answers 403; a cross-scope or cross-tenant resource answers 404 `not_found`; a resource of a layer that is not launched answers 404 `not_in_layer`. The roles `bd_rep` and `intake` receive 403 on the funnel and validation routes. See REQ-LNS-009 and REQ-API-002. | closed 2026-10-22 |
+| D-28 | Service token keying | The shared HMAC key (`INTERNAL_SERVICE_TOKEN`) is accepted now (60 second tokens, private network, allow list per service); per-service keys are planned L2 work and asymmetric tokens are rejected. `seed` and `verify_live` callers exist only outside production. See REQ-SEC-005, T-183, and T-184. | closed 2026-10-22 |
+| D-29 | RLS exemptions (T-082) | `core.signal`, `core.location`, and `core.lead_outcome` get RLS. `core.outbox_event`, `core.outbox_dead_letter`, `core.processed_event`, `ml.processed_event` (messaging and idempotency infrastructure, read and written by the owning service role) and `core.audit_log` (append-only, read by an admin route with an explicit tenant filter) stay exempt with those reasons. Eight exemptions become five. The outbox tables of `ml` (`ml.outbox_event` and its dead letter table, created by T-176) join the exempt infrastructure tables with the same reason. See REQ-DAT-005, T-082, and T-176. | closed 2026-10-22 |
+| D-30 | Migration baseline | No new baseline: the expand and contract chain stays, and `contract_20261018_0003` and `contract_20261020_0008` already retire the legacy schemas. | closed 2026-10-22 |
+| D-31 | PostgreSQL major version | 16 during run 1. An upgrade to 17 is evaluated in a separate experiment under `docs/experiments` before F4, testing pgvector, PostGIS, pg_cron, and pg_trgm on the custom image. | closed 2026-10-22 |
+| D-32 | Docker integration and e2e run | The owner (or qa-reviewer) runs the integration tier and the e2e on a machine with Docker and `make invent-tracker` before go-live and records the result in `docs/runs/RUN-golive-docker.md`. The run also exercises `make verify-live` inside the Compose network (T-186). A high priority prerequisite of go-live; it closes everything marked unverified for lack of Docker. See T-187. | closed 2026-10-22 |
+| D-33 | Authentication of `wf_socioeco_refresh` | The workflow authenticates with a short-lived service token (scope `pulse` only) minted before each run, not with a static header credential. The mint step uses a dedicated, single-purpose credential held by n8n, distinct from `INTERNAL_SERVICE_TOKEN` (its own secret, minimal scope: it can mint tokens only for `pulse` and reach nothing else). `INTERNAL_SERVICE_TOKEN` never enters n8n, in any case. Fallback, only if the credential cannot be bounded without exposing the shared key: a rotated static header accepted by pulse (`pulse-internal-header`) with a documented rotation policy, and D-33 is reopened with the note that identity cannot issue a bounded mint credential without the shared key. The workflow stays inactive until one of the two works. See T-185. | closed 2026-10-22 |
+| D-34 | Go-live owners and date | Technical owner: lead-backend-engineer. Data and credentials owner: the owner. Target date: not set yet; the owner writes it here and in `docs/runbooks/go-live.md` before go-live. | open, target date |
+| D-35 | Project forecast model with figures | No project forecast model with value or burn exists in L2; `project.forecast_updated` only reflects the stage transition. A model with figures is a future decision. | open, R3 |
 
 ## 6. Definition of done per layer
 
@@ -1434,3 +1502,4 @@ An agent must not resolve open decisions. A task that depends on one stays `bloc
 | 2026-10-18 | v3: ADRs accepted, all requirements `accepted`. Added run and go-live requirements (REQ-RUN-001 to 006, REQ-DOC-001), the public API for the frontend (REQ-API-001 to 003), the ingestion flow and live connector (REQ-ING-004 rewritten, REQ-ING-008, REQ-ING-009), company upsert and auto-qualification (REQ-COR-007, 008), and the offline and integration test tiers (REQ-QA-004, 005). Traceability now covers every accepted `L1` `run1` requirement. Decisions D-13 to D-15 added, D-14 closed. |
 | 2026-10-18 | v3.1: decisions D-16 to D-19 and D-13 revised; REQ-EVT-005 adds `tenant_id`; REQ-PUL-003 fixes the `mart_` naming. Tasks T-090 to T-097 added in TASKS.md v4. |
 | 2026-10-18 | v3.1: review against ADR-0001 found five gaps. Added REQ-SOC-001 (socioeconomic indices), REQ-ALR-001 (hot lead alert), REQ-OBS-002 (deferred); added the territory route to REQ-API-002; REQ-DEP-001 no longer needs a Docker CLI; D-06 no longer blocks the L2 code; defined the continuation from run 1 to the L2 tasks. |
+| 2026-10-22 | Owner decisions on the 14 open points recorded as D-20 to D-35 and D-06 and D-13 updated. New requirements REQ-EVT-008, REQ-PUL-004, and REQ-LNS-014 to REQ-LNS-016; REQ-DAT-005, REQ-SEC-005, REQ-API-002, REQ-LNS-007, REQ-LNS-009, REQ-LNS-010, and REQ-LNS-012 amended. Tasks T-082 and T-174 to T-187 added in TASKS.md. |
