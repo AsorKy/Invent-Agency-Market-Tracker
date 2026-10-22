@@ -12,19 +12,22 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import text
-from sqlalchemy.exc import DBAPIError
 
 from libs.common.db import create_engine
 from libs.domain.scoring import ScoreWeights, resolve_weights
+from services.ml.app.core_rules import CoreRules, CoreRulesUnavailable
 
 _log = logging.getLogger(__name__)
 
 
 class MlRepository:
-    def __init__(self, database_url: str | None) -> None:
+    def __init__(self, database_url: str | None, core_rules: CoreRules | None = None) -> None:
         self.engine = create_engine(database_url, pool_size=2)
+        self._core_rules = core_rules
 
     async def close(self) -> None:
+        if self._core_rules:
+            await self._core_rules.close()
         if self.engine:
             await self.engine.dispose()
 
@@ -108,27 +111,17 @@ class MlRepository:
             )
 
     async def load_weights(self, tenant_id: UUID) -> ScoreWeights | None:
-        """Read ``core.lead_score_rule`` rows for a tenant; ``None`` when they are unavailable.
+        """Resolve the tenant weights from core; ``None`` when core cannot answer.
 
-        The ``ml_app`` role has no grant on the ``core`` schema (schema isolation, INV-01), so in
-        a real deployment the read is refused until core exposes the weights through an internal
-        API. The caller then scores with the default weights and reports ``rules_source``
-        ``default``, rather than answering HTTP 500 to every request that carries a tenant.
+        ``None`` makes the caller score with the default weights and report ``rules_source``
+        ``default`` instead of answering HTTP 500 (the ``ml_app`` role has no grant on the
+        ``core`` schema, INV-01, so the rules come over core's internal API).
         """
-        if self.engine is None:
+        if self._core_rules is None:
             return None
         try:
-            async with self.engine.connect() as connection:
-                rows = (
-                    await connection.execute(
-                        text(
-                            "SELECT rule_name, weight, active FROM core.lead_score_rule "
-                            "WHERE tenant_id = :tenant_id"
-                        ),
-                        {"tenant_id": tenant_id},
-                    )
-                ).all()
-        except DBAPIError as exc:
-            _log.warning("tenant score rules unreadable, using default weights: %s", exc.orig)
+            rows = await self._core_rules.get_rules(tenant_id)
+        except CoreRulesUnavailable as exc:
+            _log.warning("tenant score rules unavailable, using default weights: %s", exc)
             return None
-        return resolve_weights((str(r[0]), r[1], bool(r[2])) for r in rows)
+        return resolve_weights(rows)
