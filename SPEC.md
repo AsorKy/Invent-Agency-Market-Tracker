@@ -152,7 +152,7 @@ Template entry:
 - source: AGENTS.md quality gates, ADR-IMT-0001 section 17
 - statement: `make static` passes on every commit pushed by an agent.
 - verify: `make static`
-- tasks: T-000, T-001, T-007, T-080, T-141, T-161, T-162, T-164, T-168
+- tasks: T-000, T-001, T-007, T-080, T-141, T-161, T-162, T-164, T-168, T-171, T-172
 
 ### REQ-QA-002 Unit test suite exists and runs offline
 - status: accepted
@@ -564,7 +564,7 @@ Template entry:
 - source: ADR-IMT-0001 sections E1.1, E1.6
 - statement: `core` consumes `lead.score_updated` and creates the lead (Discovered) or advances it to Qualified or Hot using `tenant_config.brief_rules` (`min_score_for_hot`, default 70, and `min_score_for_qualified`, default 50). It never moves a lead backward and never overrides a human-set status. Each automatic move writes an `audit_log` entry and new leads emit `lead.created`.
 - verify: `pytest -q tests/unit/test_auto_qualification.py`
-- tasks: T-024, T-161, T-162, T-168
+- tasks: T-024, T-161, T-162, T-168, T-171
 
 ### Events and workers
 
@@ -812,7 +812,7 @@ Template entry:
 - source: ADR-IMT-0001 section 6.4
 - statement: Each service connects with its own `_app` role. Service-to-service calls carry a signed service token. Redis has ACL users `edge` (rate-limit keys only) and `data` (streams, cache). `/internal/*` is never routed by the gateway.
 - verify: `pytest -q tests/unit/test_internal_auth.py` and `python ops/check_configuration.py`
-- tasks: T-060, T-123, T-130, T-131, T-140, T-144, T-146, T-147, T-150, T-151, T-153, T-158, T-160, T-162, T-163, T-165, T-168
+- tasks: T-060, T-123, T-130, T-131, T-140, T-144, T-146, T-147, T-150, T-151, T-153, T-158, T-160, T-162, T-163, T-165, T-168, T-170
 
 ### REQ-CMP-001 Habeas data compliance
 - status: accepted
@@ -926,7 +926,7 @@ Template entry:
 - source: owner requirement 2026-10-18; ADR-IMT-0001 section 16
 - statement: `make invent-tracker` is the single command that starts the whole application. It creates `.env` from `.env.example` when missing (generating local-only secrets without printing them), builds the images, runs migrations, starts every service and worker, loads demo data on the first run, waits until the gateway `/ready` is green, and prints the service URLs and next steps. Running it again is safe. `make invent-tracker-down` stops it and `make invent-tracker-reset` removes volumes after confirmation.
 - verify: `make -n invent-tracker` lists the steps; `pytest -q tests/unit/test_make_targets.py` parses the Makefile. The owner runs it once with Docker.
-- tasks: T-074, T-125, T-130, T-140, T-141, T-161, T-164
+- tasks: T-074, T-125, T-130, T-140, T-141, T-161, T-164, T-170, T-171, T-173
 
 ### REQ-RUN-002 Migration runner
 - status: accepted
@@ -986,7 +986,7 @@ Template entry:
 - source: owner requirement 2026-10-18
 - statement: `docs/runbooks/go-live.md` (English) explains where credentials go (names only), how to enable each source, how to expose the webhook (tunnel) or use the polling fallback, how to adjust field mappings, how to run `make doctor` and `make verify-live`, how data reaches the API, how to point the frontend at the gateway, and a troubleshooting table.
 - verify: `pytest -q tests/unit/test_runbook.py` checks that every `SOURCE_*` and mode variable appears in both the runbook and `.env.example`.
-- tasks: T-079, T-134, T-155, T-166, T-169
+- tasks: T-079, T-134, T-155, T-166, T-169, T-173
 
 ### Public API for the frontend
 

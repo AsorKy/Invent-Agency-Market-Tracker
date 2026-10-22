@@ -49,6 +49,7 @@ Size is a rough token cost guide: S under 1 USD, M 1 to 3 USD, L 3 to 8 USD. Tes
 | r1-i | Short wave, three parallel sessions: funnel and validation served end to end T-146 to T-148 (unblocked, KILL sets the status killed); event chain producers T-159; compose core URL for ml, schedule tenant, e2e check of stored scores T-158, T-160, T-161 | 7 tasks | about 40 USD |
 | r1-j | Short wave, three parallel sessions: real Postgres tests for the new SQL and funnel decision lock T-162, T-163; e2e with the event chain on and ml feature backfill T-164, T-165; event chain runbook and SPEC tasks lines T-166, T-167 | 6 tasks | about 40 USD |
 | r1-k | Short wave, two parallel sessions: qualification applies the tenant of the score event T-168; core serves score features per tenant, ML backfills old score rows, runbook step T-165, T-169 | 3 tasks | about 40 USD |
+| r1-l | Short wave, two parallel sessions: loopback ports and smoke task closure T-170, T-172; e2e proof of auto qualified leads and the backfill, doctor pipeline report T-171, T-173 | 4 tasks | about 30 USD |
 | r2 | Continuation with ADR-0002: T-100 to T-112, only if budget remains after T-080; run as r1-f and r1-g | 13 tasks | about 38 USD |
 
 Total estimate for run 1 (smoke to r1-d): about 197 USD (183 USD of the v3 plan plus about 14 USD for T-090 to T-097 and about 30 USD for the v6 follow-ups), plus about 38 USD for the optional ADR-0002 continuation, to be corrected after the smoke run shows real cost per task. Blocked tasks do not consume budget. Set the session budget of each run to about 1.5 times its estimate.
@@ -1892,3 +1893,51 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - acceptance: `pytest -q tests/unit/test_runbook.py && python ops/check_language.py`
 - note: after T-165 lands, document the operator step for the old score rows: deploy core before ml (ml calls the new core route), run `python -m services.ml.app.backfill --tenant <id> --limit N` once per tenant inside the ml container, read the counts it prints, run it again until it reports zero (idempotent), and check that the explanation route now answers instead of 404. Cite the file for each claim and add the matching assertions to `tests/unit/test_runbook.py`. Do not invent flags: read them from `services/ml/app/backfill.py` as T-165 wrote it.
 - evidence: section 16 added to docs/runbooks/go-live.md; test_backfill_section_matches_the_cli_and_cites_real_files added; pytest tests/unit/test_runbook.py 10 passed, check_language OK, make static OK, make test 1603 passed
+
+### T-170 Publish the Postgres and Redis ports on the loopback only
+- status: todo
+- spec: REQ-SEC-005, REQ-RUN-001
+- owner: devops-engineer
+- depends: T-154
+- write_scope: docker-compose.yml (the two `ports:` entries of postgres and redis), .env.example (one commented override), tests/unit/test_compose.py (the matching assertion), ops/check_configuration.py (only if it lists the ports)
+- context: docker-compose.yml, tests/unit/test_compose.py, deploy/README.md, docs/runs/RUN-r1-e.md
+- size: S
+- acceptance: `pytest -q tests/unit/test_compose.py && python ops/check_configuration.py`
+- note: `docker-compose.yml` publishes `5432:5432` and `6379:6379` on every interface, so a developer machine on a shared network exposes the database and the Redis data user. Publish them as `${POSTGRES_BIND:-127.0.0.1}:5432:5432` and `${REDIS_BIND:-127.0.0.1}:6379:6379` (host tools, `make invent-tracker`, `psql` from the host and the CI jobs keep working through `127.0.0.1`; containers use the Compose network and are not affected). Add a test that no `ports:` entry of postgres or redis lacks an explicit bind address, and document the two variables in `.env.example` as commented overrides. Do not touch the other services' ports.
+- evidence: filled by the agent when done
+
+### T-171 The e2e check proves that scored companies become leads and that the backfill runs
+- status: todo
+- spec: REQ-RUN-001, REQ-QA-001, REQ-COR-008
+- owner: qa-reviewer
+- depends: T-168, T-165, T-161
+- write_scope: ops/e2e_check.py, tests/unit/test_e2e_check.py, tests/unit/test_demo_pipeline.py
+- context: ops/e2e_check.py, ops/seed/enrich.py, docs/runs/RUN-r1-k-qualify.md, docs/runs/RUN-r1-k-features.md, services/ml/app/backfill.py
+- size: M
+- acceptance: `pytest -q tests/unit/test_e2e_check.py tests/unit/test_demo_pipeline.py`
+- note: T-168 made qualification see the companies of a tenant, and T-165 added the feature backfill, but the CI e2e still only checks scores and features. Add two checks to `ops/e2e_check.py`: (1) after the seed enrichment, the demo tenant has `core.lead` rows with `source = 'auto_qualification'` for the scored companies (count them, and require at least one lead per scored company that reached the qualified threshold; read the threshold from the tenant config, do not hard code it); (2) the backfill command runs inside the ml container (`docker compose exec`, as the T-164 driver does for the gateway) for the demo tenant with a small `--limit`, exits 0 and reports zero rows left without features, which also proves ml reaches the new core route with its service token. The queries use the existing superuser psql path, so INV-01 is unchanged. There is no Docker in your sandbox: the CI e2e stage is the real check, so state in the report which assertion it will exercise first.
+- evidence: filled by the agent when done
+
+### T-172 Close the smoke task and fix the lint the gate does not cover
+- status: todo
+- spec: REQ-QA-001
+- owner: coordinator
+- depends: none
+- write_scope: docs/runs/RUN-smoke.md (new), tests/unit/test_runbook.py (the line length findings only)
+- context: AGENTS.md, Makefile, docs/runs/RUN-r1-j-docs.md
+- size: S
+- acceptance: `make static`
+- note: `T-000` is the only L1 task still `todo` (F-r1e-12). Do what its note asks, now that the repository is mature: write `docs/runs/RUN-smoke.md` with one line per check performed (git branch, commit, `make static` result, `make test` result, Python version, whether `pip install '.[dev,streamlit,identity,sqltest]'` works) and set `T-000` to `done` with that evidence. Do not push from the smoke check; the wave branch push is the push. Also fix the ruff line length finding at about line 133 of `tests/unit/test_runbook.py`, which `make static` does not cover; if a lint command outside `make static` finds more in `tests/`, list them in the report and fix only the ones in files this wave created, then say what else exists.
+- evidence: filled by the agent when done
+
+### T-173 The doctor can report the pipeline health
+- status: todo
+- spec: REQ-RUN-001, REQ-DOC-001
+- owner: second-backend-engineer
+- depends: T-161
+- write_scope: ops/doctor.py, tests/unit/test_doctor.py, docs/runbooks/go-live.md (one line)
+- context: ops/doctor.py, ops/e2e_check.py, docs/runbooks/go-live.md, docs/runbooks/event-chain-rollout.md
+- size: M
+- acceptance: `pytest -q tests/unit/test_doctor.py tests/unit/test_runbook.py && python ops/check_language.py`
+- note: `make doctor` checks configuration and service health, but an operator has no one command for the state of the data pipeline. Add `ops/doctor.py --pipeline`, read only, through the same superuser psql path as `ops/e2e_check.py`: outbox backlog (unpublished events and the age of the oldest), dead letter count, companies without a score, score rows without stored features, leads created by auto qualification. It prints counts only, never rows, tokens or tenant data, and exits 1 when the dead letter count is above zero or the oldest unpublished event is older than a threshold given by `--max-backlog-seconds` (default 300). Reuse the SQL constants of `e2e_check.py` by importing them instead of copying them where that does not create a cycle. Add one line to the go-live runbook that names the command, with the matching assertion in `tests/unit/test_runbook.py` if that file already checks the runbook for commands.
+- evidence: filled by the agent when done
