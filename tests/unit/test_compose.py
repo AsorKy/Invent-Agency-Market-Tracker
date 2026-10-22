@@ -280,3 +280,12 @@ def test_configuration_guard_rejects_default_redis_user() -> None:
     assert any(p.startswith("gateway") for p in guard.redis_acl_problems(plain))
     plain = text.replace("redis://data:${REDIS_DATA_PASSWORD:-local-redis-data}@", "redis://")
     assert any(p.startswith("core ") for p in guard.redis_acl_problems(plain))
+
+
+def test_ml_reaches_core_and_core_url_is_not_spread(services: dict[str, Any]) -> None:
+    ml = services["ml"]
+    assert _env(ml)["CORE_URL"] == "http://core:8000"
+    assert _env(ml)["INTERNAL_SERVICE_TOKEN"]
+    assert "core" not in _depends(ml)
+    holders = {name for name, svc in services.items() if "CORE_URL" in _env(svc)}
+    assert holders <= {"gateway", "brief", "ml", "seed"}
