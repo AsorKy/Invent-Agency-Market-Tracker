@@ -11,6 +11,12 @@ import pytest
 from ops import e2e_check
 
 
+@pytest.fixture(autouse=True)
+def no_docker_backfill(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The default backfill step shells out to docker; tests that need it inject their own."""
+    monkeypatch.setattr(e2e_check, "backfill_in_ml", lambda _tenant, _limit: None)
+
+
 def scripted(counts: dict[str, int]) -> Callable[[str], int]:
     """A query function answering from a table name or one of the outbox statements."""
 
@@ -130,6 +136,8 @@ def test_waits_until_the_projections_fill() -> None:
             e2e_check.COMPANIES_UNSCORED,
             e2e_check.SCORES_WITHOUT_FEATURES,
         ):
+            return 0
+        if "core.lead" in sql and "NOT EXISTS" in sql:
             return 0
         return 5
 
@@ -317,3 +325,128 @@ def test_driver_raises_when_core_refuses_a_step() -> None:
 
     with pytest.raises(RuntimeError, match="signal create answered 403"):
         asyncio.run(go())
+
+
+# T-171: auto qualification leads and the backfill step.
+
+TENANT = "00000000-0000-4000-8000-0000000000a1"
+
+
+def lead_query(qualified: int, missing: int, left: int = 0) -> Callable[[str], int]:
+    base = scripted({**FILLED})
+
+    def query(sql: str) -> int:
+        if sql == e2e_check.qualified_sql(TENANT, missing_lead=False):
+            return qualified
+        if sql == e2e_check.qualified_sql(TENANT, missing_lead=True):
+            return missing
+        if sql == e2e_check.auto_leads_sql(TENANT):
+            return qualified - missing
+        if sql == e2e_check.SCORES_WITHOUT_FEATURES and left:
+            return left
+        return base(sql)
+
+    return query
+
+
+def test_lead_sql_reads_the_threshold_from_the_tenant_config() -> None:
+    sql = e2e_check.qualified_sql(TENANT, missing_lead=True)
+    assert "core.tenant_config" in sql
+    assert "min_score_for_qualified" in sql
+    assert "source = 'auto_qualification'" in sql
+    assert f"tenant_id = '{TENANT}'" in sql
+    assert "auto_qualification" in e2e_check.auto_leads_sql(TENANT)
+
+
+def test_leads_and_backfill_pass_and_the_backfill_gets_tenant_and_limit(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    calls: list[tuple[str, int]] = []
+    code = e2e_check.run(
+        ["--timeout", "0", "--backfill-limit", "3"],
+        query=lead_query(qualified=4, missing=0),
+        sleep=lambda _s: None,
+        backfill=lambda tenant, limit: calls.append((tenant, limit)),
+    )
+    assert code == 0
+    assert calls == [(TENANT, 3)]
+    assert "core.lead rows from auto_qualification: 4" in capsys.readouterr().out
+
+
+def test_fails_when_a_qualified_company_has_no_lead(capsys: pytest.CaptureFixture[str]) -> None:
+    calls: list[tuple[str, int]] = []
+    code = e2e_check.run(
+        ["--timeout", "0"],
+        query=lead_query(qualified=4, missing=2),
+        sleep=lambda _s: None,
+        backfill=lambda tenant, limit: calls.append((tenant, limit)),
+    )
+    assert code == 1
+    assert calls == []
+    assert "FAIL: 2 qualified companies have no auto_qualification lead" in capsys.readouterr().err
+
+
+def test_fails_when_the_backfill_fails(capsys: pytest.CaptureFixture[str]) -> None:
+    def boom(_tenant: str, _limit: int) -> None:
+        raise RuntimeError("backfill failed: no route")
+
+    code = e2e_check.run(
+        ["--timeout", "0"],
+        query=lead_query(qualified=1, missing=0),
+        sleep=lambda _s: None,
+        backfill=boom,
+    )
+    assert code == 1
+    assert "FAIL: backfill failed: no route" in capsys.readouterr().err
+
+
+def test_fails_when_rows_stay_without_features_after_the_backfill(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    state = {"ran": False}
+
+    def query(sql: str) -> int:
+        if sql == e2e_check.SCORES_WITHOUT_FEATURES:
+            return 3 if state["ran"] else 0
+        return lead_query(qualified=1, missing=0)(sql)
+
+    code = e2e_check.run(
+        ["--timeout", "0"],
+        query=query,
+        sleep=lambda _s: None,
+        backfill=lambda _t, _l: state.update(ran=True),
+    )
+    assert code == 1
+    assert "3 ml.lead_score rows have no features after the backfill" in capsys.readouterr().err
+
+
+def test_waits_for_the_worker_to_create_the_leads() -> None:
+    polls = {"n": 0}
+    base = lead_query(qualified=2, missing=0)
+
+    def query(sql: str) -> int:
+        if sql == e2e_check.qualified_sql(TENANT, missing_lead=True):
+            return 2 if polls["n"] < 2 else 0
+        return base(sql)
+
+    def sleep(_s: float) -> None:
+        polls["n"] += 1
+
+    assert e2e_check.run(["--timeout", "60", "--interval", "0"], query=query, sleep=sleep) == 0
+    assert polls["n"] == 2
+
+
+def test_backfill_runs_in_the_ml_container(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: list[list[str]] = []
+
+    class Done:
+        returncode = 0
+        stdout = "ok"
+        stderr = ""
+
+    monkeypatch.setattr(e2e_check.subprocess, "run", lambda cmd, **_k: seen.append(cmd) or Done())
+    monkeypatch.undo()
+    monkeypatch.setattr(e2e_check.subprocess, "run", lambda cmd, **_k: seen.append(cmd) or Done())
+    e2e_check.backfill_in_ml(TENANT, 5)
+    assert seen[0][:6] == ["docker", "compose", "exec", "-T", "ml", "python"]
+    assert seen[0][-4:] == ["--tenant", TENANT, "--limit", "5"]
