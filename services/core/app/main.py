@@ -82,6 +82,14 @@ from services.core.app.tenant_config import (
     read_config,
     update_config,
 )
+from services.core.app.validation_reads import (
+    CardNotFoundError,
+    read_card,
+    validation_reader,
+)
+from services.core.app.validation_reads import (
+    ProjectNotFoundError as ValidationProjectNotFoundError,
+)
 
 # Per-route-group allow lists of calling services (REQ-SEC-005). Routes that
 # trust the X-Tenant-Id header accept only the gateway, which derives it from
@@ -501,6 +509,39 @@ async def funnel_decision_route(
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     return decision.model_dump(mode="json")
+
+
+async def _validation_card(
+    request: Request, tenant: UUID, card: str, project_id: UUID | None
+) -> dict[str, object]:
+    try:
+        repository: CoreRepository = request.app.state.repository
+        return await read_card(
+            validation_reader(repository.engine, tenant), tenant, card, project_id
+        )
+    except CardNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="card_not_found") from exc
+    except ValidationProjectNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="project_not_found") from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@app.get("/internal/core/validation/meta-ml", dependencies=[GATEWAY_ONLY])
+async def validation_meta_ml_route(
+    request: Request, x_tenant_id: Annotated[UUID | None, Header()] = None
+) -> dict[str, object]:
+    return await _validation_card(request, _funnel_tenant(x_tenant_id), "meta-ml", None)
+
+
+@app.get("/internal/core/validation/projects/{project_id}/{card}", dependencies=[GATEWAY_ONLY])
+async def validation_card_route(
+    project_id: UUID,
+    card: str,
+    request: Request,
+    x_tenant_id: Annotated[UUID | None, Header()] = None,
+) -> dict[str, object]:
+    return await _validation_card(request, _funnel_tenant(x_tenant_id), card, project_id)
 
 
 @app.get("/internal/core/admin/score-rules", dependencies=[ML_READ])

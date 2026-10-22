@@ -48,6 +48,12 @@ NOT_PUBLIC = {
         "POST",
         "/internal/core/funnel/projects/{project_id}/gates/{gate}/decision",
     ): "gateway exposes it in T-148",
+    # T-147
+    ("GET", "/internal/core/validation/meta-ml"): "gateway exposes it in T-148",
+    (
+        "GET",
+        "/internal/core/validation/projects/{project_id}/{card}",
+    ): "gateway exposes it in T-148",
 }
 SERVICES = ["core", "identity", "pulse", "brief", "ml"]
 STATIC_INTERNAL = {"/internal/metrics"}
