@@ -45,6 +45,7 @@ Size is a rough token cost guide: S under 1 USD, M 1 to 3 USD, L 3 to 8 USD. Tes
 | r1-e | Security migration and review: T-123, T-080 | 2 tasks | about 6 USD |
 | r1-f | Long wave, four parallel sessions: layer L2 analytics T-100 to T-106 (one chain), schema T-129 and T-107, lens and cleanup T-101, T-133, T-134, platform T-132, T-130, T-131 | 14 tasks | about 55 USD |
 | r1-g | Long wave, four parallel sessions: layer L2 validation chain T-108, T-109, T-111, T-110, T-112; pulse endpoints and attribution storage T-135, T-136; ml and brief gaps T-139, T-141, T-137, T-138; platform T-140, T-143 | 14 tasks | about 55 USD |
+| r1-h | Long wave, five parallel sessions: score weights through the core API and the score stored in core T-144, T-145; funnel and validation served end to end T-146, T-147, T-148; event chain and pulse project writers T-149, T-152; ml publisher tenant and explanations T-150, T-151; compose, images, runbook, registry and SPEC lines T-153, T-154, T-156, T-157, T-155 | 14 tasks | about 100 USD |
 | r2 | Continuation with ADR-0002: T-100 to T-112, only if budget remains after T-080; run as r1-f and r1-g | 13 tasks | about 38 USD |
 
 Total estimate for run 1 (smoke to r1-d): about 197 USD (183 USD of the v3 plan plus about 14 USD for T-090 to T-097 and about 30 USD for the v6 follow-ups), plus about 38 USD for the optional ADR-0002 continuation, to be corrected after the smoke run shows real cost per task. Blocked tasks do not consume budget. Set the session budget of each run to about 1.5 times its estimate.
@@ -1597,6 +1598,150 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - context: services/core/app/brief_facts.py, services/core/app/repository.py, services/core/app/worker.py, services/ml/app/scoring_service.py, docs/runs/RUN-r1-g-ml.md
 - size: M
 - acceptance: `python ops/check_migrations.py` and `pytest -q tests/unit/test_core_score_column.py tests/unit/test_brief_facts.py tests/unit/test_auto_qualification.py` and `make test`
-- note: PR #50 removed the joins on `ml.lead_score` from core (INV-01: `core_app` has no grant on `ml`), so `score` is `null` in `brief-facts`, in the lead list and in `get_lead`, and the `min_score` filter of the lead list matches nothing. The `lead.score_updated` event already carries `score`, `is_hot`, `source_version` and the tenant, and the core worker consumes it for auto-qualification. Store the score in core: an expand migration adds nullable `score` (0 to 100), `score_source_version` and `score_updated_at` to `core.company` (same RLS as the table), the worker writes them when it handles the event (never lowering a newer `source_version`), and the three reads and the `min_score` filter use that column instead of the join. Remove the `CAST(NULL AS integer)` placeholders and the T-145 pointer in `brief_facts.py`. Backfill is not needed: the next score event fills it.
+- note: PR #50 removed the joins on `ml.lead_score` from core (INV-01: `core_app` has no grant on `ml`), so `score` is `null` in `brief-facts`, in the lead list and in `get_lead`, and the `min_score` filter of the lead list matches nothing. The `lead.score_updated` event already carries `score`, `is_hot`, `source_version` and the tenant, and the core worker consumes it for auto-qualification. Store the score in core: an expand migration `migrations/20261022_0012_core_company_score.sql` (this exact name; T-151 uses 0013) adds nullable `score` (0 to 100), `score_source_version` and `score_updated_at` to `core.company` (same RLS as the table), the worker writes them when it handles the event (never lowering a newer `source_version`), and the three reads and the `min_score` filter use that column instead of the join. Remove the `CAST(NULL AS integer)` placeholders and the T-145 pointer in `brief_facts.py`. Backfill is not needed: the next score event fills it.
 - acceptance tests: (1) migration passes `check_migrations.py` and RLS isolates the column per tenant; (2) after a `lead.score_updated` event the lead list, `get_lead` and `brief-facts` return that score and `min_score` filters by it; an older `source_version` does not overwrite a newer one; (3) the guard test `test_core_sql_never_reads_the_ml_schema` still passes.
+- evidence: filled by the agent when done
+
+### T-146 Funnel HTTP routes and project status on a KILL decision
+- status: todo
+- spec: REQ-LNS-009, REQ-SEC-005
+- owner: lead-backend-engineer
+- depends: T-109
+- write_scope: services/core/app/funnel.py, services/core/app/main.py (the funnel routes only), tests/unit/test_funnel_routes.py, tests/unit/test_openapi.py (NOT_PUBLIC entries only)
+- context: services/core/app/funnel.py, libs/domain/funnel.py, config/funnel/, docs/runs/RUN-r1-g-validation.md
+- size: M
+- acceptance: `pytest -q tests/unit/test_funnel_routes.py tests/unit/test_funnel.py tests/unit/test_openapi.py`
+- note: the funnel engine and its audit rows exist (T-109) but nothing serves them. Add internal routes under `/internal/core/funnel/` to read the checklist state of a project and to record a gate decision, tenant scoped from the service-token headers (404 across tenants, `set_tenant_context` before every read), per-route allow list for the gateway only. A KILL decision must move the project to the closed status the existing `core.project` status values already offer; if no such value exists do not invent one or a migration: stop, mark the task blocked with the reason and list the values you found. Production keeps refusing example checklists unless `FUNNEL_ALLOW_EXAMPLE_CHECKLISTS=true`. Add every new route to `NOT_PUBLIC` in tests/unit/test_openapi.py (the gateway exposes them in T-148).
+- evidence: filled by the agent when done
+
+### T-147 Validation metrics worker and read routes
+- status: todo
+- spec: REQ-LNS-010, REQ-LNS-011, REQ-SEC-005
+- owner: lead-backend-engineer
+- depends: T-108, T-110, T-146
+- write_scope: services/core/app/validation_worker.py (new), services/core/app/validation_reads.py (new), services/core/app/main.py (the validation routes only), tests/unit/test_validation_worker.py, tests/unit/test_validation_routes.py, tests/unit/test_openapi.py (NOT_PUBLIC entries only)
+- context: libs/domain/validation.py, libs/domain/validation_thresholds.yaml, services/streamlit/pages/9_Validation.py, services/streamlit/pages/7_Ops.py, migrations/20261020_0009_validation_schema.sql, ops/schemas.py
+- size: L
+- acceptance: `pytest -q tests/unit/test_validation_worker.py tests/unit/test_validation_routes.py tests/unit/test_validation_metrics.py tests/unit/test_openapi.py`
+- note: the V1 to V6 metrics are pure functions (T-108) and nothing computes or serves them. The `validation` schema is owned by the core role (`SHARED_ROLE_SCHEMAS`), so the worker lives in core: a function that computes the metrics per tenant and project from core data and writes them to `validation.*` with `set_tenant_context`, with a stop condition and a `python -m services.core.app.validation_worker` entry (not added to Compose). Read routes serve exactly the cards that `services/streamlit/pages/9_Validation.py` and `7_Ops.py` request (`validation/projects/<id>/<card>` and `validation/meta-ml`), under `/internal/core/validation/`, tenant scoped, gateway-only allow list, with the threshold decision of T-108 in the response. Do not read the `ml` or `pulse` schemas (INV-01): when a metric needs them, leave that card empty with a reason in the response and list it in the report. Add every new route to `NOT_PUBLIC`.
+- evidence: filled by the agent when done
+
+### T-148 Gateway public routes for funnel and validation
+- status: todo
+- spec: REQ-API-001, REQ-API-002, REQ-LNS-013
+- owner: second-backend-engineer
+- depends: T-146, T-147
+- write_scope: services/gateway/app/registry.py, services/gateway/app/routes.py, docs/api/openapi.json, tests/unit/snapshots/, tests/unit/test_validation_gateway.py, tests/unit/test_openapi.py, services/streamlit/pages/9_Validation.py (only if a URL differs from the routes you add)
+- context: services/gateway/app/registry.py, services/gateway/app/routes.py, services/streamlit/pages/9_Validation.py, docs/runs/RUN-r1-g-validation.md
+- size: M
+- acceptance: `pytest -q tests/unit/test_validation_gateway.py tests/unit/test_openapi.py tests/unit/test_gateway.py` and `make openapi` leaves no diff
+- note: expose the routes of T-146 and T-147 as `/api/v1/validation/...` and the funnel routes with the roles admin, strategist, analyst (read) and admin, strategist (decision), following the existing registry pattern; remove their `NOT_PUBLIC` entries because they become public. The change to the OpenAPI document is additive (`oasdiff` must report no breaking change). Streamlit page 9 must work against the real routes without a change; if a URL differs, change the page, not the route.
+- evidence: filled by the agent when done
+
+### T-149 Event chain: tolerant consumers and flagged producers
+- status: todo
+- spec: REQ-LNS-012, REQ-EXT-001, REQ-EVT-002
+- owner: lead-backend-engineer
+- depends: T-110
+- write_scope: libs/domain/event_chain.py, services/core/app/outbox_relay.py, services/pulse/app/consumer.py, services/ml/app/consumer.py, libs/common/settings.py, .env.example (comments and one variable), ops/check_configuration.py, tests/unit/test_event_chain.py, tests/unit/test_event_chain_consumers.py
+- context: libs/domain/event_chain.py, docs/runs/RUN-r1-g-validation.md, libs/contracts/events.py, services/core/app/dead_letter.py
+- size: L
+- acceptance: `pytest -q tests/unit/test_event_chain.py tests/unit/test_event_chain_consumers.py` and `python ops/check_configuration.py`
+- note: only `funnel.gate_decision` is emitted today; the six other chain producers are not wired because nobody verified how the relay and the consumers treat an event type they do not know. First prove it with tests: an unknown or chain-only event type is acknowledged and never lands in `core.outbox_dead_letter` (REQ-EXT-001), in the relay, the pulse consumer and the ml consumer. Then wire the other producers behind a flag `EVENT_CHAIN_EMIT` that is off by default (declared in settings, `.env.example` and the configuration check); with the flag off the outbox content is byte for byte what it is today, because the CI e2e stage fails on any dead letter. Keep the `source_version` growth bounded as it is.
+- evidence: filled by the agent when done
+
+### T-150 ML publisher sends the tenant to pulse
+- status: todo
+- spec: REQ-LNS-004, REQ-SEC-005
+- owner: second-backend-engineer
+- depends: T-135
+- write_scope: services/ml/app/publisher.py, services/ml/app/profiling.py (the error text only), services/ml/app/attribution_service.py, tests/unit/test_ml_publisher.py
+- context: services/ml/app/publisher.py, services/pulse/app/lens.py, docs/runs/RUN-r1-g-pulse.md
+- size: S
+- acceptance: `pytest -q tests/unit/test_ml_publisher.py tests/unit/test_attribution.py tests/unit/test_profiling.py`
+- note: the pulse ingest routes `/internal/pulse/ingest/{profiles,communities,topics,attribution}` answer 400 `tenant_required` because the ML publisher sends no tenant. Send it in `X-Tenant-Id` (the tenant of the batch, never a default) with the signed service token, and make a missing tenant raise before any call. The error text of the kmodes path in `profiling.py` still names the `ml` extra: it must name the `kmodes` extra.
+- evidence: filled by the agent when done
+
+### T-151 ML explanation route so the Brief drivers fill
+- status: todo
+- spec: REQ-LNS-007, REQ-BRF-001, REQ-SEC-005
+- owner: lead-backend-engineer
+- depends: T-137, T-106
+- write_scope: services/ml/app/explanations_routes.py (new), services/ml/app/main.py (one `include_router` line), services/ml/app/scoring_service.py, services/ml/app/repository.py (the upsert and a new read only), migrations/20261022_0013_ml_score_features.sql (this exact name), tests/unit/test_ml_explanations.py, tests/unit/test_openapi.py (NOT_PUBLIC entry only), tests/unit/snapshots/table_catalog.json
+- context: services/brief/app/explanations.py, services/ml/app/explain.py, services/ml/app/scoring_service.py, docs/runs/RUN-r1-g-ml.md
+- size: L
+- acceptance: `pytest -q tests/unit/test_ml_explanations.py tests/unit/test_brief_explanations.py tests/unit/test_explain.py` and `python ops/check_migrations.py` and `make test`
+- note: Brief asks ML for `GET /internal/ml/explanations/{company_id}` and gets nothing, so `drivers` and `counterfactual` stay null. ML cannot rebuild the drivers because it stores only the score, not the features it was computed from. Add an expand migration (the exact file name above; T-145 uses 0012) with nullable ml-owned columns that keep the three score features and the weights used on `ml.lead_score`, written by `upsert_score`; then serve the route from the stored features with the pure functions of `services/ml/app/explain.py`, answering 404 when the company has no stored features. Use the response shape that `services/brief/app/explanations.py` already parses, a per-route allow list for the service `brief` only, and no read of any other schema (INV-01). Put the route in the new module and add one `include_router` line to main.py, because T-144 edits main.py in the same wave. Add the route to `NOT_PUBLIC`.
+- evidence: filled by the agent when done
+
+### T-152 Pulse writes the project snapshot and stage visit rows
+- status: todo
+- spec: REQ-LNS-003, REQ-PUL-002, REQ-EVT-002
+- owner: second-backend-engineer
+- depends: T-135, T-149
+- write_scope: services/pulse/app/project_projection.py (new), services/pulse/app/consumer.py (one dispatch branch), services/pulse/app/repository.py, tests/unit/test_project_projection.py
+- context: services/pulse/app/lens.py, migrations/20261021_0010_pulse_lens_tables.sql, libs/contracts/events.py, docs/runs/RUN-r1-g-pulse.md
+- size: M
+- acceptance: `pytest -q tests/unit/test_project_projection.py tests/unit/test_pulse_lens_routes.py tests/unit/test_pulse_consumer.py`
+- note: `pulse.project_snapshot` and `pulse.project_stage_visit` have no writer, so `GET /internal/pulse/projects/metrics` returns empty values. Fill them from the project and lead stage events that the pulse consumer already receives (read `libs/contracts/events.py` for the types), idempotently (REQ-EVT-002: the same event twice changes nothing), with the tenant of the event and `set_tenant_context` on the write. If the event catalog has no event that carries a project stage change, do not invent one: write what the existing events allow, and list the gap in the report. Run this task after T-149 in the same session because both edit the pulse consumer.
+- evidence: filled by the agent when done
+
+### T-153 Compose entry for the drift worker, behind a profile
+- status: todo
+- spec: REQ-DEP-001, REQ-LNS-007, REQ-SEC-005
+- owner: devops-engineer
+- depends: T-138
+- write_scope: docker-compose.yml, tests/unit/test_compose.py, .env.example, ops/check_configuration.py, tests/unit/test_guards.py
+- context: docker-compose.yml, services/ml/app/schedule.py, services/ml/app/drift_worker.py, docs/runs/RUN-r1-g-ml.md, tests/unit/test_compose.py
+- size: S
+- acceptance: `pytest -q tests/unit/test_compose.py tests/unit/test_runbook.py` and `python ops/check_configuration.py`
+- note: add a `drift-worker` service (command `python -m services.ml.app.schedule`, the shared app environment, `depends_on` pulse healthy and the usual migrate and bootstrap gates) under a Compose profile `lens`, so `make invent-tracker` does not start it and the CI e2e stack is unchanged; add it to `EXPECTED` in tests/unit/test_compose.py as a profile-gated helper like pgadmin. Document `DRIFT_ALERT_WEBHOOK_URL`, `DRIFT_ALERT_HEADER_NAME`, `DRIFT_ALERT_HEADER_VALUE`, `DRIFT_TENANT_ID` and `DRIFT_RUN_HOUR_UTC` in `.env.example` with empty or safe defaults (never a real value), and make the configuration check know them. Redis users must follow `test_every_redis_client_uses_an_acl_user`.
+- evidence: filled by the agent when done
+
+### T-154 Docker images ship the validation and funnel files
+- status: todo
+- spec: REQ-DEP-001, REQ-LNS-009, REQ-LNS-011
+- owner: devops-engineer
+- depends: T-108, T-109
+- write_scope: deploy/Dockerfile.python, .dockerignore, tests/unit/test_images_ship_runtime_files.py
+- context: deploy/Dockerfile.python, libs/domain/validation.py, libs/domain/funnel.py, docs/runs/RUN-r1-g-validation.md
+- size: S
+- acceptance: `pytest -q tests/unit/test_images_ship_runtime_files.py tests/unit/test_compose.py`
+- note: `config/funnel/*.yaml` and `libs/domain/validation_thresholds.yaml` are read by repository path and are not package data. Verify from the Dockerfile and `.dockerignore` that the image copies them to where the code looks (read how `libs/domain/validation.py` and `funnel.py` build the path), fix the Dockerfile if not, and add a test that parses the Dockerfile and `.dockerignore` and fails when a file read at runtime by path is not copied or is ignored.
+- evidence: filled by the agent when done
+
+### T-155 Go-live runbook items for the lens and validation wave
+- status: todo
+- spec: REQ-DOC-001, REQ-LNS-009, REQ-LNS-011
+- owner: devops-engineer
+- depends: T-153, T-154
+- write_scope: docs/runbooks/go-live.md, orchestration/n8n/README.md, tests/unit/test_runbook.py
+- context: docs/runbooks/go-live.md, docs/runs/RUN-r1-g-ml.md, docs/runs/RUN-r1-g-pulse.md, docs/runs/RUN-r1-g-validation.md, tests/unit/test_runbook.py
+- size: S
+- acceptance: `pytest -q tests/unit/test_runbook.py`
+- note: append new numbered sections after the existing last one (11, nightly backups); do not renumber and keep "## 10. Troubleshooting" as it is, because tests read it. Cover, each as a checkable item: create the n8n credentials `pulse-internal-header` and `drift-alert-header` (names only, never values) and the fact that n8n service tokens live 60 seconds while a static-header credential does not, so the socioeconomic refresh workflow needs the owner's decision; the drift worker profile and its variables (T-153); `FUNNEL_ALLOW_EXAMPLE_CHECKLISTS` must stay false in production and the owner replaces the example checklists in `config/funnel/` (decision D-06); the owner confirms the threshold bands the ADR is silent about (LTV:CAC 5, burn multiple 2 to 3, CAC payback 12 to 18, and the invented `horizon_mix_deviation` bands). Every variable cited must exist in `.env.example` or in the allow sets of tests/unit/test_runbook.py.
+- evidence: filled by the agent when done
+
+### T-156 Remove the leftovers of the retired analytics service
+- status: todo
+- spec: REQ-ARC-002, REQ-DAT-001
+- owner: second-backend-engineer
+- depends: T-129
+- write_scope: .codex/agent-registry.yaml, libs/common/, libs/contracts/ (docstrings and comments only), tests/unit/test_registry.py
+- context: .codex/agent-registry.yaml, docs/runs/RUN-r1-e.md, migrations/contract_20261020_0008_retire_analytics.sql
+- size: S
+- acceptance: `pytest -q tests/unit/test_registry.py` and `make static`
+- note: follow-up F-r1e-07: remove `legacy_paths: services/analytics/` from `.codex/agent-registry.yaml` and from whatever profile sync reads it (find it with `git grep legacy_paths`), and reword the docstrings and comments in `libs/common` and `libs/contracts` that still say analytics for what is now pulse. Change text only; do not touch `LEGACY_SCHEMAS` in ops/schemas.py (the baseline still creates those schemas) and do not edit services/ (other sessions of this wave own those files).
+- evidence: filled by the agent when done
+
+### T-157 Fill the tasks lines of the SPEC requirements
+- status: todo
+- spec: REQ-TRC-001
+- owner: qa-reviewer
+- depends: T-080
+- write_scope: SPEC.md (only the `tasks:` lines), tests/unit/test_spec_tasks_lines.py
+- context: SPEC.md, TASKS.md, ops/check_traceability.py, docs/runs/RUN-r1-e.md
+- size: S
+- acceptance: `python ops/check_traceability.py` and `pytest -q tests/unit/test_spec_tasks_lines.py tests/unit/test_traceability.py`
+- note: follow-up F-r1e-09. Many requirements still say `tasks: none yet`. Derive the list from TASKS.md (a requirement's tasks are the ones whose `spec:` cites it) and write it on the requirement's `tasks:` line; where no task cites it, write why in one short clause (for example "later run" or "owner decision"). Change nothing else in SPEC.md: no statement, no `status`, no `verify`. Do not touch REQ-SEC-005 text (it waits for decisions F-r1e-03 and F-r1e-04). Add a test that every `tasks:` line is either task ids that exist in TASKS.md or a stated reason.
 - evidence: filled by the agent when done
