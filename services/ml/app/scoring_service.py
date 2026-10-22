@@ -13,8 +13,10 @@ import logging
 from typing import Any, Protocol
 from uuid import UUID, uuid4
 
+from libs.common.settings import get_settings
 from libs.contracts.api import ScoreFeatures, ScoreResponse
 from libs.contracts.events import EventType
+from libs.domain.event_chain import chain_events_after, reference_parent
 from libs.domain.scoring import (
     RulesSource,
     ScoreWeights,
@@ -92,6 +94,45 @@ def score_event_fields(
     return fields
 
 
+ML_CHAIN_VERSION = "ml-chain-v1"
+
+
+def chain_event_entries(
+    *, company_id: UUID, tenant_id: UUID | None, score: int, source_version: str
+) -> list[dict[str, str]]:
+    """Build the ``signal.scored`` stream entry that follows the tagged signal (flag on).
+
+    The tagged parent was written by core, so the entry names it by reference. Same envelope as
+    ``score_event_fields``. Returns entries ready for ``xadd``.
+    """
+    parent = reference_parent("signal.tagged", f"{company_id}:{source_version}", source_version)
+    events = chain_events_after(
+        parent,
+        [
+            (
+                "signal.scored",
+                {"company_id": str(company_id), "score": score},
+                ML_CHAIN_VERSION,
+            )
+        ],
+        enabled=True,
+    )
+    entries = []
+    for event in events:
+        fields = {
+            "event_id": event["event_id"],
+            "event_type": event["event_type"],
+            "aggregate_type": "company",
+            "aggregate_id": str(company_id),
+            "version": str(EVENT_VERSION),
+            "payload": json.dumps(event["payload"]),
+        }
+        if tenant_id is not None:
+            fields["tenant_id"] = str(tenant_id)
+        entries.append(fields)
+    return entries
+
+
 class ScoringService:
     def __init__(self, store: ScoreStore, redis: ScoreRedis, *, lock_ttl_seconds: int) -> None:
         self._store = store
@@ -158,6 +199,14 @@ class ScoringService:
                     source_version=features.source_version,
                 ),
             )
+            if get_settings().event_chain_emit:
+                for entry in chain_event_entries(
+                    company_id=features.company_id,
+                    tenant_id=tenant_id,
+                    score=breakdown.score,
+                    source_version=features.source_version,
+                ):
+                    await self._redis.xadd(STREAM_NAME, entry)
             return ScoreResponse(
                 company_id=features.company_id,
                 score=breakdown.score,
