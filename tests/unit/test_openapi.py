@@ -42,6 +42,12 @@ NOT_PUBLIC = {
     ("POST", "/internal/pulse/socioeconomic/refresh"): "n8n only, never public",
     # T-151
     ("GET", "/internal/ml/explanations/{company_id}"): "brief service only, never public",
+    # T-146
+    ("GET", "/internal/core/funnel/projects/{project_id}"): "gateway exposes it in T-148",
+    (
+        "POST",
+        "/internal/core/funnel/projects/{project_id}/gates/{gate}/decision",
+    ): "gateway exposes it in T-148",
 }
 SERVICES = ["core", "identity", "pulse", "brief", "ml"]
 STATIC_INTERNAL = {"/internal/metrics"}
