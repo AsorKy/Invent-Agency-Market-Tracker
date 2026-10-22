@@ -189,3 +189,5 @@ The ADR is silent on some band boundaries, so the code uses values chosen by the
 4. The `horizon_mix_deviation` bands, which are invented and have no source in the ADR.
 
 Record the confirmed values in the run report; a change is an edit of the threshold configuration plus a rebuild of the image that reads it.
+
+To turn the event chain on after go-live, follow `docs/runbooks/event-chain-rollout.md`.
