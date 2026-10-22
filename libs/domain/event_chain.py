@@ -9,9 +9,10 @@ so the rule is additive and needs no migration. Producers call ``stamp_payload``
 audits call ``trace_chain``. Pure functions only, no I/O.
 """
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
+from uuid import uuid4
 
 CHAIN: tuple[str, ...] = (
     "signal.created",
@@ -128,3 +129,28 @@ def trace_chain(events: Iterable[Mapping[str, Any]], max_events: int = 10_000) -
         elif path and path[-1] != CHAIN[-1]:
             gap = CHAIN[_POSITION[path[-1]] + 1]
     return ChainTrace(path=tuple(path), complete=complete, gap=gap, problems=tuple(problems))
+
+
+def chain_events_after(
+    parent: Mapping[str, Any],
+    steps: Sequence[tuple[str, Mapping[str, Any], str]],
+    *,
+    enabled: bool,
+) -> list[dict[str, Any]]:
+    """Return the outbox events (``event_id``, ``event_type``, ``payload``) that follow ``parent``.
+
+    ``steps`` are ``(event_type, payload, producer_version)`` in chain order; each event names the
+    previous one as its parent, so ``source_version`` grows by one segment per step and never past
+    the chain length. With ``enabled`` false (``EVENT_CHAIN_EMIT`` off) nothing is returned, so
+    the outbox is unchanged. Producers pass ``Settings.event_chain_emit``. Pure function.
+    """
+    if not enabled:
+        return []
+    events: list[dict[str, Any]] = []
+    previous: Mapping[str, Any] = parent
+    for event_type, payload, producer_version in steps:
+        stamped = stamp_payload(payload, event_type, producer_version, previous)
+        event = {"event_id": str(uuid4()), "event_type": event_type, "payload": stamped}
+        events.append(event)
+        previous = event
+    return events

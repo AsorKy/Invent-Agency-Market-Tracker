@@ -16,6 +16,7 @@ from uuid import UUID
 import structlog
 from fastapi import FastAPI
 from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncConnection
 
 from libs.common.db import create_engine
 from libs.common.lifecycle import (
@@ -32,6 +33,43 @@ from libs.common.settings import get_settings
 STREAM_NAME = "invent.events"
 GROUP_NAME = "ml"
 CONSUMER_NAME = "ml-worker"
+
+
+STALE_EVENT_TYPES = frozenset({"signal.created", "company.updated", "lead.outcome_recorded"})
+
+
+async def process_event(connection: AsyncConnection, message: dict[str, str]) -> None:
+    """Apply one stream message once; unknown or chain-only event types are only recorded."""
+    event_id = UUID(message["event_id"])
+    inserted = await connection.execute(
+        text(
+            """
+            INSERT INTO ml.processed_event (event_id)
+            VALUES (:event_id)
+            ON CONFLICT (event_id) DO NOTHING
+            RETURNING event_id
+            """
+        ),
+        {"event_id": event_id},
+    )
+    event_type = message["event_type"]
+    if inserted.scalar_one_or_none() is None or event_type not in STALE_EVENT_TYPES:
+        return
+    event_payload = json.loads(message.get("payload", "{}"))
+    company_value = event_payload.get("company_id") or (
+        message["aggregate_id"] if event_type == "company.updated" else None
+    )
+    if company_value is not None:
+        await connection.execute(
+            text(
+                """
+                UPDATE ml.lead_score
+                SET stale = true
+                WHERE company_id = :company_id
+                """
+            ),
+            {"company_id": UUID(company_value)},
+        )
 
 
 class BatchShutdown:
@@ -116,43 +154,8 @@ async def main() -> None:
                         async def process(
                             message_payload: dict[str, str] = message_payload,
                         ) -> None:
-                            event_id = UUID(message_payload["event_id"])
                             async with engine.begin() as connection:
-                                inserted = await connection.execute(
-                                    text(
-                                        """
-                                        INSERT INTO ml.processed_event (event_id)
-                                        VALUES (:event_id)
-                                        ON CONFLICT (event_id) DO NOTHING
-                                        RETURNING event_id
-                                        """
-                                    ),
-                                    {"event_id": event_id},
-                                )
-                                event_type = message_payload["event_type"]
-                                if inserted.scalar_one_or_none() is not None and event_type in {
-                                    "signal.created",
-                                    "company.updated",
-                                    "lead.outcome_recorded",
-                                }:
-                                    event_payload = json.loads(message_payload.get("payload", "{}"))
-                                    company_value = event_payload.get("company_id") or (
-                                        message_payload["aggregate_id"]
-                                        if event_type == "company.updated"
-                                        else None
-                                    )
-                                    if company_value is not None:
-                                        company_id = UUID(company_value)
-                                        await connection.execute(
-                                            text(
-                                                """
-                                                UPDATE ml.lead_score
-                                                SET stale = true
-                                                WHERE company_id = :company_id
-                                                """
-                                            ),
-                                            {"company_id": company_id},
-                                        )
+                                await process_event(connection, message_payload)
 
                         await retry_with_backoff(
                             process,
