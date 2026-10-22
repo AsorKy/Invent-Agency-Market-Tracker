@@ -234,6 +234,9 @@ class FakeCompanyTx(_Tx):
 
 
 class FakeQualificationTx(_Tx):
+    async def set_tenant_context(self, tenant_id: UUID) -> None:
+        return None
+
     async def mark_processed(self, event_id: UUID) -> bool:
         if event_id in self.store.processed:
             return False

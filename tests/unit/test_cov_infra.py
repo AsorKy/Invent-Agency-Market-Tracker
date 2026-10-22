@@ -607,6 +607,7 @@ async def test_qualification_transaction_sql_paths() -> None:
     unit, engine = _uow(
         repo.SqlQualificationUnitOfWork,
         [
+            FakeResult(),
             FakeResult(scalar=ID),
             FakeResult(),
             FakeResult(tuples=[(TENANT,)]),
@@ -618,6 +619,7 @@ async def test_qualification_transaction_sql_paths() -> None:
         ],
     )
     async with unit as tx:
+        await tx.set_tenant_context(TENANT)
         assert await tx.mark_processed(ID) is True
         assert await tx.mark_processed(ID) is False
         assert await tx.get_company_tenant(ID) == (True, TENANT)
@@ -626,7 +628,9 @@ async def test_qualification_transaction_sql_paths() -> None:
         assert await tx.find_leads(ID) == [lead, lead]
         assert await tx.has_manual_transition(ID) is True
         assert await tx.has_manual_transition(ID) is False
-    assert "core.processed_event" in engine.connection.calls[0][0]
+    assert "set_config" in engine.connection.calls[0][0]
+    assert engine.connection.calls[0][1] == {"tenant_id": str(TENANT)}
+    assert "core.processed_event" in engine.connection.calls[1][0]
 
 
 async def test_outbox_transaction_sql_paths() -> None:

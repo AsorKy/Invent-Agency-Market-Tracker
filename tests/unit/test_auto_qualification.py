@@ -36,6 +36,8 @@ class Store:
         self.audit: list[dict[str, Any]] = []
         self.outbox: list[dict[str, Any]] = []
         self.fail_on: str | None = None
+        self.context: UUID | None = None
+        self.calls: list[str] = []
 
 
 class FakeUow:
@@ -55,7 +57,12 @@ class FakeUow:
         if exc_type is not None:
             self.s.leads, self.s.processed, self.s.audit, self.s.outbox = self.snap
 
+    async def set_tenant_context(self, tenant_id: UUID) -> None:
+        self.s.calls.append("set_tenant_context")
+        self.s.context = tenant_id
+
     async def mark_processed(self, event_id: UUID) -> bool:
+        self.s.calls.append("mark_processed")
         if event_id in self.s.processed:
             return False
         self.s.processed.add(event_id)
@@ -65,7 +72,10 @@ class FakeUow:
         pass
 
     async def get_company_tenant(self, company_id: UUID) -> tuple[bool, UUID | None]:
-        return company_id in self.s.companies, self.s.companies.get(company_id)
+        self.s.calls.append("get_company_tenant")
+        # Like row level security: only companies of the context tenant (or without tenant).
+        visible = company_id in self.s.companies and self.s.companies[company_id] == self.s.context
+        return visible, self.s.companies.get(company_id) if visible else None
 
     async def get_config(self, tenant_id: UUID) -> dict[str, Any] | None:
         return self.s.configs.get(tenant_id)
@@ -93,12 +103,15 @@ class FakeUow:
         self.s.outbox.append(kw)
 
 
-def _event(score: int, company: UUID = COMPANY, event_id: UUID | None = None) -> dict[str, str]:
+def _event(
+    score: int, company: UUID = COMPANY, event_id: UUID | None = None, tenant: UUID = TENANT
+) -> dict[str, str]:
     return {
         "event_id": str(event_id or uuid4()),
         "event_type": "lead.score_updated",
         "aggregate_id": str(company),
         "score": str(score),
+        "tenant_id": str(tenant),
     }
 
 
@@ -206,7 +219,9 @@ def test_unknown_company_is_acknowledged_without_lead() -> None:
 def test_company_without_tenant_uses_defaults() -> None:
     store = Store()
     store.companies[COMPANY] = None
-    _run(store, _event(75))
+    event = _event(75)
+    del event["tenant_id"]
+    _run(store, event)
     assert _only_lead(store)["stage"] == "hot"
 
 
@@ -236,3 +251,28 @@ def test_worker_handler_dispatches_score_events_only() -> None:
     assert asyncio.run(dispatch_event(fields, handlers, ack)) is True
     assert asyncio.run(dispatch_event({"event_type": "signal.created"}, handlers, ack)) is False
     assert len(acked) == 2 and _only_lead(store)["stage"] == "hot"
+
+
+def test_tenant_context_is_set_before_any_read_or_write() -> None:
+    store = Store()
+    assert _run(store, _event(80)) == "created"
+    assert store.calls[:3] == ["set_tenant_context", "mark_processed", "get_company_tenant"]
+    assert store.context == TENANT
+    assert _only_lead(store)["tenant_id"] == TENANT
+
+
+def test_event_of_another_tenant_answers_unknown_company_and_creates_no_lead() -> None:
+    store = Store()
+    assert _run(store, _event(80, tenant=uuid4())) == "unknown_company"
+    assert store.leads == {} and store.outbox == [] and store.audit == []
+
+
+def test_event_without_tenant_only_sees_companies_without_tenant() -> None:
+    store = Store()
+    event = _event(80)
+    del event["tenant_id"]
+    assert _run(store, event) == "unknown_company"
+    assert "set_tenant_context" not in store.calls
+    store.companies[COMPANY] = None
+    assert _run(store, event | {"event_id": str(uuid4())}) == "created"
+    assert _only_lead(store)["tenant_id"] is None
