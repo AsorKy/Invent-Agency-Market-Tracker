@@ -129,6 +129,7 @@ def bootstrap_app_roles(url: str, password: str) -> dict[str, str]:
     Skips the calling test when the server user may not create roles (not a superuser).
     """
     import psycopg
+    from psycopg import sql
 
     from ops.bootstrap_roles import generate_sql
     from ops.schemas import SCHEMAS, app_role
@@ -138,6 +139,14 @@ def bootstrap_app_roles(url: str, password: str) -> dict[str, str]:
             connection.execute(
                 generate_sql(passwords={schema: password for schema in SCHEMAS}, extensions=())
             )
+            # Roles are cluster wide and generate_sql only creates them when missing, so an
+            # earlier test may have made them with another password.
+            for schema in SCHEMAS:
+                connection.execute(
+                    sql.SQL("ALTER ROLE {} PASSWORD {}").format(
+                        sql.Identifier(app_role(schema)), sql.Literal(password)
+                    )
+                )
     except psycopg.errors.InsufficientPrivilege:
         import pytest
 
