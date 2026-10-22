@@ -172,7 +172,7 @@ Template entry:
 - source: ADR-IMT-0001 section 17 stage 2
 - statement: Unit coverage is at least 80 percent overall and at least 90 percent for `libs/domain`.
 - verify: `pytest --cov=libs --cov=services --cov-fail-under=80`
-- tasks: none yet
+- tasks: T-065, T-126, T-127
 
 ### REQ-QA-004 Offline pipeline test
 - status: accepted
@@ -182,7 +182,7 @@ Template entry:
 - source: ADR-IMT-0001 sections 7, E1.9 (smoke S5, S7)
 - statement: One test pushes a mock snapshot through webhook, processor, entity resolution, company upsert and signal creation, outbox relay, pulse rollup, ml score, auto-qualification, and brief, using in-memory fake repositories and fake Redis Streams, and asserts the final payloads of `/api/v1/leads`, `/api/v1/leads/{id}/brief`, and `/api/v1/pulse/*` served through the gateway application. It runs inside `make test`.
 - verify: `pytest -q tests/unit/test_pipeline_flow.py`
-- tasks: none yet
+- tasks: T-077, T-092
 
 ### REQ-QA-005 Integration test tier
 - status: accepted
@@ -192,7 +192,7 @@ Template entry:
 - source: ADR-IMT-0001 sections 17 (stage 3), 5.5
 - statement: `make test-integration` runs `tests/integration` against Postgres and Redis (the Compose services or URLs given by environment variables): migrations apply to an empty database, role grants isolate schemas, the outbox relay publishes to real Redis Streams, and the flow of REQ-QA-004 produces rows in every expected schema. The tests carry the `integration` marker and are skipped when no database URL is configured, so `make test` stays offline. The owner runs this tier.
 - verify: `pytest -q tests/integration --collect-only`
-- tasks: none yet
+- tasks: T-078, T-095
 
 ### REQ-TRC-001 Spec to task traceability
 - status: accepted
@@ -214,7 +214,7 @@ Template entry:
 - source: ADR-IMT-0001 sections E2.2, E2.4, E2.5
 - statement: `docker-compose.yml`, `README.md`, settings, and `.env.example` describe exactly the services of section 3.1 (plus redis, postgres, n8n, caddy, and mocks in development). No `analytics` service, schema, route, or variable remains, and `services/analytics` is merged into `services/pulse`.
 - verify: `python ops/check_configuration.py` (extend it to assert this) and `make compose-config`
-- tasks: none yet
+- tasks: T-050, T-073
 
 ### REQ-ARC-002 Ownership registry covers every service
 - status: accepted
@@ -224,7 +224,7 @@ Template entry:
 - source: ADR-IMT-0001 section E2.5 item 7, decision D-04
 - statement: `.codex/agent-registry.yaml` and the roster in `AGENTS.md` assign an owner role to identity, brief, pulse, streamlit, and mocks as listed in section 3.1.
 - verify: a unit test that loads the registry and checks every directory under `services/` has an owner.
-- tasks: none yet
+- tasks: T-016, T-156
 
 ### Data and migrations
 
@@ -256,7 +256,7 @@ Template entry:
 - source: ADR-IMT-0001 amendment E1.3
 - statement: Event instants are timestamptz and millisecond UTC numbers in APIs; dates without time use `date`; money is numeric(14,2) and a decimal string in APIs; semistructured data is JSONB; IDs are uuid v4 except `signal` (bigserial); aggregate versions are monotonic bigint; a `local_day(ts, city)` helper is the only way to group by local day.
 - verify: `pytest -q tests/unit/test_common.py` plus a migration check that no `json`, `float`, or `real` column is declared.
-- tasks: none yet
+- tasks: T-009
 
 ### REQ-DAT-004 Pooler-safe database drivers
 - status: accepted
@@ -266,7 +266,7 @@ Template entry:
 - source: ADR-IMT-0001 section 5.5
 - statement: asyncpg uses `statement_cache_size=0` and `prepared_statement_cache_size=0` with pool_size 4, pre-ping, and timeout 5; psycopg 3 uses `prepare_threshold=None` with pool_size 2. Runtime uses the transaction pooler; migrations and backups use the session port.
 - verify: `pytest -q tests/unit/test_db_settings.py` (asserts the driver arguments); the PgBouncer integration test `tests/integration/test_db_pooler.py` is marked `integration` and skipped offline.
-- tasks: none yet
+- tasks: T-009
 
 ### REQ-DAT-005 Database security
 - status: accepted
@@ -276,7 +276,7 @@ Template entry:
 - source: ADR-IMT-0001 section 5.4
 - statement: Row-level security is enabled on `core.company`, `core.lead`, and `core.project` by `tenant_id`; the Supabase Data API is not used; connections require SSL verification; the service_role key never reaches the frontend or the gateway.
 - verify: `python ops/check_migrations.py` asserts `ENABLE ROW LEVEL SECURITY` and tenant policies for the three tables.
-- tasks: none yet
+- tasks: T-018, T-093, T-094, T-095, T-125, T-132, T-143
 
 ### REQ-DAT-006 Extensions and roles bootstrap
 - status: accepted
@@ -286,7 +286,7 @@ Template entry:
 - source: ADR-IMT-0001 sections 5.1, 5.4
 - statement: The bootstrap enables `pgvector`, `postgis`, `pg_cron`, and `pg_trgm` idempotently and creates roles from a schema list, with `app` roles lacking DDL rights and no cross-schema grants.
 - verify: `python ops/check_migrations.py`
-- tasks: none yet
+- tasks: T-010, T-128
 
 ### REQ-DAT-007 Expand/contract guardian
 - status: accepted
@@ -296,7 +296,7 @@ Template entry:
 - source: ADR-IMT-0001 sections 8.2, 17.3
 - statement: The guardian fails a non-`contract_` migration containing DROP, RENAME, ALTER TYPE, or NOT NULL without default, and fails a `contract_` migration that arrives in the same commit as application code changes.
 - verify: `python ops/check_migrations.py` plus unit tests with fixture migrations.
-- tasks: none yet
+- tasks: T-010, T-093
 
 ### REQ-DAT-008 Deterministic synthetic data
 - status: accepted
@@ -306,7 +306,7 @@ Template entry:
 - source: ADR-IMT-0001 section 15.2
 - statement: `python -m datagen build --city medellin --orgs 200 --days 180 --seed 42` is byte-for-byte reproducible and produces 200 companies across Medellin, Bogota, and Cali, about 1,500 signals over 180 days, and 50 leads with sample outcomes.
 - verify: run the command twice and compare hashes of the output.
-- tasks: none yet
+- tasks: T-013
 
 ### Gateway
 
@@ -338,7 +338,7 @@ Template entry:
 - source: ADR-IMT-0001 sections 6.4, E1.2, E1.10
 - statement: The gateway verifies user JWTs with the JWKS published by identity, caches the JWKS for 10 minutes, applies per-route timeouts, and returns 503 only for routes whose upstream `/ready` is red (polled every 10 seconds).
 - verify: `pytest -q tests/unit/test_gateway_auth.py`
-- tasks: none yet
+- tasks: T-032
 
 ### Identity
 
@@ -350,7 +350,7 @@ Template entry:
 - source: ADR-IMT-0001 section E1.1
 - statement: The identity service (Django and DRF) manages users, tenants, scopes by city and service line, and five roles (`admin`, `strategist`, `intake`, `bd_rep`, `analyst`) with the permissions of E1.1. It publishes a JWKS and issues service tokens. Its Django admin is reachable only on the internal network, never through the gateway.
 - verify: `pytest -q tests/unit/test_identity_rbac.py`
-- tasks: none yet
+- tasks: T-030, T-083
 
 ### REQ-IDN-002 Session lifecycle
 - status: accepted
@@ -360,7 +360,7 @@ Template entry:
 - source: ADR-IMT-0001 sections 13.1, E1.1
 - statement: Login sets `HttpOnly`, `Secure`, `SameSite=Strict` cookies with the `__Host-` prefix. A session renews while active, expires after 30 minutes of inactivity and after 12 hours absolute, and logout invalidates the cookie. No token is stored in localStorage.
 - verify: `pytest -q tests/unit/test_identity_session.py`
-- tasks: none yet
+- tasks: T-031
 
 ### REQ-IDN-003 Tenant isolation
 - status: accepted
@@ -370,7 +370,7 @@ Template entry:
 - source: ADR-IMT-0001 sections 5.4, E1.9 (smoke S9)
 - statement: A user of tenant B requesting a lead of tenant A receives 404. `intake` and `bd_rep` see only the cities and service lines assigned to them.
 - verify: `pytest -q tests/unit/test_tenant_isolation.py` with fakes, and smoke S9 against a deployed stack.
-- tasks: none yet
+- tasks: T-032
 
 ### Ingest and orchestration
 
@@ -382,7 +382,7 @@ Template entry:
 - source: ADR-IMT-0001 sections 4.1, 4.3
 - statement: The webhook stores each snapshot in `ingest.raw_snapshot` with its sha256 and `UNIQUE(source, external_id, sha256)`. Only changed content produces new signals, and an `ingest.processor` job is enqueued per snapshot.
 - verify: `pytest -q tests/unit/test_ingest_snapshot.py`
-- tasks: none yet
+- tasks: T-040
 
 ### REQ-SEC-002 Signed Bright Data webhook with replay window
 - status: accepted
@@ -402,7 +402,7 @@ Template entry:
 - source: ADR-IMT-0001 section 4.3
 - statement: `ingest.budget(source, period, max_records, consumed)` blocks triggers beyond the monthly cap. Failed fetches are stored in `ingest.failed_fetch`, retried with exponential backoff, and moved to dead letter after 5 failures.
 - verify: `pytest -q tests/unit/test_ingest_budget.py`
-- tasks: none yet
+- tasks: T-041
 
 ### REQ-ING-003 Entity resolution against RUES
 - status: accepted
@@ -412,7 +412,7 @@ Template entry:
 - source: ADR-IMT-0001 sections 3 (P3), 5.3
 - statement: A candidate with match score above 0.9 against RUES by NIT updates the existing company; a score between 0.6 and 0.9 goes to `ingest.entity_match_log` for manual review; otherwise a new company is created and queued in `ingest.rues_lookup_queue`. A company without a RUES match after two attempts goes to `ingest.quarantine` and is not counted as a lead.
 - verify: `pytest -q tests/unit/test_entity_resolution.py`
-- tasks: none yet
+- tasks: T-044, T-089
 
 ### REQ-ING-004 Source connectors, mock and live
 - status: accepted
@@ -422,7 +422,7 @@ Template entry:
 - source: ADR-IMT-0001 sections 4.1, 4.4, E1.1
 - statement: `ingest` defines a `SourceConnector` interface (trigger a collection, fetch a snapshot, normalize a record). A mock implementation (backed by `services/mocks`) and a Bright Data implementation (Datasets API: trigger with a notify URL, progress, snapshot download, Bearer token) are selected by `INGEST_MODE`. Provider fields map to canonical fields through versioned mapping files in `libs/domain/source_mappings/<source>.yaml`, so a field change needs a file edit, not code. Sources: maps, computrabajo (F1), linkedin_companies, linkedin_jobs, instagram (F2). The RUES lookup has an interface and a mock only.
 - verify: `pytest -q tests/unit/test_connectors.py` using `httpx.MockTransport` and recorded fixtures under `tests/fixtures/`; no test touches the network.
-- tasks: none yet
+- tasks: T-042, T-043, T-048, T-096, T-098
 
 ### REQ-ING-005 Imports as background jobs
 - status: accepted
@@ -432,7 +432,7 @@ Template entry:
 - source: ADR-IMT-0001 section E1.7
 - statement: `POST /api/v1/imports/{entity}` (companies, leads, activities) with an `Idempotency-Key` returns 202 with a job ID. `GET /api/v1/jobs/{id}` reports status and counters. Limits: 10 MB per file, 100,000 rows per job, 3 active jobs per tenant (the fourth returns 429). Rows are upserted by `row_sha256`, events are published per changed aggregate, and the upload blob is deleted when the job ends.
 - verify: `pytest -q tests/unit/test_imports.py`
-- tasks: none yet
+- tasks: T-026
 
 ### REQ-ING-006 Enrichment agent contract
 - status: accepted
@@ -442,7 +442,7 @@ Template entry:
 - source: ADR-IMT-0001 sections 4.2, E1.1
 - statement: A deep-enrichment request is queued by `ingest`, rate limited with a daily budget, and runs through a replaceable agent interface (mock in run 1). A provider failure sets the enrichment to `pending_retry` with backoff and surfaces as a Brief warning, never as a 500.
 - verify: `pytest -q tests/unit/test_enrichment.py`
-- tasks: none yet
+- tasks: T-046
 
 ### REQ-ING-007 Bright Data mock
 - status: accepted
@@ -452,7 +452,7 @@ Template entry:
 - source: ADR-IMT-0001 section E1.1
 - statement: `services/mocks` emulates snapshots, latency, and failure rate (configurable) and signs webhooks like the real provider.
 - verify: `pytest -q tests/unit/test_mocks.py`
-- tasks: none yet
+- tasks: T-042, T-098
 
 ### REQ-ING-008 Polling fallback without a public webhook
 - status: accepted
@@ -462,7 +462,7 @@ Template entry:
 - source: ADR-IMT-0001 sections 4.1, 4.3
 - statement: When `INGEST_POLL_ENABLED=true` (default in the local profile), each triggered collection is tracked in `ingest.pending_snapshot` and polled until ready, so ingestion works without a public webhook URL. A snapshot delivered by both webhook and polling is stored once (REQ-ING-001).
 - verify: `pytest -q tests/unit/test_ingest_poll.py`
-- tasks: none yet
+- tasks: T-043
 
 ### REQ-ING-009 From snapshot to company and signal
 - status: accepted
@@ -472,7 +472,7 @@ Template entry:
 - source: ADR-IMT-0001 sections 4.1, 5.3, E2.1
 - statement: After entity resolution, the ingest processor upserts the company and creates signals in `core` only through core's internal API with the service token, using the mapping files of REQ-ING-004. A record that fails mapping or resolution is stored in `ingest.failed_record` with its reason and does not block the rest of the batch.
 - verify: `pytest -q tests/unit/test_ingest_to_core.py`
-- tasks: none yet
+- tasks: T-045, T-089, T-120
 
 ### REQ-ORC-001 n8n workflows are orchestration only
 - status: accepted
@@ -482,7 +482,7 @@ Template entry:
 - source: ADR-IMT-0001 sections 2, 4.1
 - statement: Versioned workflow JSON under `orchestration/n8n/` contains schedules, HTTP calls, and notifications only. It has no code nodes with business logic and no secrets.
 - verify: `python ops/check_configuration.py` (extend it to scan workflow JSON for code nodes and secret-like values).
-- tasks: none yet
+- tasks: T-017, T-047, T-049, T-133
 
 ### Core
 
@@ -494,7 +494,7 @@ Template entry:
 - source: ADR-IMT-0001 sections 5.1, E2.1
 - statement: `core` owns company (SCD2), location, person_role, signal, lead, lead_outcome, lead_activity, pipeline_stage, project, tenant_config, and audit_log. Every aggregate carries a monotonic `version`. The Brief digest is not stored in `core`.
 - verify: `python ops/check_migrations.py` plus `pytest -q tests/unit/test_core_models.py`
-- tasks: none yet
+- tasks: T-018, T-085, T-144, T-145
 
 ### REQ-COR-002 Lead state machine and optimistic concurrency
 - status: accepted
@@ -504,7 +504,7 @@ Template entry:
 - source: ADR-IMT-0001 section E1.1
 - statement: Lead states follow Discovered, Qualified, Hot, Contacted, Meeting, Proposal, Won, with Lost reachable from Hot onward. `PATCH /leads/{id}/status` requires `expected_version` and returns 409 with the current state on a mismatch. Lead creation requires an `Idempotency-Key`.
 - verify: `pytest -q tests/unit/test_lead_state.py`
-- tasks: none yet
+- tasks: T-021
 
 ### REQ-COR-003 Outcomes from day one
 - status: accepted
@@ -514,7 +514,7 @@ Template entry:
 - source: ADR-IMT-0001 section 3 (P7)
 - statement: Every contact, response, meeting, close, and spam mark is stored in `core.lead_outcome` and emits `lead.outcome_recorded`.
 - verify: `pytest -q tests/unit/test_outcomes.py`
-- tasks: none yet
+- tasks: T-022
 
 ### REQ-COR-004 Tenant configuration with ETag
 - status: accepted
@@ -524,7 +524,7 @@ Template entry:
 - source: ADR-IMT-0001 sections E1.1, E1.6
 - statement: `core.tenant_config` stores JSONB validated by Pydantic. `PUT /admin/tenant-config` requires `If-Match` and returns 412 on a stale ETag. A change emits `tenant.config_updated`.
 - verify: `pytest -q tests/unit/test_tenant_config.py`
-- tasks: none yet
+- tasks: T-023
 
 ### REQ-COR-005 Lead activities and conversion to project
 - status: accepted
@@ -534,7 +534,7 @@ Template entry:
 - source: ADR-IMT-0001 section E1.1
 - statement: Logging an activity writes `core.lead_activity` and emits `signal.activity_logged`. Converting a lead creates `core.project` and emits `signal.converted_to_project` in the same transaction.
 - verify: `pytest -q tests/unit/test_lead_actions.py`
-- tasks: none yet
+- tasks: T-022
 
 ### REQ-COR-006 Rule-based lead score
 - status: accepted
@@ -544,7 +544,7 @@ Template entry:
 - source: ADR-IMT-0001 section 10.1
 - statement: A weighted rule (ICP fit, signal intensity, territory) produces `ml.lead_score` with `score_version`, `source_version`, and `stale`. The weights come from `core.lead_score_rule` and per-tenant configuration. The score for a given input is deterministic.
 - verify: `pytest -q tests/unit/test_scoring.py`
-- tasks: none yet
+- tasks: T-053
 
 ### REQ-COR-007 Company upsert API
 - status: accepted
@@ -554,7 +554,7 @@ Template entry:
 - source: ADR-IMT-0001 sections 5.1, 5.3, E1.4
 - statement: `POST /internal/core/companies/upsert` creates or updates a company by NIT or by canonical key (name, city, source IDs), keeps history (SCD2), bumps `version`, and emits `company.updated` (or the creation event) in the same transaction. Repeating the same payload changes nothing.
 - verify: `pytest -q tests/unit/test_company_upsert.py`
-- tasks: none yet
+- tasks: T-020
 
 ### REQ-COR-008 Automatic qualification from scores
 - status: accepted
@@ -564,7 +564,7 @@ Template entry:
 - source: ADR-IMT-0001 sections E1.1, E1.6
 - statement: `core` consumes `lead.score_updated` and creates the lead (Discovered) or advances it to Qualified or Hot using `tenant_config.brief_rules` (`min_score_for_hot`, default 70, and `min_score_for_qualified`, default 50). It never moves a lead backward and never overrides a human-set status. Each automatic move writes an `audit_log` entry and new leads emit `lead.created`.
 - verify: `pytest -q tests/unit/test_auto_qualification.py`
-- tasks: none yet
+- tasks: T-024
 
 ### Events and workers
 
@@ -596,7 +596,7 @@ Template entry:
 - source: ADR-IMT-0001 section 7.5
 - statement: After 5 retries with backoff of 10 s, 30 s, 90 s, 5 min, and 15 min, an event moves to `core.outbox_dead_letter` with its error and an alert is raised.
 - verify: `pytest -q tests/unit/test_outbox.py`
-- tasks: none yet
+- tasks: T-025, T-091
 
 ### REQ-EVT-004 Republish
 - status: accepted
@@ -606,7 +606,7 @@ Template entry:
 - source: ADR-IMT-0001 section E1.4
 - statement: `python -m core.republish --target <pulse|brief|ml> --since <date>` replays outbox events with `replay: true`, requires explicit confirmation, and blocks writes to the target while running. Consumers stay idempotent through the inbox.
 - verify: `pytest -q tests/unit/test_republish.py`
-- tasks: none yet
+- tasks: T-025
 
 ### REQ-EVT-005 Event catalog and envelope
 - status: accepted
@@ -616,7 +616,7 @@ Template entry:
 - source: ADR-IMT-0001 sections 7.3, E1.4, E2.3
 - statement: `libs/contracts/events.py` defines the L1 events (`signal.created`, `company.updated`, `lead.created`, `lead.outcome_recorded`, `lead.score_updated`, `ingest.quarantine`, `tenant.config_updated`, `signal.activity_logged`, `signal.converted_to_project`) with a common envelope (`event_id`, `event_type`, `aggregate_type`, `aggregate_id`, `version`, `source_version`, `created_at`, optional `replay`, and `tenant_id`, which the relay always publishes as its own stream field and never leaves to the payload). Event logs never include full payloads.
 - verify: `pytest -q tests/unit/test_contracts.py`
-- tasks: none yet
+- tasks: T-011, T-014, T-088, T-090, T-120, T-121
 
 ### REQ-EVT-006 Process supervisor
 - status: accepted
@@ -626,7 +626,7 @@ Template entry:
 - source: ADR-IMT-0001 section 6.3
 - statement: If any child process dies, the supervisor stops the others and exits with code 1. A child that does not touch its heartbeat file within 90 seconds is treated as dead.
 - verify: `pytest -q tests/unit/test_supervise.py`
-- tasks: none yet
+- tasks: T-012, T-091
 
 ### REQ-EVT-007 Graceful shutdown
 - status: accepted
@@ -636,7 +636,7 @@ Template entry:
 - source: ADR-IMT-0001 section 14.3
 - statement: Each service stops accepting requests, waits up to 25 seconds for active ones, flushes the outbox relay, acknowledges the current consumer batch, and closes pools.
 - verify: `pytest -q tests/unit/test_lifespan.py`
-- tasks: none yet
+- tasks: T-062, T-124
 
 ### Pulse, Brief, and ML (L1 part)
 
@@ -648,7 +648,7 @@ Template entry:
 - source: ADR-IMT-0001 section E1.5
 - statement: `pulse` serves `/api/v1/pulse/unprocessed-signals`, `pipeline-backlog`, `source-efficiency`, `time-in-pipeline`, and `top-sources`. Every response includes `as_of` (UTC ms) and `stale` (true beyond 26 hours). A group with n below 5 sets `low_sample: true`. A null numeric means no data. The header is `Cache-Control: private, max-age=60`.
 - verify: `pytest -q tests/unit/test_pulse_contract.py`
-- tasks: none yet
+- tasks: T-051
 
 ### REQ-PUL-002 Incremental rollups
 - status: accepted
@@ -658,7 +658,7 @@ Template entry:
 - source: ADR-IMT-0001 sections 8.1, E1.1, E1.3
 - statement: `signal.created` and `lead.outcome_recorded` update only the affected local day of `pulse.daily_rollup`. The daily job only closes the day. Day grouping uses `local_day(ts, city)` with the city's IANA zone.
 - verify: `pytest -q tests/unit/test_rollups.py`
-- tasks: none yet
+- tasks: T-052, T-088, T-152
 
 ### REQ-PUL-003 dbt star model and semantic layer
 - status: accepted
@@ -668,7 +668,7 @@ Template entry:
 - source: ADR-IMT-0001 sections 5.2, 8.1
 - statement: The dbt project builds the dimensions (company, location, sector, service_line, source, date, territory) and facts (signal, company_snapshot, lead_outcome, lead_score, territory_indicator) in `pulse` as `mart_dim_<name>` and `mart_fact_<name>` (the `mart` component keeps them apart from the `fact_*` projection tables written by the pulse consumer), defines measures once in MetricFlow YAML, and materializes Parquet to the volume shared with Streamlit.
 - verify: `dbt parse --project-dir transform`
-- tasks: none yet
+- tasks: T-055, T-097
 
 ### REQ-BRF-001 Brief cache with stale-while-revalidate
 - status: accepted
@@ -678,7 +678,7 @@ Template entry:
 - source: ADR-IMT-0001 section E1.6
 - statement: `GET` brief compares the latest digest `source_version` with the expected version. First read regenerates synchronously, an outdated digest is served with `stale: true` while regeneration is queued, and the `X-Brief-Cache` header is `hit`, `stale`, or `degraded`. If `core` is unreachable the endpoint returns 503 `db_unavailable`.
 - verify: `pytest -q tests/unit/test_brief_cache.py`
-- tasks: none yet
+- tasks: T-033, T-085, T-086, T-087, T-122, T-151
 
 ### REQ-BRF-002 Single-flight regeneration and fallback
 - status: accepted
@@ -688,7 +688,7 @@ Template entry:
 - source: ADR-IMT-0001 sections 10.2, E1.6
 - statement: Regeneration takes a Redis lock (`SET NX PX 30000`, release by Lua only for the owner). If the semantic summarizer times out (5 s) or fails, a rule-based summarizer produces the digest with `degraded: true`.
 - verify: `pytest -q tests/unit/test_brief_singleflight.py`
-- tasks: none yet
+- tasks: T-033, T-087, T-122
 
 ### REQ-BRF-003 Per-tenant alert rules
 - status: accepted
@@ -698,7 +698,7 @@ Template entry:
 - source: ADR-IMT-0001 section E1.6
 - statement: Alert thresholds, weights, and disabled alert codes come from `tenant_config.brief_rules`. A `tenant.config_updated` event invalidates the tenant's older digests lazily. Alerts use the severities and codes listed in E1.1 (critical, warning, info).
 - verify: `pytest -q tests/unit/test_brief_rules.py`
-- tasks: none yet
+- tasks: T-034
 
 ### REQ-ML-001 Scoring service with single-flight
 - status: accepted
@@ -708,7 +708,7 @@ Template entry:
 - source: ADR-IMT-0001 sections 10.2, 10.3
 - statement: `ml` regenerates a company's score under a Redis single-flight lock. A changed `source_version` (company version plus signal versions) marks the stored score `stale` and queues regeneration. A locked company returns the previous score marked `stale`. The result is published as `lead.score_updated`.
 - verify: `pytest -q tests/unit/test_ml_singleflight.py`
-- tasks: none yet
+- tasks: T-053, T-144, T-145
 
 ### REQ-ML-002 Segmentation pipeline
 - status: accepted
@@ -718,7 +718,7 @@ Template entry:
 - source: ADR-IMT-0001 section 10.1
 - statement: A nightly batch builds firmographic features in `ml.feature_store` and segments companies with UMAP plus HDBSCAN (K-Prototypes with Gower as the comparison), storing `ml.company_segment` and a versioned `ml.model_version`. It runs on `datagen` data without network access.
 - verify: `pytest -q tests/unit/test_segmentation.py`
-- tasks: none yet
+- tasks: T-054
 
 ### REQ-ML-003 Semantic embeddings
 - status: accepted
@@ -728,7 +728,7 @@ Template entry:
 - source: ADR-IMT-0001 section 10.1
 - statement: Descriptions are embedded with `multilingual-e5` into pgvector in the `ml` schema.
 - verify: `pytest -q tests/unit/test_embeddings.py` with a stub encoder; the real model needs a download that is not available in the sandbox.
-- tasks: none yet
+- tasks: none, deferred scope
 
 ### REQ-SOC-001 Socioeconomic indicators and opportunity index
 - status: accepted
@@ -738,7 +738,7 @@ Template entry:
 - source: ADR-IMT-0001 sections 11, 4.4, E2.1
 - statement: The `pulse` socio worker loads indicator files (municipality or comuna level, DANE-style CSV fixtures under `tests/fixtures/socio/`) into `socio.indicator_raw` and `socio.indicator_normalized`, computes z-scores within each city, and builds the composite indices IPET (economic power), IMD (digital maturity), and IOP = IPET high x IMD low x prospect density, with weights from PCA or entropy and a `method_version`. `GET /api/v1/territory/opportunity` returns the ranked territories with `as_of`, `method_version`, and `low_sample`. Live DANE, DNP, and OSM connectors are deferred; the loader reads files from a configured directory.
 - verify: `pytest -q tests/unit/test_socio_indices.py`
-- tasks: none yet
+- tasks: T-059
 
 ### REQ-ALR-001 Hot lead alert
 - status: accepted
@@ -748,7 +748,7 @@ Template entry:
 - source: ADR-IMT-0001 sections 1.3, 4.1, 21 (F5 exit criterion)
 - statement: When a lead becomes Hot, `core` posts one alert to the n8n webhook in `HOT_LEAD_WEBHOOK_URL` (forwarded to Telegram, mock locally) within 60 seconds of the commit that made it Hot, once per lead and version. A failed post is retried with backoff and never blocks the commit.
 - verify: `pytest -q tests/unit/test_hot_alert.py` with a fake clock and a fake webhook.
-- tasks: none yet
+- tasks: T-035
 
 ### Streamlit reporting
 
@@ -760,7 +760,7 @@ Template entry:
 - source: ADR-IMT-0001 sections 9, E1.5
 - statement: `services/streamlit` has `Home.py` and pages 1_Market, 2_Leads, 3_Segmentos, 4_Territorios, 5_Pipeline, 6_Proyectos, 7_Ops. Each card loads through `safe_fetch(url)`, shows `as_of` and a stale warning, and on failure shows an error with a retry button without affecting other cards. Filters use `session_state` and `st.query_params`. Pages check the role in `session_state`. Exports are visible only to `admin` and `analyst`.
 - verify: `pytest -q tests/unit/test_streamlit_helpers.py` (helpers) and Streamlit `AppTest` smoke tests per page.
-- tasks: none yet
+- tasks: T-056, T-057, T-058
 
 ### REQ-STR-002 Stateless container
 - status: accepted
@@ -770,7 +770,7 @@ Template entry:
 - source: ADR-IMT-0001 sections 9.4, E2.1
 - statement: The Streamlit image has no database credentials. It reads Parquet from a shared volume and calls the gateway API. Its health check is `/_stcore/health` and the Caddy reference config proxies WebSocket upgrades.
 - verify: `python ops/check_configuration.py` and `make compose-config`
-- tasks: none yet
+- tasks: T-056, T-073
 
 ### REQ-STR-003 Theme sync
 - status: accepted
@@ -780,7 +780,7 @@ Template entry:
 - source: ADR-IMT-0001 section 9.1
 - statement: `scripts/sync_streamlit_theme.py` regenerates `.streamlit/config.toml` from the frontend design tokens. It waits for the frontend design specification.
 - verify: `python scripts/sync_streamlit_theme.py --check`
-- tasks: none yet
+- tasks: none, deferred scope
 
 ### Security and compliance
 
@@ -802,7 +802,7 @@ Template entry:
 - source: ADR-IMT-0001 section 13.2
 - statement: No secret appears in the repository, logs, or images. Only `.env.example` (names, no values) is committed. The static stage runs a secret scanner.
 - verify: `python ops/check_configuration.py` and `gitleaks detect` where available.
-- tasks: none yet
+- tasks: T-015, T-017, T-084
 
 ### REQ-SEC-005 Zero trust between services
 - status: accepted
@@ -812,7 +812,7 @@ Template entry:
 - source: ADR-IMT-0001 section 6.4
 - statement: Each service connects with its own `_app` role. Service-to-service calls carry a signed service token. Redis has ACL users `edge` (rate-limit keys only) and `data` (streams, cache). `/internal/*` is never routed by the gateway.
 - verify: `pytest -q tests/unit/test_internal_auth.py` and `python ops/check_configuration.py`
-- tasks: none yet
+- tasks: T-060, T-123, T-130, T-131, T-140, T-144, T-146, T-147, T-150, T-151, T-153
 
 ### REQ-CMP-001 Habeas data compliance
 - status: accepted
@@ -822,7 +822,7 @@ Template entry:
 - source: ADR-IMT-0001 section 13.4 (formal ADR pending: ADR-IMT-0006-HABEAS)
 - statement: Records are purged 12 months after the last signal. An opt-out request executes an idempotent delete in `core`. Stored persons are limited to public business roles. A processing-activities record exists in `docs/`.
 - verify: `pytest -q tests/unit/test_retention.py`
-- tasks: none yet
+- tasks: T-027
 
 ### Resilience, CI/CD, backups, operations
 
@@ -834,7 +834,7 @@ Template entry:
 - source: ADR-IMT-0001 section 14.1
 - statement: Every service exposes `/health` (liveness, always 200 while alive) and `/ready` (checks its database and Redis, 503 otherwise).
 - verify: `pytest -q tests/unit/test_health.py`
-- tasks: none yet
+- tasks: T-012
 
 ### REQ-RES-002 Failure matrix
 - status: accepted
@@ -844,7 +844,7 @@ Template entry:
 - source: ADR-IMT-0001 section E1.10
 - statement: With fakes, a failed `ml` leaves Pulse working and marks the Brief `degraded`; a failed `pulse` leaves the Brief working; a failed `brief` leaves the rest of the lead page working; a failed Redis leaves Postgres reads and writes working with the rate limiter open and duplicate regeneration tolerated.
 - verify: `pytest -q tests/unit/test_failure_matrix.py`
-- tasks: none yet
+- tasks: T-061
 
 ### REQ-CI-001 CI runs the unit stage
 - status: accepted
@@ -864,7 +864,7 @@ Template entry:
 - source: ADR-IMT-0001 section E1.9
 - statement: `ci.yml` defines the stages static, unit, integration, contracts (oasdiff breaking), e2e, images, deploy migrate, deploy backend, deploy frontend, deploy streamlit, and deploy smoke, in that order. Deploy stages are skipped when their environment secrets are absent.
 - verify: `pytest -q tests/unit/test_ci_workflow.py` parses the workflow and asserts stage names and order.
-- tasks: none yet
+- tasks: T-064
 
 ### REQ-CI-003 Smoke catalog and rollback
 - status: accepted
@@ -874,7 +874,7 @@ Template entry:
 - source: ADR-IMT-0001 sections 17.1, E1.9
 - statement: `tests/smoke` implements cases S1 to S13 against a base URL and skips when none is set. A failed smoke run moves the `prod` tag back and redeploys.
 - verify: `pytest -q tests/smoke --collect-only`
-- tasks: none yet
+- tasks: none, deferred scope
 
 ### REQ-BAK-001 Verified encrypted backups
 - status: accepted
@@ -884,7 +884,7 @@ Template entry:
 - source: ADR-IMT-0001 section 18
 - statement: The nightly workflow dumps each schema with its owner role, records sha256, restores into an ephemeral Postgres and checks migration versions and table counts, encrypts with `age`, and uploads only the encrypted file (7 days daily, 28 days Sunday). RPO and RTO per schema are documented in `ops/backups/README.md`.
 - verify: `pytest -q tests/unit/test_backups.py` with fakes for pg_dump and age.
-- tasks: none yet
+- tasks: T-063
 
 ### REQ-OBS-001 Structured logs and metrics
 - status: accepted
@@ -894,7 +894,7 @@ Template entry:
 - source: ADR-IMT-0001 section 19
 - statement: Services emit one-line JSON logs with `request_id` propagated from the gateway to consumers. Each service exposes Prometheus metrics at `/internal/metrics`, which the gateway never routes.
 - verify: `pytest -q tests/unit/test_logging.py`
-- tasks: none yet
+- tasks: T-062, T-124
 
 ### REQ-OBS-002 Tracing and circuit breaker
 - status: accepted
@@ -904,7 +904,7 @@ Template entry:
 - source: ADR-IMT-0001 sections 19, 21 (F6)
 - statement: Services emit OpenTelemetry traces propagated from the gateway, and calls between services use a circuit breaker with the retry policy of the shared helper.
 - verify: `pytest -q tests/unit/test_circuit_breaker.py`
-- tasks: none yet
+- tasks: none, deferred scope
 
 ### REQ-DEP-001 Local stack
 - status: accepted
@@ -914,7 +914,7 @@ Template entry:
 - source: ADR-IMT-0001 sections 16, 21 (F0)
 - statement: `docker compose config` is valid, every service has a Dockerfile target and a health probe, and each image builds from the same base conventions. Starting the stack requires Docker, which is not available in the sandbox, so only the configuration is verified.
 - verify: `pytest -q tests/unit/test_compose.py` (parses the file and checks topology); `make compose-config` where the Docker CLI exists.
-- tasks: none yet
+- tasks: T-073, T-153, T-154
 
 ### Run, operate, and go live
 
@@ -926,7 +926,7 @@ Template entry:
 - source: owner requirement 2026-10-18; ADR-IMT-0001 section 16
 - statement: `make invent-tracker` is the single command that starts the whole application. It creates `.env` from `.env.example` when missing (generating local-only secrets without printing them), builds the images, runs migrations, starts every service and worker, loads demo data on the first run, waits until the gateway `/ready` is green, and prints the service URLs and next steps. Running it again is safe. `make invent-tracker-down` stops it and `make invent-tracker-reset` removes volumes after confirmation.
 - verify: `make -n invent-tracker` lists the steps; `pytest -q tests/unit/test_make_targets.py` parses the Makefile. The owner runs it once with Docker.
-- tasks: none yet
+- tasks: T-074, T-125, T-130, T-140, T-141
 
 ### REQ-RUN-002 Migration runner
 - status: accepted
@@ -936,7 +936,7 @@ Template entry:
 - source: ADR-IMT-0001 sections 8.2, 17 (stage 7)
 - statement: `ops/migrate.py` applies `migrations/*.sql` in filename order, one transaction per file, records each in `public.schema_migration` (version, checksum, applied_at), refuses a file whose checksum changed, and is idempotent. Compose runs it as a one-shot `migrate` service that every database-backed service waits for with `service_completed_successfully`. Local role passwords are generated into `.env`.
 - verify: `pytest -q tests/unit/test_migrate.py` with a fake connection.
-- tasks: none yet
+- tasks: T-071
 
 ### REQ-RUN-003 Demo data
 - status: accepted
@@ -946,7 +946,7 @@ Template entry:
 - source: ADR-IMT-0001 section 15.2
 - statement: `make seed` (also run on the first start) loads the `datagen` dataset through the public code paths, never by writing into another service's schema, so the outbox, consumers, scores, rollups, and briefs produce data for every list endpoint. It is idempotent and tags its rows `source=demo`; `make seed-clear` removes them.
 - verify: `pytest -q tests/unit/test_seed.py`
-- tasks: none yet
+- tasks: T-072
 
 ### REQ-RUN-004 Mock to live switch
 - status: accepted
@@ -956,7 +956,7 @@ Template entry:
 - source: owner requirement 2026-10-18; ADR-IMT-0001 sections 4.1, 4.4
 - statement: `INGEST_MODE=mock|live` selects the connector set. Each source (`maps`, `computrabajo`, `linkedin_companies`, `linkedin_jobs`, `instagram`, `rues`) has `SOURCE_<NAME>_ENABLED`, a dataset ID variable, and a credential variable, all listed in `.env.example` without values. Live mode with a missing credential fails fast at startup with a message that names the variable and never shows a value. Going live needs only editing `.env` and re-running `make invent-tracker`.
 - verify: `pytest -q tests/unit/test_source_config.py`
-- tasks: none yet
+- tasks: T-015, T-043, T-084
 
 ### REQ-RUN-005 Doctor command
 - status: accepted
@@ -966,7 +966,7 @@ Template entry:
 - source: owner requirement 2026-10-18; secrets policy
 - statement: `make doctor` reports, by variable name only, which credentials and settings are set, which sources are active and in which mode, the health of each service, and whether the configured webhook URL is reachable. It never prints a value.
 - verify: `pytest -q tests/unit/test_doctor.py` plants a sentinel secret and asserts it never appears in the output.
-- tasks: none yet
+- tasks: T-075
 
 ### REQ-RUN-006 Live verification command
 - status: accepted
@@ -976,7 +976,7 @@ Template entry:
 - source: owner requirement 2026-10-18
 - statement: `make verify-live SOURCE=<name>` triggers one bounded collection (at most 5 records) for a live source, follows it through ingest and core, and reports pass or fail per hop (trigger, snapshot, normalize, resolve, signal, score, API read). It refuses to run in mock mode.
 - verify: `pytest -q tests/unit/test_verify_live.py` with fakes. The owner runs the command with real credentials.
-- tasks: none yet
+- tasks: T-076, T-096
 
 ### REQ-DOC-001 Go-live runbook
 - status: accepted
@@ -986,7 +986,7 @@ Template entry:
 - source: owner requirement 2026-10-18
 - statement: `docs/runbooks/go-live.md` (English) explains where credentials go (names only), how to enable each source, how to expose the webhook (tunnel) or use the polling fallback, how to adjust field mappings, how to run `make doctor` and `make verify-live`, how data reaches the API, how to point the frontend at the gateway, and a troubleshooting table.
 - verify: `pytest -q tests/unit/test_runbook.py` checks that every `SOURCE_*` and mode variable appears in both the runbook and `.env.example`.
-- tasks: none yet
+- tasks: T-079, T-134, T-155
 
 ### Public API for the frontend
 
@@ -998,7 +998,7 @@ Template entry:
 - source: ADR-IMT-0001 sections 12.6, E1.9 (stage contracts)
 - statement: `make openapi` writes `docs/api/openapi.json` from the gateway application, describing every public `/api/v1` route with request and response schemas, error bodies, and the headers `X-As-Of`, `X-Brief-Cache`, `ETag`, and `Idempotency-Key` where relevant. A test fails when a public route is missing from the document or the committed file is stale.
 - verify: `pytest -q tests/unit/test_openapi.py`
-- tasks: none yet
+- tasks: T-070, T-148
 
 ### REQ-API-002 Public route table
 - status: accepted
@@ -1008,7 +1008,7 @@ Template entry:
 - source: ADR-IMT-0001 sections 12.4, E1.1, E1.5, E2.2
 - statement: The gateway exposes the endpoints the frontend screens need: `POST /auth/session`, `GET /me`, `POST /logout`; `GET /leads` (filters state, service_line, city, segment, min_score, cursor), `POST /leads`, `GET /leads/{id}`, `PATCH /leads/{id}/status`, `POST /leads/{id}/activities`, `GET /leads/{id}/brief`; `GET /pipeline/kanban`; `GET /companies`, `GET /signals`; `GET /projects`, `POST /projects`; `GET /pulse/*`; `GET /ops/health`; `GET /territory/opportunity`; imports and jobs; `GET` and `PUT /admin/tenant-config`. Routes of L2 and L3 resources return 404 `not_in_layer` until their run. No route points to `analytics`.
 - verify: `pytest -q tests/unit/test_gateway_routes.py` and `pytest -q tests/unit/test_openapi.py`
-- tasks: none yet
+- tasks: T-032, T-148
 
 ### REQ-API-003 Local profile for a browser frontend
 - status: accepted
@@ -1018,7 +1018,7 @@ Template entry:
 - source: ADR-IMT-0001 sections 13.1, E1.8
 - statement: A `local` profile lets a browser app served from `FRONTEND_ORIGIN` call the gateway: CORS allowlist with credentials, session cookie names without the `__Host-` prefix and with `Secure=false`, and seeded development users (one per role) whose passwords are generated into `.env`. The `production` profile keeps the attributes of REQ-IDN-002. Both profiles are covered by tests.
 - verify: `pytest -q tests/unit/test_profiles.py`
-- tasks: none yet
+- tasks: T-015, T-032
 
 ### Extension points for L2 and L3
 
@@ -1030,7 +1030,7 @@ Template entry:
 - source: ADR-IMT-0001 section E2.3
 - statement: `libs/contracts` lists the reserved L2 and L3 event names (`signal.tagged`, `signal.scored`, `company.matched`, `signal.explained`, `funnel.gate_decision`, `funnel.pivot_requested`, `funnel.project_killed`, `funnel.kill_trigger_event`, `project.pipeline_updated`, `project.forecast_updated`, `review.candidate`, `component.evaluated`) without handlers. A consumer that receives an unknown type acknowledges it and logs a single line.
 - verify: `pytest -q tests/unit/test_contracts.py`
-- tasks: none yet
+- tasks: T-011, T-014, T-149
 
 ### REQ-EXT-002 Open tenant configuration
 - status: accepted
@@ -1040,7 +1040,7 @@ Template entry:
 - source: ADR-IMT-0001 section E2.3
 - statement: The `tenant_config` model accepts the reserved keys `funnel_rules` and `funnel_rules.geo_overrides` without a migration, and rejects unknown keys elsewhere.
 - verify: `pytest -q tests/unit/test_tenant_config.py`
-- tasks: none yet
+- tasks: T-023
 
 ### REQ-EXT-003 Schema list drives bootstrap and checks
 - status: accepted
@@ -1050,7 +1050,7 @@ Template entry:
 - source: ADR-IMT-0001 section E2.1
 - statement: Role bootstrap and `ops/check_migrations.py` read the schema list from one place. Adding the `validation` schema needs one list entry and one expand migration.
 - verify: a unit test adds a fake schema to the list and expects the bootstrap and the guardian to accept it.
-- tasks: none yet
+- tasks: T-010
 
 ### REQ-EXT-004 Analytics-ready responses and outcomes
 - status: accepted
@@ -1060,7 +1060,7 @@ Template entry:
 - source: ADR-IMT-0001 section E2.3; ADR-IMT-0002 section 2.2; ADR-IMT-0003 section 2.7
 - statement: Pulse responses accept an optional `method_version` (null in L1). `core.lead` carries `source`, `city`, `service_line`, and a nullable `holdout` flag. `core.lead_activity` records channel and source, so attribution and holdout analysis need no destructive migration.
 - verify: `python ops/check_migrations.py` and `pytest -q tests/unit/test_pulse_contract.py`
-- tasks: none yet
+- tasks: T-014, T-018, T-051
 
 ### Frontend (deferred)
 
@@ -1072,7 +1072,7 @@ Template entry:
 - source: ADR-IMT-0001 sections 12, 13.3
 - statement: The Next.js 15 application provides login, market dashboard, lead list, Lead Panel, pipeline Kanban, project view, territory view, and ops view, with design tokens, a CSP without `unsafe-inline`, WCAG 2.2 AA, and stable `data-testid` values. The visual identity comes from a separate frontend ADR that is not part of this repository yet.
 - verify: Vitest, Playwright, and axe in CI once the frontend opens.
-- tasks: none yet
+- tasks: none, deferred scope
 
 ## 4.2 Layer L2 - ADR-IMT-0002-LENS (analytics, run 2)
 
@@ -1086,7 +1086,7 @@ All L2 requirements are `later-run`. They are specified now so that run 1 leaves
 - source: ADR-IMT-0002 sections 2, 2.9
 - statement: Every analytical endpoint and worker declares its lens (D, Dx, P, prescriptive, V) and publishes the quality metrics of that lens (freshness and completeness for D; ATE with CI, p-value, effect size for Dx; AUC, calibration, lift for P).
 - verify: `pytest -q tests/unit/test_lens_contract.py`
-- tasks: none yet
+- tasks: T-101, T-112
 
 ### REQ-LNS-002 Five-question checklist
 - status: accepted
@@ -1096,7 +1096,7 @@ All L2 requirements are `later-run`. They are specified now so that run 1 leaves
 - source: ADR-IMT-0002 section 2.9
 - statement: A new analytical feature ships with a spec answering D, Dx, P, prescriptive gate, and V metric with kill trigger. A checker blocks a feature spec that leaves any answer empty.
 - verify: `python ops/check_five_questions.py`
-- tasks: none yet
+- tasks: T-101
 
 ### REQ-LNS-003 Descriptive aggregation (D1)
 - status: accepted
@@ -1106,7 +1106,7 @@ All L2 requirements are `later-run`. They are specified now so that run 1 leaves
 - source: ADR-IMT-0002 section 2.1
 - statement: `pulse` computes percentiles p10, p50, p90, MAD, IQR, HHI, and Gini as response fields, plus the project descriptive metrics (pipeline size, score distribution, burn versus plan, pipeline value by service line, median time per funnel stage).
 - verify: `pytest -q tests/unit/test_descriptive_metrics.py`
-- tasks: none yet
+- tasks: T-102, T-135, T-152
 
 ### REQ-LNS-004 Profiling and topics (D2, D3)
 - status: accepted
@@ -1116,7 +1116,7 @@ All L2 requirements are `later-run`. They are specified now so that run 1 leaves
 - source: ADR-IMT-0002 section 2.1
 - statement: `ml` workers run K-Prototypes profiling, Leiden communities, and centrality weekly, and tag text with regex, dictionaries, YAKE, and TF-IDF (LDA monthly), publishing results to `pulse`.
 - verify: `pytest -q tests/unit/test_profiling.py tests/unit/test_topics.py`
-- tasks: none yet
+- tasks: T-103, T-135, T-139, T-150
 
 ### REQ-LNS-005 Attribution (Dx1)
 - status: accepted
@@ -1126,7 +1126,7 @@ All L2 requirements are `later-run`. They are specified now so that run 1 leaves
 - source: ADR-IMT-0002 section 2.2
 - statement: Attribution supports last-touch, first-touch, time-decay, and Markov (removal effect) models and writes `pulse.attribution`. Shapley attribution is allowed only after 100 labeled closes.
 - verify: `pytest -q tests/unit/test_attribution.py`
-- tasks: none yet
+- tasks: T-104, T-136
 
 ### REQ-LNS-006 Causal inference (Dx2)
 - status: accepted
@@ -1136,7 +1136,7 @@ All L2 requirements are `later-run`. They are specified now so that run 1 leaves
 - source: ADR-IMT-0002 section 2.2
 - statement: Difference-in-differences, synthetic control, and propensity matching report ATE with a 95 percent interval, ATT and ATU, p-value, effect size, robustness checks, and an E-value. A result whose sign changes under robustness checks is reported as inconclusive.
 - verify: `pytest -q tests/unit/test_causal.py`
-- tasks: none yet
+- tasks: T-105
 
 ### REQ-LNS-007 Drift and explainability (Dx3, Dx4)
 - status: accepted
@@ -1146,7 +1146,7 @@ All L2 requirements are `later-run`. They are specified now so that run 1 leaves
 - source: ADR-IMT-0002 section 2.2
 - statement: A nightly worker computes change points (CUSUM, EWMA) and PSI with thresholds below 0.1 stable, 0.1 to 0.25 watch, above 0.25 retrain, and alerts through n8n. SHAP drivers and counterfactuals are attached to the Brief on regeneration.
 - verify: `pytest -q tests/unit/test_drift.py tests/unit/test_explain.py`
-- tasks: none yet
+- tasks: T-106, T-137, T-138, T-151, T-153
 
 ### REQ-LNS-008 Metric pack library
 - status: accepted
@@ -1156,7 +1156,7 @@ All L2 requirements are `later-run`. They are specified now so that run 1 leaves
 - source: ADR-IMT-0002 section 2.3
 - statement: `libs/domain/metrics` implements pure functions for AUC, PR-AUC, Brier, reliability table, lift@K, precision@K by subpopulation, NDCG@K, MAP, MRR, sMAPE, MASE, pinball loss, interval coverage, and Qini.
 - verify: `pytest -q tests/unit/test_metrics_pack.py`
-- tasks: none yet
+- tasks: T-100
 
 ### REQ-LNS-009 Deterministic funnel in core
 - status: accepted
@@ -1166,7 +1166,7 @@ All L2 requirements are `later-run`. They are specified now so that run 1 leaves
 - source: ADR-IMT-0002 sections 2.4, 2.7; ADR-IMT-0001 section E2.2
 - statement: `core` evaluates gates G1 Discovery, G2 Qualify, G3 Validate, G4 Design, G5 Launch, G6 Scale, and G7 Sunset from versioned YAML checklists and returns ADVANCE, PIVOT, KILL, or WAIT. It emits `funnel.gate_decision`, `funnel.pivot_requested`, `funnel.project_killed`, and `funnel.kill_trigger_event` through the outbox and stores each decision with its inputs. There is no separate funnel service.
 - verify: `pytest -q tests/unit/test_funnel.py`
-- tasks: none yet
+- tasks: T-109, T-146, T-154, T-155
 - note: blocked by decision D-06 (checklist content per gate).
 
 ### REQ-LNS-010 Validation schema and metrics (V1 to V6)
@@ -1177,7 +1177,7 @@ All L2 requirements are `later-run`. They are specified now so that run 1 leaves
 - source: ADR-IMT-0002 sections 2.5, 2.7
 - statement: The `validation` schema (operated by `core` roles) holds `financial_run`, `unit_economics`, `funnel_metric`, `growth_metric`, `portfolio_snapshot`, and `meta_ml_metric`, each with `source_version`, `project_id`, and `measured_at`. Workers compute NPV, IRR, payback, discounted payback, and EMV (V1); CAC, LTV, LTV:CAC, CAC payback, and gross margin (V2); conversion, win rate, cycle time, velocity, and coverage (V3); MRR, NRR, GRR, Rule of 40, burn multiple, and magic number (V4); horizon mix, HHI, and Sharpe-like ratio (V5); model utility, decision latency, PSI, precision@K, and funnel lift (V6).
 - verify: `pytest -q tests/unit/test_validation_metrics.py`
-- tasks: none yet
+- tasks: T-107, T-108, T-147
 
 ### REQ-LNS-011 Validation decision thresholds
 - status: accepted
@@ -1187,7 +1187,7 @@ All L2 requirements are `later-run`. They are specified now so that run 1 leaves
 - source: ADR-IMT-0002 section 2.5
 - statement: Thresholds are configuration, not code constants. Defaults: advance to G4 when NPV p10 is above 0; IRR above the hurdle rate (15 to 25 percent); payback under 18 months (H1 software) or 24 months (H2); LTV:CAC below 1 means kill, 1 to 3 watch, 3 to 5 healthy; CAC payback under 12 months; pipeline coverage 3 to 4 times quota; burn multiple above 3 means kill; horizon mix target 60/30/10.
 - verify: `pytest -q tests/unit/test_validation_thresholds.py`
-- tasks: none yet
+- tasks: T-108, T-147, T-154, T-155
 
 ### REQ-LNS-012 Event chain with source_version
 - status: accepted
@@ -1197,7 +1197,7 @@ All L2 requirements are `later-run`. They are specified now so that run 1 leaves
 - source: ADR-IMT-0002 section 2.6
 - statement: A `signal.created` traverses signal.tagged, signal.scored, company.matched, signal.explained, funnel.gate_decision, project.pipeline_updated, and project.forecast_updated. Every event carries `source_version`, so one decision can be traced end to end.
 - verify: `pytest -q tests/unit/test_event_chain.py`
-- tasks: none yet
+- tasks: T-110, T-149
 
 ### REQ-LNS-013 Validation page
 - status: accepted
@@ -1207,7 +1207,7 @@ All L2 requirements are `later-run`. They are specified now so that run 1 leaves
 - source: ADR-IMT-0002 sections 2.7, 5 (spawns)
 - statement: Streamlit page `9_Validation.py` shows V1 to V6 per project with `measured_at`, `source_version`, and per-card degradation. V6 is also shown in `7_Ops.py`.
 - verify: Streamlit `AppTest` for page 9.
-- tasks: none yet
+- tasks: T-111, T-148
 
 ## 4.3 Layer L3 - ADR-IMT-0003-PRED (predictive, run 3)
 
@@ -1221,7 +1221,7 @@ All L3 requirements are `later-run`. Phase values in the statements are the ADR 
 - source: ADR-IMT-0003 sections 2.1, 2.6
 - statement: The weighted rule score stays active as a shadow baseline for the whole life of the product. Its band-by-observed-win-rate table is a plain GROUP BY. If the "hot" band does not beat 1.5 times the base rate for two quarters (two-proportion test, alpha 0.05), weights are recalibrated or the rule is retired for review.
 - verify: `pytest -q tests/unit/test_rule_baseline.py`
-- tasks: none yet
+- tasks: none, later run
 
 ### REQ-PRD-002 Calibrated LightGBM (P1)
 - status: accepted
@@ -1231,7 +1231,7 @@ All L3 requirements are `later-run`. Phase values in the statements are the ADR 
 - source: ADR-IMT-0003 sections 2.1, 2.6
 - statement: Once at least 200 labeled outcomes exist, a LightGBM model with isotonic or Platt calibration runs as challenger against the rule. PSI per feature (watch 0.1, retrain 0.25) and a rolling monthly Brier score are tracked. If it does not beat the rule in lift@K for two quarters, scoring rolls back to the rule.
 - verify: `pytest -q tests/unit/test_lgbm_scoring.py`
-- tasks: none yet
+- tasks: none, later run
 
 ### REQ-PRD-003 Uplift modeling (P1)
 - status: accepted
@@ -1241,7 +1241,7 @@ All L3 requirements are `later-run`. Phase values in the statements are the ADR 
 - source: ADR-IMT-0003 sections 2.1, 2.6
 - statement: An X-learner uplift model ranks who to contact. A permanent random holdout of 5 to 10 percent measures it. If uplift at the top 30 percent is not above 0 with a 95 percent interval, contact falls back to the flat score.
 - verify: `pytest -q tests/unit/test_uplift.py`
-- tasks: none yet
+- tasks: none, later run
 
 ### REQ-PRD-004 Forecasting (P2)
 - status: accepted
@@ -1251,7 +1251,7 @@ All L3 requirements are `later-run`. Phase values in the statements are the ADR 
 - source: ADR-IMT-0003 sections 2.1, 2.6
 - statement: A StatsForecast ensemble (AutoARIMA, Theta, ETS) with hierarchical reconciliation by city and service line publishes P10, P50, and P90 with `as_of`. MASE above 1 for three months degrades the forecast to a moving average. Interval coverage is tracked.
 - verify: `pytest -q tests/unit/test_forecast.py`
-- tasks: none yet
+- tasks: none, later run
 
 ### REQ-PRD-005 ICP pyramid (P3)
 - status: accepted
@@ -1261,7 +1261,7 @@ All L3 requirements are `later-run`. Phase values in the statements are the ADR 
 - source: ADR-IMT-0003 section 2.4
 - statement: A `ProfileICPQuery` descends level 3 (sectors, monthly), level 2 (archetypes by sector with K-Prototypes, weekly), and level 0 (companies as 128-dimension vectors in pgvector) with beam width 5, returns k=20 matches reranked by distance times score times expected uplift, and attaches a `path_narrative` to each match. Only RUES-matched companies are indexed. If conversion of the optimal profile does not beat a random same-sector control (two-sample proportion test), the system falls back to flat k-NN.
 - verify: `pytest -q tests/unit/test_icp_pyramid.py`
-- tasks: none yet
+- tasks: none, later run
 
 ### REQ-PRD-006 Learning to rank (P3)
 - status: accepted
@@ -1271,7 +1271,7 @@ All L3 requirements are `later-run`. Phase values in the statements are the ADR 
 - source: ADR-IMT-0003 section 2.1
 - statement: An LGBMRanker orders the daily inbox of each BD rep and is evaluated with NDCG@K.
 - verify: `pytest -q tests/unit/test_ranker.py`
-- tasks: none yet
+- tasks: none, later run
 
 ### REQ-PRD-007 Monte Carlo simulation (P4)
 - status: accepted
@@ -1281,7 +1281,7 @@ All L3 requirements are `later-run`. Phase values in the statements are the ADR 
 - source: ADR-IMT-0003 sections 2.1, 2.6
 - statement: A worker in `core` simulates TAM, SAM, SOM, adoption, and pricing to publish the NPV distribution (p10, p50, p90), probability of NPV above 0, and expected payback. At the end of a project's first year, simulated versus real error per assumption is stored; a systematic error above 50 percent on any assumption blocks use of the method at gates until priors are reviewed.
 - verify: `pytest -q tests/unit/test_monte_carlo.py`
-- tasks: none yet
+- tasks: none, later run
 
 ### REQ-PRD-008 NLP ladder
 - status: accepted
@@ -1291,7 +1291,7 @@ All L3 requirements are `later-run`. Phase values in the statements are the ADR 
 - source: ADR-IMT-0003 section 2.2
 - statement: Tech stack, job title to CIIU, sentiment, and vacancy classification use versioned dictionaries in `libs/domain/dictionaries/*.yaml` (about 500 technologies), `rapidfuzz`, and lexicons first. A zero-shot fallback handles only undefined cases (under 10 percent) and is measured monthly with Cohen's kappa on about 50 labeled cases; kappa below 0.6 routes those cases to manual review. LDA (coherence c_v at least 0.45, BERTopic otherwise), YAKE, and TF-IDF cosine complete the ladder.
 - verify: `pytest -q tests/unit/test_nlp_ladder.py`
-- tasks: none yet
+- tasks: none, later run
 
 ### REQ-PRD-009 Graphs by level
 - status: accepted
@@ -1301,7 +1301,7 @@ All L3 requirements are `later-run`. Phase values in the statements are the ADR 
 - source: ADR-IMT-0003 section 2.3
 - statement: Graphs N3 (sector-city), N2 (company), N1 (lead), and Z (zone) live in Postgres with recursive CTEs. A nightly batch computes degree, PageRank, Leiden communities, and Jaccard link prediction. There is no GNN before 100,000 companies and no Neo4j before 500,000 nodes. If centrality does not correlate with conversion for two quarters, the graph is demoted to informational context.
 - verify: `pytest -q tests/unit/test_graphs.py`
-- tasks: none yet
+- tasks: none, later run
 
 ### REQ-PRD-010 Experiment protocol
 - status: accepted
@@ -1311,7 +1311,7 @@ All L3 requirements are `later-run`. Phase values in the statements are the ADR 
 - source: ADR-IMT-0003 section 2.7
 - statement: Every analytical component has a pre-registered `docs/experiments/EXP-NNN-<component>.md` with the seven elements of the template (hypothesis, baseline, contrast, power, thresholds, decision, re-evaluation). Each evaluation emits `component.evaluated` with the verdict (ADOPT, ITERATE, KILL) and `source_version`. Benjamini-Hochberg applies when several components are evaluated together. The G4 Design gate blocks a component without a sheet.
 - verify: `python ops/check_experiments.py` and `pytest -q tests/unit/test_component_evaluation.py`
-- tasks: none yet
+- tasks: none, later run
 
 ### REQ-PRD-011 One-statistic validators
 - status: accepted
@@ -1321,7 +1321,7 @@ All L3 requirements are `later-run`. Phase values in the statements are the ADR 
 - source: ADR-IMT-0003 section 2.6
 - statement: `libs/domain/validators` implements PSI, ARI, NMI, Cohen's kappa, MASE, Brier, interval coverage count, two-proportion test, Spearman with bootstrap interval, trend slope with p-value, and Moran's I as pure functions.
 - verify: `pytest -q tests/unit/test_validators.py`
-- tasks: none yet
+- tasks: none, later run
 
 ### REQ-PRD-012 Territorial hierarchy and IOZ
 - status: accepted
@@ -1331,7 +1331,7 @@ All L3 requirements are `later-run`. Phase values in the statements are the ADR 
 - source: ADR-IMT-0003 sections 2.8.1, 2.8.2
 - statement: `socio.territory` stores City, Comuna, Barrio, and H3 (resolution 8 to 9). Every company is geocoded to its H3 cell and comuna. `socio.territory_index` stores IOZ(zone, line) = Power x Demand x (1 - Saturation), z-scored within each city, with `method_version`. Moran's I and Spearman against win rate validate it; if both are insignificant for two quarters, IOZ is demoted to context.
 - verify: `pytest -q tests/unit/test_ioz.py`
-- tasks: none yet
+- tasks: none, later run
 
 ### REQ-PRD-013 Geo-adaptive funnel
 - status: accepted
@@ -1341,7 +1341,7 @@ All L3 requirements are `later-run`. Phase values in the statements are the ADR 
 - source: ADR-IMT-0003 section 2.8.3
 - statement: Gate thresholds can be overridden per city or comuna in `tenant_config.funnel_rules.geo_overrides`, but only with a significant two-proportion test between the two geographies. Each override is audited with its evidence in the gate decision record.
 - verify: `pytest -q tests/unit/test_geo_overrides.py`
-- tasks: none yet
+- tasks: none, later run
 
 ### REQ-PRD-014 Zone nodes and zone lookalike
 - status: accepted
@@ -1351,7 +1351,7 @@ All L3 requirements are `later-run`. Phase values in the statements are the ADR 
 - source: ADR-IMT-0003 section 2.8.4
 - statement: Zone nodes carry `ubicada_en`, `adyacente_a` (queen contiguity), and `similar_a` (Euclidean distance over estrato, commercial density, CIIU mix, and cadastral value) edges and support lookalike zones for expansion.
 - verify: `pytest -q tests/unit/test_zone_graph.py`
-- tasks: none yet
+- tasks: none, later run
 
 ### REQ-PRD-015 Territory dashboards
 - status: accepted
@@ -1361,7 +1361,7 @@ All L3 requirements are `later-run`. Phase values in the statements are the ADR 
 - source: ADR-IMT-0003 section 2.8.5
 - statement: Pages `1_Market.py` and `4_Territorios.py` offer a City, Comuna, H3 selector, an IOZ choropleth with confidence encoding (low-sample zones are visibly weaker), and a bivariate Power by Saturation map with the quadrants gold, war, seed, and avoid. Endpoints return `as_of`, `method_version`, and `low_sample`.
 - verify: Streamlit `AppTest` for both pages and `pytest -q tests/unit/test_territory_api.py`.
-- tasks: none yet
+- tasks: none, later run
 
 ### REQ-PRD-016 Rejected approaches stay out
 - status: accepted
@@ -1371,7 +1371,7 @@ All L3 requirements are `later-run`. Phase values in the statements are the ADR 
 - source: ADR-IMT-0003 section 2.9
 - statement: The codebase contains no tabular deep learning, GNN below the volume threshold, heavy semantic NER, zero-shot as default, heavy embeddings where TF-IDF suffices, premature Neo4j, AutoML or extensive hyperparameter search, pure reinforcement learning for the enrichment agent, or model-validates-model checks.
 - verify: reviewer checklist in the run report; `ops/check_dependencies.py` rejects the corresponding packages.
-- tasks: none yet
+- tasks: none, later run
 
 ## 5. Decisions
 
