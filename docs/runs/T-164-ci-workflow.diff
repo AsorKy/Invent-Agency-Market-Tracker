@@ -1,0 +1,15 @@
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -135,6 +135,12 @@
+         run: make doctor
+       - name: Demo data reached the schemas
+         run: python ops/e2e_check.py
++      # T-164: second pass with the event chain on. Compose passes EVENT_CHAIN_EMIT to core and ml
++      # (default false); recreating them is the only change, the data and the outbox stay.
++      - name: Turn the event chain on (core and ml)
++        run: EVENT_CHAIN_EMIT=true docker compose up -d --no-deps --force-recreate --wait core ml
++      - name: Event chain reached the outbox (ops/e2e_check.py --chain)
++        run: python ops/e2e_check.py --chain
+       - name: Data UI answers (make db-ui)
+         run: make db-ui && curl -fsS http://127.0.0.1:5050/misc/ping
+       - if: failure()

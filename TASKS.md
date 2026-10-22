@@ -1821,7 +1821,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: filled by the agent when done
 
 ### T-164 The e2e check can run with the event chain on
-- status: todo
+- status: done
 - spec: REQ-RUN-001, REQ-QA-001, REQ-EVT-001
 - owner: devops-engineer
 - depends: T-159, T-161
@@ -1830,10 +1830,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_e2e_check.py tests/unit/test_compose.py && python ops/check_configuration.py`
 - note: T-159 ships the six chain producers behind `EVENT_CHAIN_EMIT`, off by default, and its new SQL ran only on fakes. Pass the flag through Compose (default false, `.env.example` stays `EVENT_CHAIN_EMIT=false`, which `ops/check_configuration.py` enforces). Add a `--chain` mode to `ops/e2e_check.py`: after the normal checks it creates one signal and moves one lead status through the public routes, then requires that the outbox holds the chain event types (`signal.tagged`, `company.matched`, `signal.explained`, `project.pipeline_updated`, `project.forecast_updated`) all published and that the dead letter count is zero. Agents cannot edit `.github/workflows/`: write the extra CI step (a second pass with `EVENT_CHAIN_EMIT=true`, after the normal e2e) as a diff in `docs/runs/T-164-ci-workflow.diff`, as T-064 did, for the owner to apply. State in the report which step you expect to fail first.
-- evidence: filled by the agent when done
+- evidence: `pytest -q tests/unit/test_e2e_check.py tests/unit/test_compose.py` 79 passed; `python ops/check_configuration.py` OK. `--chain` runs a driver inside the gateway container (service tokens, core internal API) because the public routes need a verified JWT tenant and the default stack has identity validation off. CI step in docs/runs/T-164-ci-workflow.diff (applies cleanly with patch). First step expected to fail: "Turn the event chain on" if `--wait` on core/ml times out, else the chain check on `project.*` types or unpublished chain events if the first real run of the T-159 SQL fails.
 
 ### T-165 Backfill the stored features of old score rows
-- status: todo
+- status: blocked
 - spec: REQ-LNS-007, REQ-BRF-001, REQ-SEC-005
 - owner: second-backend-engineer
 - depends: T-151
@@ -1842,7 +1842,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_ml_backfill.py tests/unit/test_ml_singleflight.py tests/unit/test_ml_explanations.py`
 - note: score rows written before T-151 have null features, so the explanation route answers 404 for them until they are rescored. Add a command (`python -m services.ml.app.backfill --tenant <id> --limit N`) that lists the rows of one tenant without features, oldest first, and rescores each through the normal `ScoringService` path, so the score version, the event and the stored features come out as for any new score. It is idempotent (a second run finds nothing), bounded by `--limit`, and prints only counts, never rows. Use only data the ml service already owns or receives through its API (INV-01): if the inputs of a rescore cannot be rebuilt from ml alone, stop and mark the task `blocked` with the reason instead of reading another schema.
-- evidence: filled by the agent when done
+- evidence: BLOCKED, no code written. Rescore inputs (ScoreFeatures) cannot be rebuilt from ml data: the rows to fix are those with null feature_* columns, ml.score_history holds only score/versions, and the features arrive only in the API request built from core data (INV-01). ml.lead_score also has no tenant_id, so "rows of one tenant" cannot be listed from ml alone. Options: (a) a core internal endpoint returning features and company ids per tenant, which the backfill calls with a service token (needs core and contracts scope); (b) accept that old rows get features on their next normal rescore.
 
 ### T-166 Runbook for turning the event chain on
 - status: todo
