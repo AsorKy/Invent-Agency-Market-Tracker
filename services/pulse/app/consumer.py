@@ -35,6 +35,7 @@ from libs.common.redis_streams import ensure_consumer_group, read_consumer_batch
 from libs.common.retry import retry_with_backoff
 from libs.common.settings import get_settings
 from libs.common.tenant import set_tenant_context
+from services.pulse.app.project_projection import apply_project_created
 from services.pulse.app.rollups import apply_outcome, apply_signal
 
 STREAM_NAME = "invent.events"
@@ -97,6 +98,8 @@ async def process_event(connection: AsyncConnection, event: dict[str, str]) -> N
         await apply_signal(connection, tenant_id, payload)
     elif event_type == "lead.outcome_recorded":
         await apply_outcome(connection, tenant_id, payload)
+    elif event_type == "signal.converted_to_project":
+        await apply_project_created(connection, tenant_id, payload)
 
 
 async def _dead_letter(redis: Any, message_id: str, fields: dict[str, str], error: str) -> None:

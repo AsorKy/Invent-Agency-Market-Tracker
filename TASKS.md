@@ -1639,7 +1639,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: filled by the agent when done
 
 ### T-149 Event chain: tolerant consumers and flagged producers
-- status: todo
+- status: done
 - spec: REQ-LNS-012, REQ-EXT-001, REQ-EVT-002
 - owner: lead-backend-engineer
 - depends: T-110
@@ -1648,7 +1648,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/unit/test_event_chain.py tests/unit/test_event_chain_consumers.py` and `python ops/check_configuration.py`
 - note: only `funnel.gate_decision` is emitted today; the six other chain producers are not wired because nobody verified how the relay and the consumers treat an event type they do not know. First prove it with tests: an unknown or chain-only event type is acknowledged and never lands in `core.outbox_dead_letter` (REQ-EXT-001), in the relay, the pulse consumer and the ml consumer. Then wire the other producers behind a flag `EVENT_CHAIN_EMIT` that is off by default (declared in settings, `.env.example` and the configuration check); with the flag off the outbox content is byte for byte what it is today, because the CI e2e stage fails on any dead letter. Keep the `source_version` growth bounded as it is.
-- evidence: filled by the agent when done
+- evidence: pytest test_event_chain + test_event_chain_consumers 34 passed; check_configuration OK; make static/test pass. Unknown and chain-only types acked, never dead-lettered in relay, pulse, ml. EVENT_CHAIN_EMIT default off; helper chain_events_after returns [] when off. Gap: the six producer call sites are outside write_scope and are not wired (see RUN-r1-h-events).
 
 ### T-150 ML publisher sends the tenant to pulse
 - status: todo
@@ -1675,7 +1675,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: filled by the agent when done
 
 ### T-152 Pulse writes the project snapshot and stage visit rows
-- status: todo
+- status: done
 - spec: REQ-LNS-003, REQ-PUL-002, REQ-EVT-002
 - owner: second-backend-engineer
 - depends: T-135, T-149
@@ -1684,7 +1684,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_project_projection.py tests/unit/test_pulse_lens_routes.py tests/unit/test_pulse_consumer.py`
 - note: `pulse.project_snapshot` and `pulse.project_stage_visit` have no writer, so `GET /internal/pulse/projects/metrics` returns empty values. Fill them from the project and lead stage events that the pulse consumer already receives (read `libs/contracts/events.py` for the types), idempotently (REQ-EVT-002: the same event twice changes nothing), with the tenant of the event and `set_tenant_context` on the write. If the event catalog has no event that carries a project stage change, do not invent one: write what the existing events allow, and list the gap in the report. Run this task after T-149 in the same session because both edit the pulse consumer.
-- evidence: filled by the agent when done
+- evidence: pytest project_projection, pulse_lens_routes, pulse_consumer, sql_consistency 43 passed; make static ok; make test 1453 passed. Pulse consumer projects signal.converted_to_project into project_snapshot (stage draft) and first stage visit, idempotent. Gap: no later-stage, score or burn events exist in the catalog.
 
 ### T-153 Compose entry for the drift worker, behind a profile
 - status: todo

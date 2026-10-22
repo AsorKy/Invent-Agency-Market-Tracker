@@ -72,6 +72,7 @@ class Settings(BaseSettings):
     worker_stream_block_ms: int = Field(default=5_000, ge=1)
     worker_failure_sleep_seconds: float = Field(default=1, ge=0)
     outbox_poll_interval_seconds: float = Field(default=1, ge=0)
+    event_chain_emit: bool = False
     upstream_retry_base_delay_seconds: float = Field(default=0.1, ge=0)
     upstream_retry_max_delay_seconds: float = Field(default=2, ge=0)
     upstream_retry_jitter_ratio: float = Field(default=0.2, ge=0, le=1)
