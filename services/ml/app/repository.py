@@ -36,18 +36,27 @@ class MlRepository:
         is_hot: bool,
         source_version: str,
         score_version: str,
+        features: tuple[float, float, float] | None = None,
+        weights: tuple[float, float, float] | None = None,
     ) -> None:
+        """Upsert the score; ``features`` and ``weights`` are (icp, signal, territory)."""
         if self.engine is None:
             raise RuntimeError("DATABASE_URL is required for ml writes")
+        f = features or (None, None, None)
+        w = weights or (None, None, None)
         async with self.engine.begin() as connection:
             await connection.execute(
                 text(
                     """
                     INSERT INTO ml.lead_score
                         (company_id, score, is_hot, stale, source_version,
-                         score_version, model_version, as_of)
+                         score_version, model_version, as_of,
+                         feature_icp_fit, feature_signal_strength,
+                         feature_territory_opportunity, weight_icp_fit,
+                         weight_signal_strength, weight_territory)
                     VALUES (:company_id, :score, :is_hot, false, :source_version,
-                            :score_version, 'rule-f1', :as_of)
+                            :score_version, 'rule-f1', :as_of,
+                            :f_icp, :f_signal, :f_territory, :w_icp, :w_signal, :w_territory)
                     ON CONFLICT (company_id) DO UPDATE SET
                         score = EXCLUDED.score,
                         is_hot = EXCLUDED.is_hot,
@@ -55,7 +64,13 @@ class MlRepository:
                         source_version = EXCLUDED.source_version,
                         score_version = EXCLUDED.score_version,
                         model_version = EXCLUDED.model_version,
-                        as_of = EXCLUDED.as_of
+                        as_of = EXCLUDED.as_of,
+                        feature_icp_fit = EXCLUDED.feature_icp_fit,
+                        feature_signal_strength = EXCLUDED.feature_signal_strength,
+                        feature_territory_opportunity = EXCLUDED.feature_territory_opportunity,
+                        weight_icp_fit = EXCLUDED.weight_icp_fit,
+                        weight_signal_strength = EXCLUDED.weight_signal_strength,
+                        weight_territory = EXCLUDED.weight_territory
                     """
                 ),
                 {
@@ -65,6 +80,12 @@ class MlRepository:
                     "source_version": source_version,
                     "score_version": score_version,
                     "as_of": datetime.now(UTC),
+                    "f_icp": f[0],
+                    "f_signal": f[1],
+                    "f_territory": f[2],
+                    "w_icp": w[0],
+                    "w_signal": w[1],
+                    "w_territory": w[2],
                 },
             )
             await connection.execute(
@@ -89,6 +110,42 @@ class MlRepository:
                         SELECT company_id, score, stale, score_version, source_version
                         FROM ml.lead_score WHERE company_id = :company_id
                         """
+                        ),
+                        {"company_id": company_id},
+                    )
+                )
+                .mappings()
+                .first()
+            )
+            return dict(row) if row else None
+
+    async def score_inputs(self, company_id: UUID) -> dict[str, object] | None:
+        """Stored features and weights of the current score; ``None`` when not stored.
+
+        ``ml.lead_score`` carries no tenant column and no row level security (INV-01: only the
+        ml schema is read), so there is no tenant context to set for this read.
+        """
+        if self.engine is None:
+            return None
+        async with self.engine.connect() as connection:
+            row = (
+                (
+                    await connection.execute(
+                        text(
+                            """
+                            SELECT company_id, score, score_version,
+                                   feature_icp_fit, feature_signal_strength,
+                                   feature_territory_opportunity, weight_icp_fit,
+                                   weight_signal_strength, weight_territory
+                            FROM ml.lead_score
+                            WHERE company_id = :company_id
+                              AND feature_icp_fit IS NOT NULL
+                              AND feature_signal_strength IS NOT NULL
+                              AND feature_territory_opportunity IS NOT NULL
+                              AND weight_icp_fit IS NOT NULL
+                              AND weight_signal_strength IS NOT NULL
+                              AND weight_territory IS NOT NULL
+                            """
                         ),
                         {"company_id": company_id},
                     )

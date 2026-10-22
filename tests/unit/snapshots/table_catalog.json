@@ -507,12 +507,18 @@
     "ml.lead_score": [
       "as_of",
       "company_id",
+      "feature_icp_fit",
+      "feature_signal_strength",
+      "feature_territory_opportunity",
       "is_hot",
       "model_version",
       "score",
       "score_version",
       "source_version",
-      "stale"
+      "stale",
+      "weight_icp_fit",
+      "weight_signal_strength",
+      "weight_territory"
     ],
     "ml.model_version": [
       "active",

@@ -457,6 +457,8 @@ class FakeMlRepository:
         is_hot: bool,
         source_version: str,
         score_version: str,
+        features: tuple[float, float, float] | None = None,
+        weights: tuple[float, float, float] | None = None,
     ) -> None:
         self.store.scores[company_id] = {
             "company_id": company_id,

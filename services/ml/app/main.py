@@ -23,6 +23,7 @@ from libs.common.redis_client import check_redis, create_redis
 from libs.common.request_id import RequestIdMiddleware
 from libs.common.settings import get_settings
 from libs.contracts.api import ScoreFeatures, ScoreResponse
+from services.ml.app.explanations_routes import router as explanations_router
 from services.ml.app.repository import MlRepository
 from services.ml.app.scoring_service import ScoringService
 
@@ -46,6 +47,7 @@ app = FastAPI(
 )
 app.add_middleware(RequestIdMiddleware)
 instrument_app(app, "ml")
+app.include_router(explanations_router)
 
 
 @app.get("/health")
