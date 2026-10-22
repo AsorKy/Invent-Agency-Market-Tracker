@@ -6,8 +6,10 @@ or roll back together (REQ-LNS-009). The verdict comes from ``libs/domain/funnel
 ``funnel.gate_decision`` always, ``funnel.pivot_requested`` on PIVOT, ``funnel.project_killed`` and
 ``funnel.kill_trigger_event`` on KILL. With ``apply_kill`` a KILL also sets ``core.project.status``
 to ``KILLED_STATUS`` in the same transaction (optimistic version check) and a project that is
-already killed refuses further decisions. The SQL transaction and the read of the checklist state
-of a project live at the end of this file; ``main.py`` serves both under
+already killed refuses further decisions. Every decision first takes the project row lock
+(``SELECT ... FOR UPDATE``), then reads the status, then writes, so a concurrent ADVANCE and KILL
+run in turn and the later one gets 409 ``project_killed``. The SQL transaction and the read of
+the checklist state of a project live at the end of this file; ``main.py`` serves both under
 ``/internal/core/funnel/``. O(items).
 """
 
@@ -168,20 +170,20 @@ class SqlFunnelStatusTransaction(SqlFunnelTransaction):
     """Tenant scoped project reads and the optimistic KILL status write (REQ-SEC-005)."""
 
     async def get_project(self, project_id: UUID, tenant_id: UUID | None) -> dict[str, Any] | None:
-        result = await self.connection.execute(
+        """Lock the project row, then read it: concurrent decisions on a project run in turn."""
+        locked = await self.connection.execute(
             text(
                 """
-                SELECT id, tenant_id, name, status,
-                       COALESCE((metadata->>'version')::integer, 1) AS version
-                FROM core.project
+                SELECT id FROM core.project
                 WHERE id = :id AND tenant_id = :tenant_id
                 FOR UPDATE
                 """
             ),
             {"id": project_id, "tenant_id": tenant_id},
         )
-        row = result.mappings().first()
-        return dict(row) if row else None
+        if locked.first() is None:
+            return None
+        return await self.read_project(project_id, tenant_id)  # type: ignore[arg-type]
 
     async def read_project(self, project_id: UUID, tenant_id: UUID) -> dict[str, Any] | None:
         result = await self.connection.execute(
