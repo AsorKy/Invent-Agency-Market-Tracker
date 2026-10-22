@@ -1675,7 +1675,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: filled by the agent when done
 
 ### T-152 Pulse writes the project snapshot and stage visit rows
-- status: todo
+- status: done
 - spec: REQ-LNS-003, REQ-PUL-002, REQ-EVT-002
 - owner: second-backend-engineer
 - depends: T-135, T-149
@@ -1684,7 +1684,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_project_projection.py tests/unit/test_pulse_lens_routes.py tests/unit/test_pulse_consumer.py`
 - note: `pulse.project_snapshot` and `pulse.project_stage_visit` have no writer, so `GET /internal/pulse/projects/metrics` returns empty values. Fill them from the project and lead stage events that the pulse consumer already receives (read `libs/contracts/events.py` for the types), idempotently (REQ-EVT-002: the same event twice changes nothing), with the tenant of the event and `set_tenant_context` on the write. If the event catalog has no event that carries a project stage change, do not invent one: write what the existing events allow, and list the gap in the report. Run this task after T-149 in the same session because both edit the pulse consumer.
-- evidence: filled by the agent when done
+- evidence: pytest project_projection, pulse_lens_routes, pulse_consumer, sql_consistency 43 passed; make static ok; make test 1453 passed. Pulse consumer projects signal.converted_to_project into project_snapshot (stage draft) and first stage visit, idempotent. Gap: no later-stage, score or burn events exist in the catalog.
 
 ### T-153 Compose entry for the drift worker, behind a profile
 - status: todo
