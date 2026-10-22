@@ -104,3 +104,35 @@ def test_lens_wave_sections_are_present() -> None:
         "LTV:CAC",
     ):
         assert needle in text, needle
+
+
+CHAIN_RUNBOOK = ROOT / "docs" / "runbooks" / "event-chain-rollout.md"
+
+
+def test_event_chain_runbook_is_ascii_and_cites_known_variables() -> None:
+    text = CHAIN_RUNBOOK.read_text(encoding="ascii")
+    cited = set(re.findall(r"`([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+)(?:=[^`]*)?`", text))
+    assert "EVENT_CHAIN_EMIT" in cited
+    assert not cited - _env_names()
+    assert "EVENT_CHAIN_EMIT=false" in ENV_EXAMPLE.read_text(encoding="utf-8")
+
+
+def test_event_chain_runbook_covers_procedure_and_cites_real_files() -> None:
+    text = CHAIN_RUNBOOK.read_text(encoding="ascii")
+    for needle in (
+        "Consumers first",
+        "outbox_dead_letter",
+        "published_at IS NULL",
+        "--chain",
+        "trace_chain",
+        "Rollback",
+        "reference_parent",
+        "chain_events_after",
+    ):
+        assert needle.lower() in text.lower(), needle
+    for path in sorted(set(re.findall(r"`((?:services|libs|ops|docs|tests)/[\w./-]+\.\w+)`", text))):
+        assert (ROOT / path).is_file(), path
+
+
+def test_go_live_links_the_event_chain_runbook() -> None:
+    assert "docs/runbooks/event-chain-rollout.md" in RUNBOOK.read_text(encoding="ascii")

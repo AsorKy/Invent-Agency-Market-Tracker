@@ -152,7 +152,7 @@ Template entry:
 - source: AGENTS.md quality gates, ADR-IMT-0001 section 17
 - statement: `make static` passes on every commit pushed by an agent.
 - verify: `make static`
-- tasks: T-001, T-007
+- tasks: T-000, T-001, T-007, T-080, T-141, T-161, T-162, T-164
 
 ### REQ-QA-002 Unit test suite exists and runs offline
 - status: accepted
@@ -162,7 +162,7 @@ Template entry:
 - source: ADR-IMT-0001 section 17 stage 2
 - statement: A unit test suite under `tests/unit/` runs with no network, database, or Redis, and is exposed through `make test`.
 - verify: `make test`
-- tasks: T-001, T-003, T-004, T-005, T-006
+- tasks: T-001, T-003, T-004, T-005, T-006, T-081, T-094
 
 ### REQ-QA-003 Coverage thresholds
 - status: accepted
@@ -202,7 +202,7 @@ Template entry:
 - source: this file
 - statement: Every task cites existing requirement IDs, and every accepted F0 requirement is cited by a task.
 - verify: `python ops/check_traceability.py`
-- tasks: T-002
+- tasks: T-002, T-080, T-157, T-167
 
 ### Architecture and topology
 
@@ -236,7 +236,7 @@ Template entry:
 - source: ADR-IMT-0001 section E2.1
 - statement: Migrations create exactly the 7 schemas and 14 roles of section 3.2 with consistent names across migrations, settings, compose, `.env.example`, and `ops/bootstrap_roles.sql.example`. `socioeconomic` is removed through a `contract_` migration in a separate commit, and `analytics` is never created.
 - verify: `python ops/check_migrations.py`
-- tasks: T-008
+- tasks: T-008, T-081, T-083, T-086, T-093, T-094, T-095, T-129, T-145, T-156
 
 ### REQ-DAT-002 Time and pagination conventions
 - status: accepted
@@ -564,7 +564,7 @@ Template entry:
 - source: ADR-IMT-0001 sections E1.1, E1.6
 - statement: `core` consumes `lead.score_updated` and creates the lead (Discovered) or advances it to Qualified or Hot using `tenant_config.brief_rules` (`min_score_for_hot`, default 70, and `min_score_for_qualified`, default 50). It never moves a lead backward and never overrides a human-set status. Each automatic move writes an `audit_log` entry and new leads emit `lead.created`.
 - verify: `pytest -q tests/unit/test_auto_qualification.py`
-- tasks: T-024
+- tasks: T-024, T-161, T-162
 
 ### Events and workers
 
@@ -576,7 +576,7 @@ Template entry:
 - source: ADR-IMT-0001 section 7
 - statement: Core persists a signal and its outbox event atomically, and the relay publishes unpublished events to Redis Streams without losing any on restart.
 - verify: `pytest -q tests/unit/test_outbox.py`
-- tasks: T-005
+- tasks: T-005, T-090, T-091, T-092, T-159, T-164, T-166
 
 ### REQ-EVT-002 Idempotent consumers
 - status: accepted
@@ -586,7 +586,7 @@ Template entry:
 - source: ADR-IMT-0001 section 7.4 and amendment E1.4
 - statement: Processing the same event ID twice produces the effect once.
 - verify: `pytest -q tests/unit/test_outbox.py`
-- tasks: T-005
+- tasks: T-005, T-090, T-092, T-121, T-149, T-152
 
 ### REQ-EVT-003 Dead letter queue
 - status: accepted
@@ -616,7 +616,7 @@ Template entry:
 - source: ADR-IMT-0001 sections 7.3, E1.4, E2.3
 - statement: `libs/contracts/events.py` defines the L1 events (`signal.created`, `company.updated`, `lead.created`, `lead.outcome_recorded`, `lead.score_updated`, `ingest.quarantine`, `tenant.config_updated`, `signal.activity_logged`, `signal.converted_to_project`) with a common envelope (`event_id`, `event_type`, `aggregate_type`, `aggregate_id`, `version`, `source_version`, `created_at`, optional `replay`, and `tenant_id`, which the relay always publishes as its own stream field and never leaves to the payload). Event logs never include full payloads.
 - verify: `pytest -q tests/unit/test_contracts.py`
-- tasks: T-011, T-014, T-088, T-090, T-120, T-121
+- tasks: T-011, T-014, T-088, T-090, T-120, T-121, T-159
 
 ### REQ-EVT-006 Process supervisor
 - status: accepted
@@ -678,7 +678,7 @@ Template entry:
 - source: ADR-IMT-0001 section E1.6
 - statement: `GET` brief compares the latest digest `source_version` with the expected version. First read regenerates synchronously, an outdated digest is served with `stale: true` while regeneration is queued, and the `X-Brief-Cache` header is `hit`, `stale`, or `degraded`. If `core` is unreachable the endpoint returns 503 `db_unavailable`.
 - verify: `pytest -q tests/unit/test_brief_cache.py`
-- tasks: T-033, T-085, T-086, T-087, T-122, T-151
+- tasks: T-033, T-085, T-086, T-087, T-122, T-151, T-165
 
 ### REQ-BRF-002 Single-flight regeneration and fallback
 - status: accepted
@@ -708,7 +708,7 @@ Template entry:
 - source: ADR-IMT-0001 sections 10.2, 10.3
 - statement: `ml` regenerates a company's score under a Redis single-flight lock. A changed `source_version` (company version plus signal versions) marks the stored score `stale` and queues regeneration. A locked company returns the previous score marked `stale`. The result is published as `lead.score_updated`.
 - verify: `pytest -q tests/unit/test_ml_singleflight.py`
-- tasks: T-053, T-144, T-145
+- tasks: T-053, T-144, T-145, T-158
 
 ### REQ-ML-002 Segmentation pipeline
 - status: accepted
@@ -812,7 +812,7 @@ Template entry:
 - source: ADR-IMT-0001 section 6.4
 - statement: Each service connects with its own `_app` role. Service-to-service calls carry a signed service token. Redis has ACL users `edge` (rate-limit keys only) and `data` (streams, cache). `/internal/*` is never routed by the gateway.
 - verify: `pytest -q tests/unit/test_internal_auth.py` and `python ops/check_configuration.py`
-- tasks: T-060, T-123, T-130, T-131, T-140, T-144, T-146, T-147, T-150, T-151, T-153
+- tasks: T-060, T-123, T-130, T-131, T-140, T-144, T-146, T-147, T-150, T-151, T-153, T-158, T-160, T-162, T-163, T-165
 
 ### REQ-CMP-001 Habeas data compliance
 - status: accepted
@@ -914,7 +914,7 @@ Template entry:
 - source: ADR-IMT-0001 sections 16, 21 (F0)
 - statement: `docker compose config` is valid, every service has a Dockerfile target and a health probe, and each image builds from the same base conventions. Starting the stack requires Docker, which is not available in the sandbox, so only the configuration is verified.
 - verify: `pytest -q tests/unit/test_compose.py` (parses the file and checks topology); `make compose-config` where the Docker CLI exists.
-- tasks: T-073, T-153, T-154
+- tasks: T-073, T-153, T-154, T-158
 
 ### Run, operate, and go live
 
@@ -926,7 +926,7 @@ Template entry:
 - source: owner requirement 2026-10-18; ADR-IMT-0001 section 16
 - statement: `make invent-tracker` is the single command that starts the whole application. It creates `.env` from `.env.example` when missing (generating local-only secrets without printing them), builds the images, runs migrations, starts every service and worker, loads demo data on the first run, waits until the gateway `/ready` is green, and prints the service URLs and next steps. Running it again is safe. `make invent-tracker-down` stops it and `make invent-tracker-reset` removes volumes after confirmation.
 - verify: `make -n invent-tracker` lists the steps; `pytest -q tests/unit/test_make_targets.py` parses the Makefile. The owner runs it once with Docker.
-- tasks: T-074, T-125, T-130, T-140, T-141
+- tasks: T-074, T-125, T-130, T-140, T-141, T-161, T-164
 
 ### REQ-RUN-002 Migration runner
 - status: accepted
@@ -986,7 +986,7 @@ Template entry:
 - source: owner requirement 2026-10-18
 - statement: `docs/runbooks/go-live.md` (English) explains where credentials go (names only), how to enable each source, how to expose the webhook (tunnel) or use the polling fallback, how to adjust field mappings, how to run `make doctor` and `make verify-live`, how data reaches the API, how to point the frontend at the gateway, and a troubleshooting table.
 - verify: `pytest -q tests/unit/test_runbook.py` checks that every `SOURCE_*` and mode variable appears in both the runbook and `.env.example`.
-- tasks: T-079, T-134, T-155
+- tasks: T-079, T-134, T-155, T-166
 
 ### Public API for the frontend
 
@@ -1116,7 +1116,7 @@ All L2 requirements are `later-run`. They are specified now so that run 1 leaves
 - source: ADR-IMT-0002 section 2.1
 - statement: `ml` workers run K-Prototypes profiling, Leiden communities, and centrality weekly, and tag text with regex, dictionaries, YAKE, and TF-IDF (LDA monthly), publishing results to `pulse`.
 - verify: `pytest -q tests/unit/test_profiling.py tests/unit/test_topics.py`
-- tasks: T-103, T-135, T-139, T-150
+- tasks: T-103, T-135, T-139, T-150, T-160
 
 ### REQ-LNS-005 Attribution (Dx1)
 - status: accepted
@@ -1146,7 +1146,7 @@ All L2 requirements are `later-run`. They are specified now so that run 1 leaves
 - source: ADR-IMT-0002 section 2.2
 - statement: A nightly worker computes change points (CUSUM, EWMA) and PSI with thresholds below 0.1 stable, 0.1 to 0.25 watch, above 0.25 retrain, and alerts through n8n. SHAP drivers and counterfactuals are attached to the Brief on regeneration.
 - verify: `pytest -q tests/unit/test_drift.py tests/unit/test_explain.py`
-- tasks: T-106, T-137, T-138, T-151, T-153
+- tasks: T-106, T-137, T-138, T-151, T-153, T-160, T-165
 
 ### REQ-LNS-008 Metric pack library
 - status: accepted
@@ -1166,7 +1166,7 @@ All L2 requirements are `later-run`. They are specified now so that run 1 leaves
 - source: ADR-IMT-0002 sections 2.4, 2.7; ADR-IMT-0001 section E2.2
 - statement: `core` evaluates gates G1 Discovery, G2 Qualify, G3 Validate, G4 Design, G5 Launch, G6 Scale, and G7 Sunset from versioned YAML checklists and returns ADVANCE, PIVOT, KILL, or WAIT. It emits `funnel.gate_decision`, `funnel.pivot_requested`, `funnel.project_killed`, and `funnel.kill_trigger_event` through the outbox and stores each decision with its inputs. There is no separate funnel service.
 - verify: `pytest -q tests/unit/test_funnel.py`
-- tasks: T-109, T-146, T-154, T-155
+- tasks: T-109, T-146, T-154, T-155, T-163
 - note: blocked by decision D-06 (checklist content per gate).
 
 ### REQ-LNS-010 Validation schema and metrics (V1 to V6)
@@ -1197,7 +1197,7 @@ All L2 requirements are `later-run`. They are specified now so that run 1 leaves
 - source: ADR-IMT-0002 section 2.6
 - statement: A `signal.created` traverses signal.tagged, signal.scored, company.matched, signal.explained, funnel.gate_decision, project.pipeline_updated, and project.forecast_updated. Every event carries `source_version`, so one decision can be traced end to end.
 - verify: `pytest -q tests/unit/test_event_chain.py`
-- tasks: T-110, T-149
+- tasks: T-110, T-149, T-159
 
 ### REQ-LNS-013 Validation page
 - status: accepted

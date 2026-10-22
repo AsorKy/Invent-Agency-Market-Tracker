@@ -1845,7 +1845,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: filled by the agent when done
 
 ### T-166 Runbook for turning the event chain on
-- status: todo
+- status: done
 - spec: REQ-DOC-001, REQ-EVT-001
 - owner: devops-engineer
 - depends: T-159
@@ -1854,10 +1854,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: S
 - acceptance: `pytest -q tests/unit/test_runbook.py && python ops/check_language.py`
 - note: write the operator procedure for setting `EVENT_CHAIN_EMIT=true`: consumers first (T-149 already accept the chain types), then producers; the checks to run before and after (outbox backlog, dead letter count zero, the `--chain` mode of `ops/e2e_check.py` that T-164 adds, `trace_chain` gaps); how to roll back (set the flag to false; chain events already written stay valid and are ignored by old consumers); and the known limit that three chain links use deterministic reference ids that no event carries, so `trace_chain` reports those gaps by design until the contract carries the parent event id. Add the matching assertions to `tests/unit/test_runbook.py`. Do not invent behavior the code lacks: cite the file for each claim.
-- evidence: filled by the agent when done
+- evidence: pytest -q tests/unit/test_runbook.py 9 passed; check_language OK; make static/test pass. Runbook cites a file per claim; --chain mode is stated as pending T-164.
 
 ### T-167 Fill the SPEC tasks lines for the tasks added since T-157
-- status: todo
+- status: done
 - spec: REQ-TRC-001
 - owner: qa-reviewer
 - depends: T-157
@@ -1866,4 +1866,4 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: S
 - acceptance: `python ops/check_traceability.py` and `pytest -q tests/unit/test_spec_tasks_lines.py tests/unit/test_traceability.py`
 - note: T-158 to T-166 and T-144 to T-157 cite requirements whose `tasks:` lines may not list them. Rebuild every `tasks:` line from the `spec:` lines of TASKS.md (a requirement's tasks are the ones that cite it), keep the stated reasons where no task cites a requirement, and change nothing else in SPEC.md: no statement, no `status`, no `verify`, and not the REQ-SEC-005 text. The existing test must keep passing and gain one case that fails when a task cites a requirement whose `tasks:` line omits it.
-- evidence: filled by the agent when done
+- evidence: rebuilt 18 tasks lines from the spec: lines of TASKS.md (no line lacked a citing task); check_traceability OK; test_spec_tasks_lines + test_traceability pass; make static/test pass.
