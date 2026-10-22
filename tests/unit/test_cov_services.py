@@ -553,6 +553,24 @@ async def test_ml_repository_reads(monkeypatch: pytest.MonkeyPatch) -> None:
     assert weights.territory != 0.9
 
 
+async def test_ml_load_weights_falls_back_when_core_rules_are_refused(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    from sqlalchemy.exc import ProgrammingError
+
+    repo, engine = _ml_repo(monkeypatch)
+    assert engine is not None
+
+    async def refuse(*_a: Any, **_k: Any) -> Any:
+        raise ProgrammingError("SELECT", {}, Exception("permission denied for schema core"))
+
+    monkeypatch.setattr(engine.connection, "execute", refuse)
+    with caplog.at_level("WARNING"):
+        weights = await repo.load_weights(TENANT)
+    assert weights == ml_repository.ScoreWeights()
+    assert "using default weights" in caplog.text
+
+
 async def test_ml_repository_without_database(monkeypatch: pytest.MonkeyPatch) -> None:
     repo, _engine = _ml_repo(monkeypatch, engine=False)
     assert await repo.latest_score(COMPANY) is None

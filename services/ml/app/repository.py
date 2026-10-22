@@ -7,13 +7,17 @@ another request holds the lock. It relates to ``services/ml/app/main.py``,
 storage.
 """
 
+import logging
 from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import text
+from sqlalchemy.exc import DBAPIError
 
 from libs.common.db import create_engine
 from libs.domain.scoring import ScoreWeights, resolve_weights
+
+_log = logging.getLogger(__name__)
 
 
 class MlRepository:
@@ -104,17 +108,26 @@ class MlRepository:
             )
 
     async def load_weights(self, tenant_id: UUID) -> ScoreWeights:
-        """Read ``core.lead_score_rule`` rows for a tenant; defaults without a database."""
+        """Read ``core.lead_score_rule`` rows for a tenant; defaults without a database.
+
+        The ``ml_app`` role has no grant on the ``core`` schema (schema isolation), so the read
+        is refused in a real deployment. Scoring then falls back to the default weights and logs
+        it, rather than answering HTTP 500 to every request that carries a tenant.
+        """
         if self.engine is None:
             return ScoreWeights()
-        async with self.engine.connect() as connection:
-            rows = (
-                await connection.execute(
-                    text(
-                        "SELECT rule_name, weight, active FROM core.lead_score_rule "
-                        "WHERE tenant_id = :tenant_id"
-                    ),
-                    {"tenant_id": tenant_id},
-                )
-            ).all()
+        try:
+            async with self.engine.connect() as connection:
+                rows = (
+                    await connection.execute(
+                        text(
+                            "SELECT rule_name, weight, active FROM core.lead_score_rule "
+                            "WHERE tenant_id = :tenant_id"
+                        ),
+                        {"tenant_id": tenant_id},
+                    )
+                ).all()
+        except DBAPIError as exc:
+            _log.warning("tenant score rules unreadable, using default weights: %s", exc.orig)
+            return ScoreWeights()
         return resolve_weights((str(r[0]), r[1], bool(r[2])) for r in rows)
