@@ -1,17 +1,29 @@
-"""Weekly and monthly entry points for D2/D3 jobs (REQ-LNS-004).
+"""Weekly, monthly, and nightly entry points for D2/D3 jobs (REQ-LNS-004, REQ-LNS-007).
 
-Each function runs once and returns; the external scheduler (n8n or cron) owns
-the cadence: ``run_weekly`` for profiling and communities, ``run_monthly`` for
-topics and LDA. Inputs and the publisher are injected so tests use fakes. No
-loops are used. It relates to ``profiling.py``, ``communities.py``,
+``run_weekly`` (profiling and communities) and ``run_monthly`` (topics and LDA)
+run once and return; the external scheduler (n8n or cron) owns their cadence.
+``run_nightly`` is the drift loop: it waits until the next run hour, runs the
+drift worker, and stops after ``max_runs`` runs (``None`` means forever, only
+the ``main`` entry point does that). The clock and ``sleep`` are injected so
+tests never wait. ``python -m services.ml.app.schedule`` starts the loop with
+real clients. Inputs and the publisher are injected so tests use fakes. It
+relates to ``profiling.py``, ``communities.py``, ``drift_worker.py``,
 ``publisher.py``, and ``libs/domain/topics.py``.
 """
 
-from collections.abc import Callable, Sequence
+import asyncio
+import logging
+import os
+import uuid
+from collections.abc import Awaitable, Callable, Sequence
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
+import httpx
+
+from libs.common.settings import get_settings
 from libs.domain import topics
-from services.ml.app import communities, profiling
+from services.ml.app import communities, drift_worker, profiling
 from services.ml.app.publisher import (
     CommunityResult,
     ProfileResult,
@@ -64,3 +76,60 @@ async def run_monthly(
             lda_topics=lda(documents, num_topics=num_topics),
         )
     )
+
+
+logger = logging.getLogger(__name__)
+NIGHTLY_HOUR_ENV = "DRIFT_RUN_HOUR_UTC"
+DEFAULT_RUN_HOUR_UTC = 7
+HTTP_TIMEOUT_SECONDS = 15.0
+
+
+def seconds_until_hour(now: datetime, hour: int) -> float:
+    """Return the seconds from ``now`` to the next ``hour``:00 UTC (never 0)."""
+    target = now.astimezone(UTC).replace(hour=hour, minute=0, second=0, microsecond=0)
+    if target <= now:
+        target += timedelta(days=1)
+    return (target - now).total_seconds()
+
+
+async def run_nightly(
+    loader: drift_worker.FeatureLoader,
+    client: drift_worker.AlertClient,
+    *,
+    hour: int = DEFAULT_RUN_HOUR_UTC,
+    max_runs: int | None = 1,
+    sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
+    now: Callable[[], datetime] = lambda: datetime.now(UTC),
+    run_id: Callable[[], str] = lambda: f"drift-{uuid.uuid4().hex[:12]}",
+) -> int:
+    """Run the drift worker nightly; return the number of runs started.
+
+    A failed run is logged and the loop goes on; ``max_runs`` bounds the loop.
+    """
+    runs = 0
+    while max_runs is None or runs < max_runs:
+        await sleep(seconds_until_hour(now(), hour))
+        runs += 1
+        try:
+            await drift_worker.run_drift(loader, client, run_id=run_id())
+        except Exception:
+            logger.exception("nightly drift run failed")
+    return runs
+
+
+async def main() -> None:
+    """Start the nightly drift loop with real pulse and webhook clients."""
+    settings = get_settings()
+    hour = int(os.environ.get(NIGHTLY_HOUR_ENV, DEFAULT_RUN_HOUR_UTC))
+    async with (
+        httpx.AsyncClient(base_url=settings.pulse_url, timeout=HTTP_TIMEOUT_SECONDS) as pulse,
+        httpx.AsyncClient(timeout=HTTP_TIMEOUT_SECONDS) as webhook,
+    ):
+        loader = drift_worker.PulseSeriesLoader(
+            pulse, settings.internal_service_token, drift_worker.tenant_id()
+        )
+        await run_nightly(loader, webhook, hour=hour, max_runs=None)
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

@@ -7,7 +7,7 @@ rule-based summarizer reads, and the per-tenant rule set mirrored from
 fallback response deterministic and explicit about degraded generation.
 """
 
-from typing import Literal
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -30,6 +30,8 @@ class BriefContent(BaseModel):
     coverage: dict[str, bool]
     activity: list[dict[str, str]]
     priority: float = 0.0
+    drivers: list[dict[str, Any]] | None = None
+    counterfactual: dict[str, Any] | None = None
 
 
 class StoredDigest(BaseModel):
@@ -54,6 +56,8 @@ class BriefResponse(StoredDigest):
 
     lead_id: UUID | None = None
     stale: bool
+    drivers: list[dict[str, Any]] | None = None
+    counterfactual: dict[str, Any] | None = None
 
 
 class AlertRules(BaseModel):

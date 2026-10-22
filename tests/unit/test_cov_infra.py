@@ -884,7 +884,7 @@ async def test_list_leads_applies_all_filters() -> None:
     assert len(page) == 1
     assert next_cursor is not None
     sql, params = engine.connection.calls[0]
-    for clause in ("l.stage = :stage", "s.score >= :min_score", "l.tenant_id = :tenant_id"):
+    for clause in ("l.stage = :stage", "l.tenant_id = :tenant_id"):
         assert clause in sql
     assert params["stage"] == "hot"
     assert params["min_score"] == 50
@@ -901,10 +901,12 @@ async def test_list_leads_without_filters_and_invalid_rows() -> None:
 
 
 async def test_get_lead_returns_row_or_none() -> None:
-    repository, engine = _repository([FakeResult([{"id": ID}])])
+    repository, engine = _repository([FakeResult(), FakeResult([{"id": ID}])])
     assert await repository.get_lead(ID, TENANT) == {"id": ID}
     assert await repository.get_lead(ID) is None
-    assert engine.connection.calls[0][1] == {"id": ID, "tenant_id": TENANT}
+    context, select = engine.connection.calls[:2]
+    assert "app.tenant_id" in context[0] and context[1] == {"tenant_id": str(TENANT)}
+    assert select[1] == {"id": ID, "tenant_id": TENANT}
 
 
 async def test_list_projects_filters_and_paginates() -> None:

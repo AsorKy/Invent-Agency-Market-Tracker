@@ -55,8 +55,8 @@
       ],
       "credentials": {
         "httpHeaderAuth": {
-          "id": "ingest-internal",
-          "name": "ingest-internal-header"
+          "id": "pulse-internal",
+          "name": "pulse-internal-header"
         }
       }
     },

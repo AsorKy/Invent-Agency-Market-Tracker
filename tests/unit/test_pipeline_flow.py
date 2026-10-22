@@ -227,7 +227,7 @@ async def test_score_event_qualifies_leads_and_the_api_serves_them(
     scores = {c: world.core_store.scores[i] for c, i in companies.items()}
     assert (scores["Medellin"]["score"], scores["Medellin"]["is_hot"]) == (100, True)
     assert (scores["Bogota"]["score"], scores["Bogota"]["is_hot"]) == (55, False)
-    assert scores["Medellin"]["score_version"] == "rule-f1:2"
+    assert scores["Medellin"]["score_version"] == "rule-f1-default:2"
     events = await world.redis.xrange(EVENTS_STREAM)
     assert [f["event_type"] for _i, f in events].count("lead.score_updated") == 2
 

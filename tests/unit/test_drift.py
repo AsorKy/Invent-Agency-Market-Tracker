@@ -63,7 +63,7 @@ class Client:
     def __init__(self) -> None:
         self.calls: list[tuple[str, dict]] = []
 
-    async def post(self, url: str, *, json: dict) -> Resp:
+    async def post(self, url: str, *, json: dict, headers: dict | None = None) -> Resp:
         self.calls.append((url, json))
         return Resp()
 
@@ -75,7 +75,12 @@ SHIFTED = [float(i) + 30 for i in range(20)]
 def test_worker_alerts_only_flagged(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv(drift_worker.WEBHOOK_ENV, raising=False)
     client = Client()
-    loader = lambda: {"a": (STABLE, STABLE), "b": (STABLE, SHIFTED)}  # noqa: E731
+    monkeypatch.setenv("DRIFT_ALERT_HEADER_NAME", "X-Drift-Token")
+    monkeypatch.setenv("DRIFT_ALERT_HEADER_VALUE", "test-value")
+
+    async def loader() -> dict:
+        return {"a": (STABLE, STABLE), "b": (STABLE, SHIFTED)}
+
     results = asyncio.run(drift_worker.run_drift(loader, client, run_id="r1", url="http://n8n/x"))
     assert [r.status for r in results] == ["stable", "retrain"]
     assert len(client.calls) == 1
@@ -84,12 +89,19 @@ def test_worker_alerts_only_flagged(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_worker_no_url_or_no_flag_no_post(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv(drift_worker.WEBHOOK_ENV, raising=False)
+    monkeypatch.setenv("DRIFT_ALERT_HEADER_NAME", "X-Drift-Token")
+    monkeypatch.setenv("DRIFT_ALERT_HEADER_VALUE", "test-value")
     client = Client()
-    asyncio.run(drift_worker.run_drift(lambda: {"b": (STABLE, SHIFTED)}, client, run_id="r"))
-    asyncio.run(
-        drift_worker.run_drift(lambda: {"a": (STABLE, STABLE)}, client, run_id="r", url="u")
-    )
+
+    async def shifted() -> dict:
+        return {"b": (STABLE, SHIFTED)}
+
+    async def stable() -> dict:
+        return {"a": (STABLE, STABLE)}
+
+    asyncio.run(drift_worker.run_drift(shifted, client, run_id="r"))
+    asyncio.run(drift_worker.run_drift(stable, client, run_id="r", url="u"))
     assert client.calls == []
     monkeypatch.setenv(drift_worker.WEBHOOK_ENV, "http://n8n/env")
-    asyncio.run(drift_worker.run_drift(lambda: {"b": (STABLE, SHIFTED)}, client, run_id="r"))
+    asyncio.run(drift_worker.run_drift(shifted, client, run_id="r"))
     assert client.calls[0][0] == "http://n8n/env"

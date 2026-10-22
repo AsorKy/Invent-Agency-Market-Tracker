@@ -10,10 +10,23 @@ justify, prioritize, or reject opportunities with a traceable rule.
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from decimal import Decimal
+from typing import Literal
 
 HOT_SCORE_THRESHOLD = 75
 RULE_NAMES = ("icp_fit", "signal_strength", "territory")
 RULE_VERSION = "rule-f1"
+DEFAULT_RULE_VERSION = "rule-f1-default"
+RulesSource = Literal["default", "tenant"]
+
+
+def rule_version(rules_source: RulesSource) -> str:
+    """Version tag of a score: scores computed with default weights are told apart."""
+    return RULE_VERSION if rules_source == "tenant" else DEFAULT_RULE_VERSION
+
+
+def rules_source_of(score_version: str) -> RulesSource:
+    """Weights source recorded in a stored ``score_version`` (``pending`` counts as default)."""
+    return "tenant" if score_version.startswith(f"{RULE_VERSION}:") else "default"
 
 
 @dataclass(frozen=True, slots=True)

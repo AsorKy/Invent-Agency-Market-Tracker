@@ -5,7 +5,8 @@ returns the plain dict that ``services/brief/app/core_source.py`` merges into
 ``CompanyFacts``. A company of another tenant yields ``None`` so the route can
 answer 404. Relates to ``main.py`` (route) and ``repository.py`` (engine owner).
 RUES, quarantine, certificate, and enrichment facts are read from the company
-``source_flags`` document; no task table exists, so ``overdue_tasks`` is 0.
+``source_flags`` document; no task table exists, so ``overdue_tasks`` is 0. ``score`` is always
+``None``: core does not read the ``ml`` schema (INV-01) until it stores the score itself (T-145).
 """
 
 from datetime import UTC, datetime
@@ -14,6 +15,8 @@ from uuid import UUID
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
+
+from libs.common.tenant import set_tenant_context
 
 RUES_STATUSES = ("matched", "pending", "unmatched", "quarantined")
 
@@ -82,14 +85,17 @@ async def read_brief_facts(
     """Return the facts for one company, or ``None`` if unknown for the tenant."""
     params = {"company_id": company_id, "tenant_id": tenant_id}
     async with engine.connect() as connection:
+        if tenant_id is not None:
+            # Row level security checks app.tenant_id: without it every row is hidden (404).
+            await set_tenant_context(connection, tenant_id)
         row = (
             (
                 await connection.execute(
                     text(
                         """
-                        SELECT c.version, c.nit, c.sector_code, c.city, c.source_flags, s.score
+                        SELECT c.version, c.nit, c.sector_code, c.city, c.source_flags,
+                               CAST(NULL AS integer) AS score
                         FROM core.company c
-                        LEFT JOIN ml.lead_score s ON s.company_id = c.id
                         WHERE c.id = :company_id AND c.valid_to IS NULL
                           AND (CAST(:tenant_id AS uuid) IS NULL OR c.tenant_id = :tenant_id)
                         """

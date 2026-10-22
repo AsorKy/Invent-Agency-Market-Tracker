@@ -3,7 +3,8 @@
 Run it after ``make invent-tracker``. It counts rows through ``docker compose exec postgres psql``
 as the local container superuser, so it never reads or prints a password, and it polls because the
 outbox relay and the consumers fill the projections after the seed returns. Required tables must
-hold rows, the outbox must have no unpublished event, and the dead letter table must stay empty;
+hold rows (the seed scores and briefs every demo company, ``ops/seed/enrich.py``), the outbox
+must have no unpublished event, and the dead letter table must stay empty;
 the other tables are printed as information (``--strict`` requires them too). Exit code 1 means a
 requirement failed after ``--timeout`` seconds. It relates to the Makefile, ``docker-compose.yml``,
 ``ops/seed`` and the e2e job in ``.github/workflows/ci.yml``.
@@ -36,10 +37,11 @@ class Table:
 TABLES = (
     Table("core.company", True),
     Table("core.signal", True),
-    Table("pulse.fact_signal", False),
-    Table("pulse.daily_rollup", False),
-    Table("ml.lead_score", False),
-    Table("brief.record_digest", False),
+    Table("pulse.fact_signal", True),
+    Table("pulse.daily_rollup", True),
+    Table("ml.lead_score", True),
+    Table("brief.record_digest", True),
+    # core.brief is keyed by project and no demo step creates a project; raw_snapshot needs ingest.
     Table("core.brief", False),
     Table("ingest.raw_snapshot", False),
 )

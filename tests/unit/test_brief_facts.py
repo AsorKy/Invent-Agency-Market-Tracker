@@ -118,3 +118,49 @@ def test_kanban_as_of_is_real_timestamp(client) -> None:
     body = client.get("/internal/core/pipeline/kanban").json()
     assert isinstance(body["as_of"], str)
     assert datetime.fromisoformat(body["as_of"]).tzinfo is not None
+
+
+def test_core_sql_never_reads_the_ml_schema() -> None:
+    """INV-01: ``core_app`` has no grant on ``ml``, so a JOIN there answers 500 in a real stack."""
+    from pathlib import Path
+
+    for name in ("brief_facts.py", "repository.py"):
+        source = (Path(__file__).resolve().parents[2] / "services/core/app" / name).read_text()
+        assert "ml.lead_score" not in source, name
+
+
+async def test_brief_facts_read_sets_the_rls_tenant_before_selecting() -> None:
+    """Without app.tenant_id, row level security hides every row and the route answers 404."""
+    from uuid import uuid4
+
+    from services.core.app.brief_facts import read_brief_facts
+
+    class Result:
+        def mappings(self) -> "Result":
+            return self
+
+        def first(self) -> None:
+            return None
+
+    class Connection:
+        def __init__(self) -> None:
+            self.sql: list[str] = []
+
+        async def execute(self, statement: object, _params: object = None) -> Result:
+            self.sql.append(str(statement))
+            return Result()
+
+        async def __aenter__(self) -> "Connection":
+            return self
+
+        async def __aexit__(self, *_exc: object) -> None:
+            return None
+
+    connection = Connection()
+
+    class Engine:
+        def connect(self) -> Connection:
+            return connection
+
+    assert await read_brief_facts(Engine(), uuid4(), uuid4()) is None  # type: ignore[arg-type]
+    assert "app.tenant_id" in connection.sql[0] and "core.company" in connection.sql[1]

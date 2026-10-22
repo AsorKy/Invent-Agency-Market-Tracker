@@ -47,6 +47,18 @@ ml = [
   "scikit-learn>=1.5,<2",
   "umap-learn>=0.5,<1",
 ]
+kmodes = [
+  "kmodes>=0.12,<1",
+]
+graph = [
+  "igraph>=0.11,<2",
+  "leidenalg>=0.10,<1",
+]
+topics = [
+  "gensim>=4.3,<5",
+  "shap>=0.46,<1",
+  "yake>=0.4,<1",
+]
 
 identity = [
   "Django>=5.2,<6",

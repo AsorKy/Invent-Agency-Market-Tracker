@@ -15,7 +15,14 @@ from uuid import UUID, uuid4
 
 from libs.contracts.api import ScoreFeatures, ScoreResponse
 from libs.contracts.events import EventType
-from libs.domain.scoring import RULE_VERSION, ScoreWeights, calculate_rule_score, is_stale
+from libs.domain.scoring import (
+    RulesSource,
+    ScoreWeights,
+    calculate_rule_score,
+    is_stale,
+    rule_version,
+    rules_source_of,
+)
 
 STREAM_NAME = "invent.events"
 EVENT_VERSION = 1
@@ -95,18 +102,24 @@ class ScoringService:
         weights: ScoreWeights | None = None,
         tenant_id: UUID | None = None,
     ) -> ScoreResponse:
-        """Compute and persist the score, or return the stale previous one."""
+        """Compute and persist the score, or return the stale previous one.
+
+        ``weights`` is ``None`` when the tenant rules were not available: the score then uses the
+        default weights and says so in ``rules_source`` and in a distinct ``score_version``.
+        """
         lock_key = f"lock:score:{features.company_id}"
         owner_id = str(uuid4())
         acquired = await self._redis.set(lock_key, owner_id, nx=True, px=self._lock_ttl_ms)
         if not acquired:
             previous = await self._store.latest_score(features.company_id)
+            previous_version = str(previous["score_version"]) if previous else "pending"
             return ScoreResponse(
                 company_id=features.company_id,
                 score=int(previous["score"]) if previous else 0,
                 status="in_progress",
                 stale=True,
-                score_version=str(previous["score_version"]) if previous else "pending",
+                score_version=previous_version,
+                rules_source=rules_source_of(previous_version),
             )
         try:
             breakdown = calculate_rule_score(
@@ -115,7 +128,8 @@ class ScoringService:
                 territory_opportunity=features.territory_opportunity,
                 weights=weights,
             )
-            score_version = f"{RULE_VERSION}:{features.source_version}"
+            rules_source: RulesSource = "default" if weights is None else "tenant"
+            score_version = f"{rule_version(rules_source)}:{features.source_version}"
             await self._store.upsert_score(
                 company_id=features.company_id,
                 score=breakdown.score,
@@ -140,6 +154,7 @@ class ScoringService:
                 score=breakdown.score,
                 status="computed",
                 score_version=score_version,
+                rules_source=rules_source,
             )
         finally:
             await self._redis.eval(RELEASE_LOCK_SCRIPT, 1, lock_key, owner_id)

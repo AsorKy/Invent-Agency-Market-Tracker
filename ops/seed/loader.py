@@ -27,6 +27,7 @@ from uuid import NAMESPACE_URL, UUID, uuid5
 
 from datagen.builder import build_dataset, build_snapshots
 from libs.domain.entity_resolution import EntityResolver, InMemoryResolutionStore, MockRuesLookup
+from ops.seed.enrich import CompanyProfile, TrackingCore
 from services.core.app.companies import CompanyUpsert, company_slug
 from services.ingest.app.to_core import HttpCoreClient, Registered, SnapshotFlow
 
@@ -153,6 +154,7 @@ class SeedResult:
     failed: int = 0
     removed: int = 0
     reasons: dict[str, int] = field(default_factory=dict)
+    profiles: dict[str, CompanyProfile] = field(default_factory=dict)
 
 
 async def _register(name: str, city: str | None, nit: str | None) -> Registered:
@@ -233,7 +235,9 @@ async def load(
 ) -> SeedResult:
     """Feed the demo snapshots to core through the ingest flow; safe to repeat."""
     records = build_records(orgs=orgs, days=days, seed=seed, as_of=as_of)
-    result, _ = await _run_flow(DemoCore(core), records, _anchor(as_of))
+    tracking = TrackingCore(DemoCore(core))
+    result, _ = await _run_flow(tracking, records, _anchor(as_of))
+    result.profiles = tracking.profiles
     return result
 
 

@@ -38,10 +38,39 @@
         "title": "Content",
         "type": "object"
       },
+      "counterfactual": {
+        "anyOf": [
+          {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Counterfactual"
+      },
       "degraded": {
         "default": false,
         "title": "Degraded",
         "type": "boolean"
+      },
+      "drivers": {
+        "anyOf": [
+          {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Drivers"
       },
       "generated_at": {
         "minimum": 0,
@@ -522,6 +551,15 @@
       "company_id": {
         "format": "uuid",
         "title": "Company Id",
+        "type": "string"
+      },
+      "rules_source": {
+        "default": "default",
+        "enum": [
+          "default",
+          "tenant"
+        ],
+        "title": "Rules Source",
         "type": "string"
       },
       "score": {
