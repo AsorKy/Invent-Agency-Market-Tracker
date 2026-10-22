@@ -12,7 +12,7 @@ the v2.2 migration.
 
 from datetime import UTC, datetime
 from enum import StrEnum
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -59,6 +59,7 @@ class ScoreResponse(BaseModel):
     status: str
     stale: bool = False
     score_version: str
+    rules_source: Literal["default", "tenant"] = "default"
 
 
 class PulsePoint(ContractModel):

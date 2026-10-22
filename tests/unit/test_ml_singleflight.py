@@ -8,6 +8,7 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from libs.contracts.api import ScoreFeatures
+from libs.domain.scoring import ScoreWeights
 from services.ml.app.scoring_service import ScoringService
 
 
@@ -91,6 +92,17 @@ def test_compute_publishes_and_releases_lock() -> None:
     assert redis.events[0]["aggregate_id"] == str(company)
 
 
+def test_default_weights_are_reported_and_versioned_apart() -> None:
+    redis, store = FakeRedis(), FakeStore()
+    service = ScoringService(store, redis, lock_ttl_seconds=30)
+    default = asyncio.run(service.regenerate(_features(uuid4())))
+    tenant = asyncio.run(service.regenerate(_features(uuid4()), ScoreWeights(), uuid4()))
+    assert (default.rules_source, tenant.rules_source) == ("default", "tenant")
+    assert default.score_version == "rule-f1-default:1"
+    assert tenant.score_version == "rule-f1:1"
+    assert default.score_version != tenant.score_version
+
+
 def test_concurrent_call_gets_previous_stale_score() -> None:
     async def scenario() -> None:
         gate = asyncio.Event()
@@ -104,6 +116,7 @@ def test_concurrent_call_gets_previous_stale_score() -> None:
         assert second.stale
         assert second.score == 40
         assert second.score_version == "rule-f1:0"
+        assert second.rules_source == "tenant"
         gate.set()
         assert (await first).status == "computed"
         assert store.upserts == 1

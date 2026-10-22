@@ -1001,6 +1001,15 @@
             "title": "Company Id",
             "type": "string"
           },
+          "rules_source": {
+            "default": "default",
+            "enum": [
+              "default",
+              "tenant"
+            ],
+            "title": "Rules Source",
+            "type": "string"
+          },
           "score": {
             "title": "Score",
             "type": "integer"
