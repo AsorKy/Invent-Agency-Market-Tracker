@@ -12,7 +12,7 @@ audits call ``trace_chain``. Pure functions only, no I/O.
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
-from uuid import uuid4
+from uuid import NAMESPACE_URL, uuid4, uuid5
 
 CHAIN: tuple[str, ...] = (
     "signal.created",
@@ -129,6 +129,23 @@ def trace_chain(events: Iterable[Mapping[str, Any]], max_events: int = 10_000) -
         elif path and path[-1] != CHAIN[-1]:
             gap = CHAIN[_POSITION[path[-1]] + 1]
     return ChainTrace(path=tuple(path), complete=complete, gap=gap, problems=tuple(problems))
+
+
+def reference_parent(event_type: str, key: str, source_version: str = "") -> dict[str, Any]:
+    """Return a parent mapping for a producer that runs apart from the previous chain step.
+
+    The previous step may live in another service or transaction, so its event id is not at hand.
+    The reference id is a deterministic UUIDv5 of ``event_type`` and ``key``: the same inputs give
+    the same id, so a later audit can link the pieces. ``trace_chain`` reports the gap while the
+    referenced event does not exist in the audited set. Pure function.
+    """
+    if event_type not in _POSITION:
+        raise ValueError(f"not a chain event type: {event_type}")
+    return {
+        "event_id": str(uuid5(NAMESPACE_URL, f"invent-chain:{event_type}:{key}")),
+        "event_type": event_type,
+        "source_version": source_version,
+    }
 
 
 def chain_events_after(

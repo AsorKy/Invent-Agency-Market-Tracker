@@ -18,6 +18,8 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from libs.common.settings import get_settings
+from libs.domain.event_chain import chain_events_after, reference_parent
 from libs.domain.pipeline import (
     InvalidTransitionError,
     PipelineStage,
@@ -27,6 +29,7 @@ from libs.domain.pipeline import (
 from services.core.app.event_dimensions import lead_dimensions
 from services.core.app.hot_alert import HotAlert, HotCallback, fire
 
+CHAIN_PRODUCER_VERSION = "core-chain-v1"
 IDEMPOTENCY_TTL = timedelta(hours=24)
 INITIAL_STAGE = PipelineStage.DISCOVERED
 
@@ -99,6 +102,9 @@ class LeadTransaction(Protocol):
         aggregate_id: UUID,
         version: int,
         payload: dict[str, Any],
+    ) -> None: ...
+    async def add_chain_events(
+        self, events: list[dict[str, Any]], *, tenant_id: UUID | None, aggregate_id: UUID
     ) -> None: ...
 
 
@@ -175,6 +181,30 @@ async def create_lead(
                 "request_id": request_id,
             },
         )
+        if get_settings().event_chain_emit:
+            # company.matched -> signal.explained; the scored parent lives in the ML service.
+            parent = reference_parent("signal.scored", str(payload.company_id))
+            matched = chain_events_after(
+                parent,
+                [
+                    (
+                        "company.matched",
+                        {"lead_id": str(lead_pk), "company_id": str(payload.company_id)},
+                        CHAIN_PRODUCER_VERSION,
+                    ),
+                    (
+                        "signal.explained",
+                        {
+                            "lead_id": str(lead_pk),
+                            "company_id": str(payload.company_id),
+                            "reason": payload.qualification_reason,
+                        },
+                        CHAIN_PRODUCER_VERSION,
+                    ),
+                ],
+                enabled=True,
+            )
+            await tx.add_chain_events(matched, tenant_id=tenant_id, aggregate_id=lead_pk)
         await tx.save_idempotency(
             tenant_id=tenant_id,
             key=idempotency_key,
@@ -233,6 +263,31 @@ async def change_status(
             },
         )
         view = lead_view(updated)
+        if get_settings().event_chain_emit:
+            # project.pipeline_updated -> project.forecast_updated; the gate parent lives in funnel.
+            parent = reference_parent("funnel.gate_decision", str(lead_id))
+            moved = chain_events_after(
+                parent,
+                [
+                    (
+                        "project.pipeline_updated",
+                        {
+                            "lead_id": str(lead_id),
+                            "from": current.value,
+                            "to": patch.stage.value,
+                            "version": updated["version"],
+                        },
+                        CHAIN_PRODUCER_VERSION,
+                    ),
+                    (
+                        "project.forecast_updated",
+                        {"lead_id": str(lead_id), "stage": patch.stage.value},
+                        CHAIN_PRODUCER_VERSION,
+                    ),
+                ],
+                enabled=True,
+            )
+            await tx.add_chain_events(moved, tenant_id=row.get("tenant_id"), aggregate_id=lead_id)
     if updated["stage"] == PipelineStage.HOT.value:
         alert = HotAlert(
             tenant_id=row.get("tenant_id"),

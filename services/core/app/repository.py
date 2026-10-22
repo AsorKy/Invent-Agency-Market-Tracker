@@ -15,6 +15,7 @@ from contextlib import AbstractAsyncContextManager as AsyncContextManager
 from contextlib import asynccontextmanager
 from datetime import datetime
 from types import TracebackType
+from typing import Any
 from uuid import UUID, uuid4
 
 from sqlalchemy import text
@@ -22,11 +23,63 @@ from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 
 from libs.common.db import create_engine
 from libs.common.pagination import decode_cursor, encode_cursor
+from libs.common.settings import get_settings
 from libs.common.tenant import set_tenant_context
 from libs.contracts.api import SignalCreate
+from libs.domain.event_chain import chain_events_after, stamp_payload
 from services.core.app.brief_facts import read_brief_facts
 from services.core.app.event_dimensions import clean
 from services.core.app.score_rules import read_score_rules
+
+CHAIN_PRODUCER_VERSION = "core-chain-v1"
+_CHAIN_EVENT_BY_TENANT = """
+    INSERT INTO core.outbox_event
+        (event_id, tenant_id, aggregate_type, aggregate_id, event_type, version, payload)
+    VALUES
+        (:event_id, :tenant_id, :aggregate_type, :aggregate_id, :event_type, 1,
+         CAST(:payload AS jsonb))
+"""
+_CHAIN_EVENT_BY_COMPANY = """
+    INSERT INTO core.outbox_event
+        (event_id, tenant_id, aggregate_type, aggregate_id, event_type, version, payload)
+    VALUES
+        (:event_id,
+         (SELECT c.tenant_id FROM core.company c WHERE c.id = :company_id
+          ORDER BY c.version DESC LIMIT 1),
+         :aggregate_type, :aggregate_id, :event_type, 1, CAST(:payload AS jsonb))
+"""
+
+
+async def insert_chain_events(
+    connection: AsyncConnection,
+    events: list[dict[str, Any]],
+    *,
+    aggregate_type: str,
+    aggregate_id: UUID,
+    tenant_id: UUID | None = None,
+    company_id: UUID | None = None,
+) -> None:
+    """Write chain events (``chain_events_after`` output) into the open transaction's outbox.
+
+    The tenant comes from ``tenant_id`` or, when absent, from the company row (RLS context must
+    already be set by the caller).
+    """
+    for event in events:
+        params: dict[str, Any] = {
+            "event_id": event["event_id"],
+            "aggregate_type": aggregate_type,
+            "aggregate_id": aggregate_id,
+            "event_type": event["event_type"],
+            "payload": json.dumps(event["payload"], default=str),
+        }
+        if tenant_id is not None or company_id is None:
+            await connection.execute(
+                text(_CHAIN_EVENT_BY_TENANT), params | {"tenant_id": tenant_id}
+            )
+        else:
+            await connection.execute(
+                text(_CHAIN_EVENT_BY_COMPANY), params | {"company_id": company_id}
+            )
 
 
 class SqlCompanyTransaction:
@@ -310,6 +363,21 @@ class SqlLeadTransaction:
                 "version": version,
                 "payload": json.dumps(payload, default=str),
             },
+        )
+
+    async def add_chain_events(
+        self,
+        events: list[dict[str, Any]],
+        *,
+        tenant_id: UUID | None,
+        aggregate_id: UUID,
+    ) -> None:
+        await insert_chain_events(
+            self.connection,
+            events,
+            aggregate_type="lead",
+            aggregate_id=aggregate_id,
+            tenant_id=tenant_id,
         )
 
 
@@ -1162,6 +1230,9 @@ class CoreRepository:
             "signal_id": str(signal_id),
             "source_external_id": source_external_id,
         }
+        emit_chain = get_settings().event_chain_emit
+        if emit_chain:
+            payload = stamp_payload(payload, "signal.created", CHAIN_PRODUCER_VERSION)
         async with self.engine.begin() as connection:
             if signal.tenant_id is not None:
                 # The event tenant is read from core.company, which row level security hides
@@ -1239,6 +1310,37 @@ class CoreRepository:
                     "service_line": clean(signal.payload.get("service_line")),
                 },
             )
+            if emit_chain:
+                created = {
+                    "event_id": str(event_id),
+                    "event_type": "signal.created",
+                    "source_version": payload["source_version"],
+                }
+                tagged = chain_events_after(
+                    created,
+                    [
+                        (
+                            "signal.tagged",
+                            {
+                                "signal_id": str(signal_id),
+                                "company_id": str(signal.company_id),
+                                "tags": {
+                                    "source": signal.source,
+                                    "signal_type": signal.signal_type,
+                                },
+                            },
+                            CHAIN_PRODUCER_VERSION,
+                        )
+                    ],
+                    enabled=True,
+                )
+                await insert_chain_events(
+                    connection,
+                    tagged,
+                    aggregate_type="signal",
+                    aggregate_id=signal_id,
+                    company_id=signal.company_id,
+                )
         return inserted_signal_id, event_id
 
     @staticmethod

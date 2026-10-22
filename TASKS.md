@@ -1760,7 +1760,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: ml service sets CORE_URL http://core:8000, token from app_env, no depends_on core; pytest test_compose+test_runbook 59 passed; check_configuration OK
 
 ### T-159 Wire the remaining event chain producers behind the flag
-- status: todo
+- status: done
 - spec: REQ-LNS-012, REQ-EVT-001, REQ-EVT-005
 - owner: lead-backend-engineer
 - depends: T-149
@@ -1769,7 +1769,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/unit/test_event_chain_producers.py tests/unit/test_event_chain.py tests/unit/test_event_chain_consumers.py tests/unit/test_relay_to_consumers.py` and `make test`
 - note: T-149 proved that the relay and both consumers accept chain-only event types and added `chain_events_after(parent, steps, *, enabled)` plus the flag `EVENT_CHAIN_EMIT` (off by default). The six other producers are still not wired because their call sites are in core and ml. List them from `libs/domain/event_chain.py`, call the helper at each producer with `get_settings().event_chain_emit`, in the same transaction as the parent event. With the flag off the outbox content must be byte for byte what it is today (the CI e2e stage fails on any dead letter); prove it with a test that runs the existing pipeline flow with the flag off and compares the outbox rows, and another with the flag on that checks every chain event reaches the relay and no consumer dead-letters it.
-- evidence: filled by the agent when done
+- evidence: `pytest -q tests/unit/test_event_chain_producers.py tests/unit/test_event_chain.py tests/unit/test_event_chain_consumers.py tests/unit/test_relay_to_consumers.py` passes; `make static` OK; `make test` 1499 passed, 2 skipped, 4 xfailed. Flag off leaves outbox and stream unchanged (tested). Producers: core create_signal (signal.tagged), create_lead (company.matched, signal.explained), change_status (project.pipeline_updated, project.forecast_updated), ML ScoringService (signal.scored). Cross-service parents are deterministic references (see run report).
 
 ### T-160 The ML schedule builds the pulse publisher with the batch tenant
 - status: done
