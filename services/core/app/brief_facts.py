@@ -16,6 +16,8 @@ from uuid import UUID
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from libs.common.tenant import set_tenant_context
+
 RUES_STATUSES = ("matched", "pending", "unmatched", "quarantined")
 
 
@@ -83,6 +85,9 @@ async def read_brief_facts(
     """Return the facts for one company, or ``None`` if unknown for the tenant."""
     params = {"company_id": company_id, "tenant_id": tenant_id}
     async with engine.connect() as connection:
+        if tenant_id is not None:
+            # Row level security checks app.tenant_id: without it every row is hidden (404).
+            await set_tenant_context(connection, tenant_id)
         row = (
             (
                 await connection.execute(

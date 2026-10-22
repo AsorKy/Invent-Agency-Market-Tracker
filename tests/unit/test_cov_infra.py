@@ -901,10 +901,12 @@ async def test_list_leads_without_filters_and_invalid_rows() -> None:
 
 
 async def test_get_lead_returns_row_or_none() -> None:
-    repository, engine = _repository([FakeResult([{"id": ID}])])
+    repository, engine = _repository([FakeResult(), FakeResult([{"id": ID}])])
     assert await repository.get_lead(ID, TENANT) == {"id": ID}
     assert await repository.get_lead(ID) is None
-    assert engine.connection.calls[0][1] == {"id": ID, "tenant_id": TENANT}
+    context, select = engine.connection.calls[:2]
+    assert "app.tenant_id" in context[0] and context[1] == {"tenant_id": str(TENANT)}
+    assert select[1] == {"id": ID, "tenant_id": TENANT}
 
 
 async def test_list_projects_filters_and_paginates() -> None:

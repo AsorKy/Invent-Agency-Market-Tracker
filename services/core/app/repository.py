@@ -1322,6 +1322,8 @@ class CoreRepository:
         if self.engine is None:
             raise RuntimeError("DATABASE_URL is required for core reads")
         async with self.engine.connect() as connection:
+            if tenant_id is not None:
+                await set_tenant_context(connection, tenant_id)
             result = await connection.execute(
                 text(
                     """
