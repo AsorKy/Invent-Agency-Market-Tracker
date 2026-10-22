@@ -1870,7 +1870,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: rebuilt 18 tasks lines from the spec: lines of TASKS.md (no line lacked a citing task); check_traceability OK; test_spec_tasks_lines + test_traceability pass; make static/test pass.
 
 ### T-168 Qualification applies the tenant of the score event
-- status: todo
+- status: done
 - spec: REQ-COR-008, REQ-SEC-005, REQ-QA-001
 - owner: lead-backend-engineer
 - depends: T-024, T-145, T-150, T-162
@@ -1879,7 +1879,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_auto_qualification.py tests/unit/test_hot_alert.py tests/unit/test_core_score_column.py tests/unit/test_pipeline_flow.py tests/unit/test_cov_infra.py tests/unit/test_sql_consistency.py tests/integration/test_sql_r1_flows.py` and `make static` and `make test`
 - note: defect found by T-162 (RUN-r1-j-sql.md): `SqlQualificationUnitOfWork` runs without tenant context, so under row level security `get_company_tenant` cannot see a company that belongs to a tenant and `handle_score_event` answers `unknown_company` as `core_app`: no lead is created or advanced. The event already carries `tenant_id` (T-150, `_tenant_of` in `worker.py`). Make `handle_score_event` read the tenant of the event and call `set_tenant_context` on the transaction before the first read or write (the inbox insert, `get_company_tenant`, `lock_key`, `find_leads`, the lead insert, the audit and outbox writes); add the matching method to `QualificationTransaction` and to every fake that implements it. An event for a company of ANOTHER tenant must still answer `unknown_company` and write nothing. An event without a tenant keeps today's behavior (it only sees companies without tenant); state that in the report. END TO END TEST (required, real Postgres in `tests/integration/test_sql_r1_flows.py`, as `core_app`, through `build_handlers` and `SqlQualificationUnitOfWork`): a score event for a company that has a tenant creates the lead (assert the `core.lead` row: tenant, company, stage, version), a later event with a higher score advances that lead (assert the stage and the version on the row), a second delivery of the same event changes nothing, and an event carrying another tenant's id creates no lead (assert zero rows). Cover the worker and the repository in unit tests too (the tenant context is set first, before any read). There is no Docker in your sandbox: use a local PostgreSQL if one is available and say in the report which test you expect to fail first in CI.
-- evidence: filled by the agent when done
+- evidence: acceptance pytest command 130 passed, 1 xfailed incl. 20 on real PostgreSQL 16 (tests/integration/test_sql_r1_flows.py, 3 new cases); make static ok; make test 1579 passed; details in docs/runs/RUN-r1-k-qualify.md
 
 ### T-169 Runbook step for the feature backfill
 - status: todo

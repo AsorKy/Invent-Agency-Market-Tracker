@@ -112,6 +112,9 @@ class Uow:
     async def __aexit__(self, *exc: object) -> None:
         return None
 
+    async def set_tenant(self, tenant_id: UUID) -> None:
+        return None
+
     async def mark_processed(self, event_id: UUID) -> bool:
         return True
 

@@ -27,6 +27,7 @@ DEFAULT_SERVICE_LINE = "general"
 
 
 class QualificationTransaction(Protocol):
+    async def set_tenant(self, tenant_id: UUID) -> None: ...
     async def mark_processed(self, event_id: UUID) -> bool: ...
     async def lock_key(self, key: str) -> None: ...
     async def get_company_tenant(self, company_id: UUID) -> tuple[bool, UUID | None]: ...
@@ -93,6 +94,13 @@ def parse_score_event(fields: Mapping[str, str]) -> tuple[UUID, UUID, int, str |
     return event_id, company_id, score, fields.get("service_line") or None
 
 
+def _event_tenant(fields: Mapping[str, str]) -> UUID | None:
+    try:
+        return UUID(fields["tenant_id"])
+    except (KeyError, ValueError):
+        return None
+
+
 async def handle_score_event(
     unit_of_work: QualificationUnitOfWork,
     fields: Mapping[str, str],
@@ -105,12 +113,20 @@ async def handle_score_event(
     event_id, company_id, score, service_line = parse_score_event(fields)
     moment = now or datetime.now(UTC)
     alerts: list[HotAlert] = []
+    event_tenant = _event_tenant(fields)
     async with unit_of_work as tx:
+        if event_tenant is not None:
+            # Row level security hides every tenant row until the context is set, so this
+            # must run before the first read or write (inbox included). An event without a
+            # tenant sees only companies without tenant.
+            await tx.set_tenant(event_tenant)
         if not await tx.mark_processed(event_id):
             return "duplicate"
         known, tenant_id = await tx.get_company_tenant(company_id)
         if not known:
             return "unknown_company"
+        if event_tenant is not None and tenant_id != event_tenant:
+            return "unknown_company"  # defense in depth beside RLS
         await tx.lock_key(f"qualify:{company_id}")
         rules = row_to_config(
             (await tx.get_config(tenant_id) if tenant_id else None) or {}

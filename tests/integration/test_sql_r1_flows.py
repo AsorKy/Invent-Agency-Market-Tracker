@@ -554,3 +554,59 @@ async def test_forced_rls_pulse_table_hides_rows_without_context(
     async with engines["pulse"].connect() as connection:
         await set_tenant_context(connection, TENANT)
         assert (await connection.execute(query, {"p": project})).scalar_one() == 1
+
+
+# --- T-168: qualification applies the tenant of the score event -------------------------
+
+
+def _score_event(
+    company: UUID, score: int, tenant: UUID | None, event_id: UUID | None = None
+) -> Any:
+    fields = {
+        "event_id": str(event_id or uuid4()),
+        "event_type": "lead.score_updated",
+        "aggregate_id": str(company),
+        "score": str(score),
+    }
+    if tenant is not None:
+        fields["tenant_id"] = str(tenant)
+    return fields
+
+
+async def _deliver(db: Db, fields: Any) -> None:
+    from services.core.app.worker import build_handlers
+
+    repository = _core_repository(db)
+    try:
+        handlers = build_handlers(repository.qualification_unit_of_work)
+        await asyncio.wait_for(handlers["lead.score_updated"](fields), timeout=30)
+    finally:
+        await repository.close()
+
+
+_LEADS = "SELECT tenant_id, company_id, stage, version FROM core.lead WHERE company_id = %s"
+
+
+async def test_score_event_creates_then_advances_the_lead_of_a_tenant_company(db: Db) -> None:
+    company = _company(db, TENANT)
+    await _deliver(db, _score_event(company, 10, TENANT))
+    assert db.one(_LEADS, company) == (TENANT, company, "discovered", 1)
+    await _deliver(db, _score_event(company, 95, TENANT))
+    assert db.one(_LEADS, company) == (TENANT, company, "hot", 3)
+
+
+async def test_second_delivery_of_the_same_score_event_changes_nothing(db: Db) -> None:
+    company = _company(db, TENANT)
+    fields = _score_event(company, 95, TENANT)
+    await _deliver(db, fields)
+    first = db.one(_LEADS, company)
+    audits = db.one("SELECT count(*) FROM core.audit_log WHERE tenant_id = %s", TENANT)
+    await _deliver(db, fields)
+    assert db.one(_LEADS, company) == first
+    assert db.one("SELECT count(*) FROM core.audit_log WHERE tenant_id = %s", TENANT) == audits
+
+
+async def test_score_event_carrying_another_tenant_creates_no_lead(db: Db) -> None:
+    company = _company(db, TENANT)
+    await _deliver(db, _score_event(company, 95, OTHER))
+    assert db.one("SELECT count(*) FROM core.lead WHERE company_id = %s", company) == (0,)

@@ -936,3 +936,13 @@ async def test_list_projects_filters_and_paginates() -> None:
 def test_fakes_are_consistent() -> None:
     assert FakeConnection().results == []
     assert isinstance(ID, UUID)
+
+
+async def test_qualification_transaction_sets_the_tenant_context_first() -> None:
+    unit, engine = _uow(repo.SqlQualificationUnitOfWork, [FakeResult(), FakeResult(scalar=ID)])
+    async with unit as tx:
+        await tx.set_tenant(TENANT)
+        assert await tx.mark_processed(ID) is True
+    assert "set_config('app.tenant_id'" in engine.connection.calls[0][0]
+    assert engine.connection.calls[0][1] == {"tenant_id": str(TENANT)}
+    assert "core.processed_event" in engine.connection.calls[1][0]

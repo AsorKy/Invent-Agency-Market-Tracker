@@ -36,6 +36,7 @@ class Store:
         self.audit: list[dict[str, Any]] = []
         self.outbox: list[dict[str, Any]] = []
         self.fail_on: str | None = None
+        self.calls: list[str] = []
 
 
 class FakeUow:
@@ -55,7 +56,11 @@ class FakeUow:
         if exc_type is not None:
             self.s.leads, self.s.processed, self.s.audit, self.s.outbox = self.snap
 
+    async def set_tenant(self, tenant_id: UUID) -> None:
+        self.s.calls.append(f"set_tenant:{tenant_id}")
+
     async def mark_processed(self, event_id: UUID) -> bool:
+        self.s.calls.append("mark_processed")
         if event_id in self.s.processed:
             return False
         self.s.processed.add(event_id)
@@ -65,6 +70,7 @@ class FakeUow:
         pass
 
     async def get_company_tenant(self, company_id: UUID) -> tuple[bool, UUID | None]:
+        self.s.calls.append("get_company_tenant")
         return company_id in self.s.companies, self.s.companies.get(company_id)
 
     async def get_config(self, tenant_id: UUID) -> dict[str, Any] | None:
@@ -236,3 +242,24 @@ def test_worker_handler_dispatches_score_events_only() -> None:
     assert asyncio.run(dispatch_event(fields, handlers, ack)) is True
     assert asyncio.run(dispatch_event({"event_type": "signal.created"}, handlers, ack)) is False
     assert len(acked) == 2 and _only_lead(store)["stage"] == "hot"
+
+
+def test_tenant_context_is_set_before_any_read_or_write() -> None:
+    store = Store()
+    fields = _event(50) | {"tenant_id": str(TENANT)}
+    assert _run(store, fields) == "created"
+    assert store.calls[0] == f"set_tenant:{TENANT}"
+    assert store.calls[1:3] == ["mark_processed", "get_company_tenant"]
+
+
+def test_event_without_tenant_does_not_set_a_context() -> None:
+    store = Store()
+    assert _run(store, _event(50)) == "created"
+    assert not any(c.startswith("set_tenant") for c in store.calls)
+
+
+def test_event_of_another_tenant_is_unknown_and_writes_no_lead() -> None:
+    store = Store()
+    fields = _event(95) | {"tenant_id": str(uuid4())}
+    assert _run(store, fields) == "unknown_company"
+    assert store.leads == {} and store.outbox == []
