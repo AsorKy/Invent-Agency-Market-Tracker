@@ -289,3 +289,10 @@ def test_ml_reaches_core_and_core_url_is_not_spread(services: dict[str, Any]) ->
     assert "core" not in _depends(ml)
     holders = {name for name, svc in services.items() if "CORE_URL" in _env(svc)}
     assert holders <= {"gateway", "brief", "ml", "seed"}
+
+
+@pytest.mark.parametrize("name", ["core", "ml"])
+def test_event_chain_flag_reaches_producers_and_defaults_to_false(
+    services: dict[str, Any], name: str
+) -> None:
+    assert _env(services[name])["EVENT_CHAIN_EMIT"] == "${EVENT_CHAIN_EMIT:-false}"

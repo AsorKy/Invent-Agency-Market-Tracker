@@ -247,6 +247,7 @@ services:
     environment:
       <<: *app_env
       DATABASE_URL: "postgresql+asyncpg://core_app:${BOOTSTRAP_PASSWORD_CORE:-CHANGE_ME_CORE}@postgres:5432/${POSTGRES_DB:-invent_market_tracker}"
+      EVENT_CHAIN_EMIT: ${EVENT_CHAIN_EMIT:-false}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health', timeout=3).status == 200 else 1)"]
       interval: 10s
@@ -275,6 +276,7 @@ services:
       <<: *app_env
       CORE_URL: http://core:8000
       DATABASE_URL: "postgresql+asyncpg://ml_app:${BOOTSTRAP_PASSWORD_ML:-CHANGE_ME_ML}@postgres:5432/${POSTGRES_DB:-invent_market_tracker}"
+      EVENT_CHAIN_EMIT: ${EVENT_CHAIN_EMIT:-false}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health', timeout=3).status == 200 else 1)"]
       interval: 10s
