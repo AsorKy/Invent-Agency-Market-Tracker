@@ -518,6 +518,39 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  drift-worker:
+    # Optional nightly drift loop (REQ-LNS-007), outside the default stack: start it with
+    # `docker compose --profile lens up -d drift-worker`. It reads series from pulse over HTTP
+    # and posts alerts to DRIFT_ALERT_WEBHOOK_URL (empty means log only).
+    profiles: ["lens"]
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.python
+    env_file:
+      - path: .env
+        required: false
+    command: ["python", "-m", "services.ml.app.schedule"]
+    environment:
+      <<: *app_env
+      PULSE_URL: http://pulse:8000
+      DRIFT_ALERT_WEBHOOK_URL: ${DRIFT_ALERT_WEBHOOK_URL:-}
+      DRIFT_ALERT_HEADER_NAME: ${DRIFT_ALERT_HEADER_NAME:-}
+      DRIFT_ALERT_HEADER_VALUE: ${DRIFT_ALERT_HEADER_VALUE:-}
+      DRIFT_TENANT_ID: ${DRIFT_TENANT_ID:-}
+      DRIFT_RUN_HOUR_UTC: ${DRIFT_RUN_HOUR_UTC:-7}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      bootstrap-roles:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      pulse:
+        condition: service_healthy
+    restart: unless-stopped
+
   mocks:
     build:
       context: .

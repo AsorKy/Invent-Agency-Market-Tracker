@@ -23,7 +23,8 @@ WORKERS = {
     "ml-consumer": ("ml", "services.ml.app.consumer"),
 }
 DB_APIS = {"ingest": "ingest", "core": "core", "pulse": "pulse", "brief": "brief", "ml": "ml"}
-DEV_TOOLS = {"pgadmin"}  # profile-gated helpers, outside the SPEC section 3.1 catalog
+# Profile-gated helpers, outside the SPEC section 3.1 catalog.
+DEV_TOOLS = {"pgadmin", "drift-worker"}
 EXPECTED = (
     {"postgres", "redis", "migrate", "bootstrap-roles", "streamlit", "mocks", "n8n"}
     | set(APIS)
@@ -123,6 +124,36 @@ def test_pgadmin_is_an_optional_loopback_ui(services: dict[str, Any]) -> None:
     assert server["Host"] == "postgres" and server["Username"] == "postgres"
     assert "Password" not in server and "PassFile" not in server
     assert not any("pgadmin" in _depends(other) for other in services.values())
+
+
+def test_drift_worker_is_an_optional_lens_profile_service(services: dict[str, Any]) -> None:
+    from urllib.parse import urlsplit
+
+    drift = services["drift-worker"]
+    assert drift["profiles"] == ["lens"]
+    assert drift["command"] == ["python", "-m", "services.ml.app.schedule"]
+    deps = _depends(drift)
+    assert deps["pulse"] == "service_healthy"
+    assert deps["migrate"] == "service_completed_successfully"
+    assert deps["bootstrap-roles"] == "service_completed_successfully"
+    assert deps["postgres"] == "service_healthy"
+    assert deps["redis"] == "service_healthy"
+    env = _env(drift)
+    assert urlsplit(env["REDIS_URL"]).username == "data"
+    for name in (
+        "DRIFT_ALERT_WEBHOOK_URL",
+        "DRIFT_ALERT_HEADER_NAME",
+        "DRIFT_ALERT_HEADER_VALUE",
+        "DRIFT_TENANT_ID",
+        "DRIFT_RUN_HOUR_UTC",
+    ):
+        assert name in env
+    assert env["DRIFT_ALERT_HEADER_VALUE"] == "${DRIFT_ALERT_HEADER_VALUE:-}"
+    assert not any("drift-worker" in _depends(other) for other in services.values())
+    assert not any(
+        "drift-worker" in str(part)
+        for part in (COMPOSE.parent / "Makefile").read_text(encoding="utf-8").splitlines()
+    )
 
 
 def test_postgres_does_not_apply_migrations(services: dict[str, Any]) -> None:
