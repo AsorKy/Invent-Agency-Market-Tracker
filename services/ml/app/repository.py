@@ -158,6 +158,29 @@ class MlRepository:
             )
             return dict(row) if row else None
 
+    async def without_features(self, company_ids: list[UUID]) -> set[UUID]:
+        """Subset of ``company_ids`` whose stored score row has null features.
+
+        Ids without an ml row are not returned (nothing was ever scored for them). Reads only
+        ``ml.lead_score`` (INV-01); the ids come from core's answer for one tenant.
+        """
+        if self.engine is None or not company_ids:
+            return set()
+        async with self.engine.connect() as connection:
+            result = await connection.execute(
+                text(
+                    """
+                    SELECT company_id FROM ml.lead_score
+                    WHERE company_id = ANY(CAST(:ids AS uuid[]))
+                      AND (feature_icp_fit IS NULL
+                           OR feature_signal_strength IS NULL
+                           OR feature_territory_opportunity IS NULL)
+                    """
+                ),
+                {"ids": company_ids},
+            )
+            return {UUID(str(row[0])) for row in result.all()}
+
     async def mark_stale(self, company_id: UUID) -> None:
         if self.engine is None:
             raise RuntimeError("DATABASE_URL is required for ml writes")

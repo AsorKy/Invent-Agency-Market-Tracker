@@ -40,6 +40,8 @@ NOT_PUBLIC = {
     ("POST", "/internal/pulse/ingest/attribution"): "ml service only, never public",
     ("GET", "/internal/pulse/projects/metrics"): "lens service calls only, never public",
     ("POST", "/internal/pulse/socioeconomic/refresh"): "n8n only, never public",
+    # T-165
+    ("GET", "/internal/core/admin/score-features"): "ml service only, never public",
     # T-151
     ("GET", "/internal/ml/explanations/{company_id}"): "brief service only, never public",
 }
