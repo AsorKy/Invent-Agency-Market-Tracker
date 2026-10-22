@@ -274,6 +274,9 @@ async def test_main_acks_handled_invalid_and_ignores_failed_events(
     class Repo:
         engine = object()
 
+        async def store_company_score(self, **_kwargs: Any) -> bool:
+            return True
+
         def qualification_unit_of_work(self) -> None:
             return None
 
@@ -299,7 +302,9 @@ async def test_main_acks_handled_invalid_and_ignores_failed_events(
     monkeypatch.setattr(worker, "CoreRepository", lambda url: Repo())
     monkeypatch.setattr(worker, "create_redis", lambda url: redis)
     monkeypatch.setattr(worker, "process_next_job", never_process)
-    monkeypatch.setattr(worker, "build_handlers", lambda uow, hot: {"lead.score_updated": on_score})
+    monkeypatch.setattr(
+        worker, "build_handlers", lambda uow, hot, store: {"lead.score_updated": on_score}
+    )
     for event_id in ("ok", "bad", "fail"):
         await redis.xadd(
             worker.STREAM_NAME, {"event_type": "lead.score_updated", "event_id": event_id}
@@ -869,7 +874,7 @@ async def test_list_companies_rejects_invalid_cursor_and_rows() -> None:
 
 async def test_list_leads_applies_all_filters() -> None:
     rows = _paged_rows(2)
-    repository, engine = _repository([FakeResult(rows)])
+    repository, engine = _repository([FakeResult(), FakeResult(rows)])
     cursor = encode_cursor(NOW, ID)
     page, next_cursor = await repository.list_leads(
         1,
@@ -883,7 +888,9 @@ async def test_list_leads_applies_all_filters() -> None:
     )
     assert len(page) == 1
     assert next_cursor is not None
-    sql, params = engine.connection.calls[0]
+    assert "set_config" in engine.connection.calls[0][0]
+    sql, params = engine.connection.calls[1]
+    assert "c.score >= :min_score" in sql
     for clause in ("l.stage = :stage", "l.tenant_id = :tenant_id"):
         assert clause in sql
     assert params["stage"] == "hot"

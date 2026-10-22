@@ -26,6 +26,7 @@ from libs.common.tenant import set_tenant_context
 from libs.contracts.api import SignalCreate
 from services.core.app.brief_facts import read_brief_facts
 from services.core.app.event_dimensions import clean
+from services.core.app.score_rules import read_score_rules
 
 
 class SqlCompanyTransaction:
@@ -1318,7 +1319,7 @@ class CoreRepository:
             "service_line": (service_line, "l.service_line = :service_line"),
             "city": (city, "l.city = :city"),
             "segment": (segment, "c.sector_code = :segment"),
-            "min_score": (min_score, "CAST(NULL AS integer) >= :min_score"),
+            "min_score": (min_score, "c.score >= :min_score"),
             "tenant_id": (tenant_id, "l.tenant_id = :tenant_id"),
         }
         for name, (value, clause) in filters.items():
@@ -1332,11 +1333,13 @@ class CoreRepository:
             )
         where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
         async with self.engine.connect() as connection:
+            if tenant_id is not None:
+                await set_tenant_context(connection, tenant_id)
             result = await connection.execute(
                 text(
                     f"""
                     SELECT l.id, l.company_id, c.legal_name, l.service_line, l.stage, l.city,
-                           c.sector_code AS segment, CAST(NULL AS integer) AS score, l.version,
+                           c.sector_code AS segment, c.score, l.version,
                            l.created_at, l.updated_at
                     FROM core.lead l
                     JOIN core.company c ON c.id = l.company_id
@@ -1366,6 +1369,60 @@ class CoreRepository:
             raise RuntimeError("DATABASE_URL is required for core reads")
         return await read_brief_facts(self.engine, company_id, tenant_id)
 
+    async def store_company_score(
+        self,
+        *,
+        company_id: UUID,
+        tenant_id: UUID | None,
+        score: int,
+        source_version: str | None,
+        now: datetime,
+    ) -> bool:
+        """Store the score of a ``lead.score_updated`` event; never lower a newer version.
+
+        ``source_version`` is a non-negative integer as text. The row is written when nothing is
+        stored yet, when the version is equal (a rescore with new weights) or when both versions
+        are integers and the stored one is smaller. Anything else (older, or not comparable) is
+        kept. Returns whether a row changed.
+        """
+        if self.engine is None:
+            raise RuntimeError("DATABASE_URL is required for core writes")
+        async with self.engine.begin() as connection:
+            if tenant_id is not None:
+                await set_tenant_context(connection, tenant_id)
+            result = await connection.execute(
+                text(
+                    """
+                    UPDATE core.company
+                    SET score = :score, score_source_version = CAST(:source_version AS text),
+                        score_updated_at = :now
+                    WHERE id = :company_id AND tenant_id IS NOT DISTINCT FROM :tenant_id
+                      AND (
+                          score_source_version IS NULL
+                          OR score_source_version = CAST(:source_version AS text)
+                          OR CASE WHEN score_source_version ~ '^[0-9]{1,18}$'
+                                   AND CAST(:source_version AS text) ~ '^[0-9]{1,18}$'
+                                  THEN CAST(score_source_version AS bigint)
+                                       < CAST(CAST(:source_version AS text) AS bigint)
+                                  ELSE false END
+                      )
+                    """
+                ),
+                {
+                    "company_id": company_id,
+                    "tenant_id": tenant_id,
+                    "score": score,
+                    "source_version": source_version,
+                    "now": now,
+                },
+            )
+            return bool(result.rowcount)
+
+    async def score_rules(self, tenant_id: UUID) -> dict[str, object]:
+        if self.engine is None:
+            raise RuntimeError("DATABASE_URL is required for core reads")
+        return await read_score_rules(self.engine, tenant_id)
+
     async def get_lead(
         self, lead_id: UUID, tenant_id: UUID | None = None
     ) -> dict[str, object] | None:
@@ -1379,7 +1436,7 @@ class CoreRepository:
                     """
                     SELECT l.id, l.company_id, c.legal_name, l.service_line, l.stage, l.city,
                            l.source, l.qualification_reason, c.sector_code AS segment,
-                           CAST(NULL AS integer) AS score, l.version, l.last_transition_at,
+                           c.score, l.version, l.last_transition_at,
                            l.created_at, l.updated_at
                     FROM core.lead l
                     JOIN core.company c ON c.id = l.company_id

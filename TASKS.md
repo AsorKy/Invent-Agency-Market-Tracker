@@ -1577,7 +1577,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: pytest -q tests/unit/test_bootstrap_roles_privileges.py tests/unit/test_bootstrap_env.py: 21 passed; make static and make test green. Only SQLSTATE 42501 and 58P01 tolerated; unused execute() removed.
 
 ### T-144 Core serves the per-tenant score weights and ML calls it
-- status: todo
+- status: done
 - spec: REQ-ML-001, REQ-SEC-005, REQ-COR-001
 - owner: lead-backend-engineer
 - depends: T-085, T-123
@@ -1587,10 +1587,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - acceptance: `pytest -q tests/unit/test_score_rules.py tests/unit/test_ml_core_rules.py tests/unit/test_ml_singleflight.py tests/unit/test_cov_services.py` and `make test`
 - note: `ml_app` has no grant on the `core` schema and must not get one (INV-01), so `MlRepository.load_weights` cannot read `core.lead_score_rule`; today it falls back to default weights and reports `rules_source` `default` with `score_version` `rule-f1-default:<source>`. Same pattern and service-token auth as T-085 (`brief-facts`). Core part: add `GET /internal/core/admin/score-rules` returning the active rules of the tenant in `X-Tenant-Id` as `{rules: [{rule_name, weight, active}], version}`, allowed for the service `ml` only (per-route allow list in services/core/app/main.py), reading inside a transaction that calls `set_tenant_context`; an unknown tenant answers an empty rule list, never another tenant's rows. ML part: an `HttpCoreRules` client (explicit 2 second timeout, signed token for service `ml`, `X-Tenant-Id`) behind a small protocol, wired in `services/ml/app/main.py`; `load_weights` resolves the rows with `resolve_weights` and returns tenant weights, and returns `None` (default weights, `rules_source` `default`, a warning) when core is unreachable or answers 5xx, never an HTTP 500. Delete the direct SQL on `core.lead_score_rule` and the `DBAPIError` branch from ML. Add the route to `NOT_PUBLIC` in tests/unit/test_openapi.py and keep the OpenAPI and contract snapshots in step (additive).
 - acceptance tests: (1) core: rules of tenant A never appear for tenant B, a token of service `brief` or `seed` gets 403, an unsigned call gets 401, and the response validates against the model the ML client parses; (2) ML: with the client faked to return rules the response has `rules_source` `tenant` and `score_version` `rule-f1:<source>`, with the client raising `CoreRulesUnavailable` it has `default` and `rule-f1-default:<source>`, and a score never answers 500 because of core; (3) a guard test fails if any file under services/ml mentions `core.` as a SQL schema, and bootstrap still emits no cross-schema grant (`tests/unit/test_bootstrap_roles_privileges.py` unchanged and green).
-- evidence: filled by the agent when done
+- evidence: pytest -q tests/unit/test_score_rules.py tests/unit/test_ml_core_rules.py tests/unit/test_ml_singleflight.py tests/unit/test_cov_services.py tests/unit/test_openapi.py tests/unit/test_bootstrap_roles_privileges.py tests/unit/test_sql_consistency.py: 108 passed; make static and make test green. Core route GET /internal/core/admin/score-rules (service ml only), ML HttpCoreRules with 2 s timeout, direct SQL on core removed from ml.
 
 ### T-145 Core stores the score it receives and stops needing the ml schema
-- status: todo
+- status: done
 - spec: REQ-COR-001, REQ-ML-001, REQ-DAT-001
 - owner: database-engineer
 - depends: T-144
@@ -1600,7 +1600,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - acceptance: `python ops/check_migrations.py` and `pytest -q tests/unit/test_core_score_column.py tests/unit/test_brief_facts.py tests/unit/test_auto_qualification.py` and `make test`
 - note: PR #50 removed the joins on `ml.lead_score` from core (INV-01: `core_app` has no grant on `ml`), so `score` is `null` in `brief-facts`, in the lead list and in `get_lead`, and the `min_score` filter of the lead list matches nothing. The `lead.score_updated` event already carries `score`, `is_hot`, `source_version` and the tenant, and the core worker consumes it for auto-qualification. Store the score in core: an expand migration `migrations/20261022_0012_core_company_score.sql` (this exact name; T-151 uses 0013) adds nullable `score` (0 to 100), `score_source_version` and `score_updated_at` to `core.company` (same RLS as the table), the worker writes them when it handles the event (never lowering a newer `source_version`), and the three reads and the `min_score` filter use that column instead of the join. Remove the `CAST(NULL AS integer)` placeholders and the T-145 pointer in `brief_facts.py`. Backfill is not needed: the next score event fills it.
 - acceptance tests: (1) migration passes `check_migrations.py` and RLS isolates the column per tenant; (2) after a `lead.score_updated` event the lead list, `get_lead` and `brief-facts` return that score and `min_score` filters by it; an older `source_version` does not overwrite a newer one; (3) the guard test `test_core_sql_never_reads_the_ml_schema` still passes.
-- evidence: filled by the agent when done
+- evidence: migration 20261022_0012 adds core.company.score, score_source_version, score_updated_at (nullable, check 0..100, table RLS inherited); worker stores the score (tenant context set, version guard in SQL: write when none stored, equal, or both integer text and stored is smaller) then qualifies as before; lead list, get_lead, brief-facts and min_score read c.score; check_migrations OK, targeted tests 105 passed, make static OK, make test 1446 passed; table_catalog snapshot regenerated
 
 ### T-146 Funnel HTTP routes and project status on a KILL decision
 - status: todo
@@ -1639,7 +1639,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: filled by the agent when done
 
 ### T-149 Event chain: tolerant consumers and flagged producers
-- status: todo
+- status: done
 - spec: REQ-LNS-012, REQ-EXT-001, REQ-EVT-002
 - owner: lead-backend-engineer
 - depends: T-110
@@ -1648,7 +1648,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/unit/test_event_chain.py tests/unit/test_event_chain_consumers.py` and `python ops/check_configuration.py`
 - note: only `funnel.gate_decision` is emitted today; the six other chain producers are not wired because nobody verified how the relay and the consumers treat an event type they do not know. First prove it with tests: an unknown or chain-only event type is acknowledged and never lands in `core.outbox_dead_letter` (REQ-EXT-001), in the relay, the pulse consumer and the ml consumer. Then wire the other producers behind a flag `EVENT_CHAIN_EMIT` that is off by default (declared in settings, `.env.example` and the configuration check); with the flag off the outbox content is byte for byte what it is today, because the CI e2e stage fails on any dead letter. Keep the `source_version` growth bounded as it is.
-- evidence: filled by the agent when done
+- evidence: pytest test_event_chain + test_event_chain_consumers 34 passed; check_configuration OK; make static/test pass. Unknown and chain-only types acked, never dead-lettered in relay, pulse, ml. EVENT_CHAIN_EMIT default off; helper chain_events_after returns [] when off. Gap: the six producer call sites are outside write_scope and are not wired (see RUN-r1-h-events).
 
 ### T-150 ML publisher sends the tenant to pulse
 - status: done
@@ -1675,7 +1675,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_ml_explanations.py tests/unit/test_brief_explanations.py tests/unit/test_explain.py`, `python ops/check_migrations.py`, make test (1432 passed)
 
 ### T-152 Pulse writes the project snapshot and stage visit rows
-- status: todo
+- status: done
 - spec: REQ-LNS-003, REQ-PUL-002, REQ-EVT-002
 - owner: second-backend-engineer
 - depends: T-135, T-149
@@ -1684,7 +1684,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_project_projection.py tests/unit/test_pulse_lens_routes.py tests/unit/test_pulse_consumer.py`
 - note: `pulse.project_snapshot` and `pulse.project_stage_visit` have no writer, so `GET /internal/pulse/projects/metrics` returns empty values. Fill them from the project and lead stage events that the pulse consumer already receives (read `libs/contracts/events.py` for the types), idempotently (REQ-EVT-002: the same event twice changes nothing), with the tenant of the event and `set_tenant_context` on the write. If the event catalog has no event that carries a project stage change, do not invent one: write what the existing events allow, and list the gap in the report. Run this task after T-149 in the same session because both edit the pulse consumer.
-- evidence: filled by the agent when done
+- evidence: pytest project_projection, pulse_lens_routes, pulse_consumer, sql_consistency 43 passed; make static ok; make test 1453 passed. Pulse consumer projects signal.converted_to_project into project_snapshot (stage draft) and first stage visit, idempotent. Gap: no later-stage, score or burn events exist in the catalog.
 
 ### T-153 Compose entry for the drift worker, behind a profile
 - status: todo

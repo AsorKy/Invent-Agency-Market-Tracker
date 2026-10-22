@@ -539,36 +539,26 @@ async def test_ml_repository_reads(monkeypatch: pytest.MonkeyPatch) -> None:
         "score_version": "r",
         "source_version": "s",
     }
-    rules = FakeResult(
-        [
-            {"n": "icp_fit", "w": 0.5, "a": True},
-            {"n": "territory", "w": 0.9, "a": False},
-        ]
-    )
-    repo, _engine = _ml_repo(monkeypatch, [FakeResult([row]), FakeResult(), rules])
+    repo, _engine = _ml_repo(monkeypatch, [FakeResult([row]), FakeResult()])
     assert await repo.latest_score(COMPANY) == row
     assert await repo.latest_score(COMPANY) is None
+    assert await repo.load_weights(TENANT) is None
+
+
+async def test_ml_load_weights_resolves_rows_from_core(monkeypatch: pytest.MonkeyPatch) -> None:
+    class Rules:
+        async def get_rules(self, _tenant_id: UUID) -> Any:
+            return [("icp_fit", 0.5, True), ("territory", 0.9, False)]
+
+        async def close(self) -> None:
+            return None
+
+    repo, _engine = _ml_repo(monkeypatch)
+    repo._core_rules = Rules()
     weights = await repo.load_weights(TENANT)
     assert weights.icp_fit == 0.5
     assert weights.territory != 0.9
-
-
-async def test_ml_load_weights_falls_back_when_core_rules_are_refused(
-    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
-) -> None:
-    from sqlalchemy.exc import ProgrammingError
-
-    repo, engine = _ml_repo(monkeypatch)
-    assert engine is not None
-
-    async def refuse(*_a: Any, **_k: Any) -> Any:
-        raise ProgrammingError("SELECT", {}, Exception("permission denied for schema core"))
-
-    monkeypatch.setattr(engine.connection, "execute", refuse)
-    with caplog.at_level("WARNING"):
-        weights = await repo.load_weights(TENANT)
-    assert weights is None
-    assert "using default weights" in caplog.text
+    await repo.close()
 
 
 async def test_ml_repository_without_database(monkeypatch: pytest.MonkeyPatch) -> None:

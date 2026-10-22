@@ -22,6 +22,7 @@
   "edge_secret",
   "edge_secret_required",
   "environment",
+  "event_chain_emit",
   "frontend_origin",
   "hot_lead_webhook_url",
   "identity_url",

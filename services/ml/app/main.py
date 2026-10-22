@@ -23,6 +23,7 @@ from libs.common.redis_client import check_redis, create_redis
 from libs.common.request_id import RequestIdMiddleware
 from libs.common.settings import get_settings
 from libs.contracts.api import ScoreFeatures, ScoreResponse
+from services.ml.app.core_rules import HttpCoreRules
 from services.ml.app.explanations_routes import router as explanations_router
 from services.ml.app.repository import MlRepository
 from services.ml.app.scoring_service import ScoringService
@@ -33,7 +34,10 @@ configure_logging(settings.log_level)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    app.state.repository = MlRepository(settings.database_url)
+    app.state.repository = MlRepository(
+        settings.database_url,
+        HttpCoreRules(settings.core_url, settings.internal_service_token),
+    )
     app.state.redis = create_redis(settings.redis_url)
     yield
     await app.state.repository.close()

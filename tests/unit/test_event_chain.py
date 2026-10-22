@@ -56,3 +56,31 @@ def test_rules_reject_bad_input() -> None:
         stamp_payload({}, "signal.tagged", "v1")
     with pytest.raises(ValueError):
         stamp_payload({}, "lead.created", "v1")
+
+
+def test_chain_events_after_is_empty_when_flag_off() -> None:
+    from libs.domain.event_chain import chain_events_after
+
+    parent = {"event_id": str(uuid4()), "event_type": "signal.created", "payload": {}}
+    steps = [("signal.tagged", {"a": 1}, "tag-v1")]
+    assert chain_events_after(parent, steps, enabled=False) == []
+
+
+def test_chain_events_after_links_and_bounds_source_version() -> None:
+    from libs.domain.event_chain import chain_events_after
+
+    root = stamp_payload({}, "signal.created", "core-v1")
+    parent = {"event_id": str(uuid4()), "event_type": "signal.created", "payload": root}
+    steps = [(kind, {}, "p-v1") for kind in CHAIN[1:]]
+    events = chain_events_after(parent, steps, enabled=True)
+    assert [e["event_type"] for e in events] == list(CHAIN[1:])
+    assert events[0]["payload"]["parent"]["event_id"] == parent["event_id"]
+    assert events[-1]["payload"]["source_version"].count("<") == len(CHAIN) - 1
+    assert trace_chain([parent, *events]).complete
+
+
+def test_emit_flag_defaults_off() -> None:
+    pytest.importorskip("pydantic_settings")
+    from libs.common.settings import Settings
+
+    assert Settings().event_chain_emit is False

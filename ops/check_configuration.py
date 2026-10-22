@@ -174,6 +174,9 @@ def main() -> int:
         print("Missing configuration variables in .env.example:", file=sys.stderr)
         print("\n".join(missing), file=sys.stderr)
         return 1
+    if "EVENT_CHAIN_EMIT=false" not in ENV_EXAMPLE_PATH.read_text(encoding="utf-8").splitlines():
+        print("EVENT_CHAIN_EMIT must default to false in .env.example (T-149)", file=sys.stderr)
+        return 1
     without_token = services_missing_service_token(compose)
     if without_token:
         print("Services without INTERNAL_SERVICE_TOKEN in docker-compose.yml:", file=sys.stderr)
