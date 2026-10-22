@@ -1,7 +1,7 @@
 """K-Prototypes company profiling for lens D2 (REQ-LNS-004).
 
 ``profile_companies`` clusters mixed numeric and categorical rows with the
-``kmodes`` package (lazy import, ``ml`` extra) using a fixed seed, and returns
+``kmodes`` package (lazy import, ``kmodes`` extra) using a fixed seed, and returns
 one archetype label per company. A caller may inject ``clusterer`` (for tests
 or the pure fallback in ``segmentation.py``). It relates to ``schedule.py``.
 """
@@ -24,7 +24,7 @@ def kmodes_clusterer(
     try:
         kmodes = import_module("kmodes.kprototypes")
     except ImportError as exc:
-        raise MissingDependencyError("kmodes is not installed; install the 'ml' extra") from exc
+        raise MissingDependencyError("kmodes is not installed; install the 'kmodes' extra") from exc
     model = kmodes.KPrototypes(n_clusters=k, init="Cao", random_state=seed)
     return [int(x) for x in model.fit_predict(matrix, categorical=categorical_idx)]
 
