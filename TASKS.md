@@ -1956,7 +1956,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: filled by the agent when done
 
 ### T-174 Typed payloads for the six chain events
-- status: todo
+- status: done
 - spec: REQ-EVT-008, REQ-EVT-005
 - owner: lead-backend-engineer
 - depends: T-159
@@ -1965,7 +1965,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_contracts.py tests/unit/test_event_chain.py tests/unit/test_event_chain_producers.py tests/unit/test_event_chain_consumers.py tests/unit/test_openapi.py` and `make static` and `make test`
 - note: decision D-20. Promote the six names of `ReservedEventType` that are chain events (`signal.tagged`, `signal.scored`, `company.matched`, `signal.explained`, `project.pipeline_updated`, `project.forecast_updated`) to typed pydantic payloads with `extra="forbid"` and a `schema_version` per type, carried by the existing `DomainEvent` envelope (`version`, `source_version`). The canonical payloads are in REQ-EVT-008 and each one has a mandatory `parent_event_id` (UUID or null). Do not change the producers' behavior in this task beyond making their payloads validate against the new models; the flag `EVENT_CHAIN_EMIT` keeps its default. Add a test per type (valid, missing field, extra field) and one that every producer payload of T-159 validates. Keep `funnel.*` and the other reserved names untouched.
-- evidence: filled by the agent when done
+- evidence: acceptance pytest (60 passed), make static, make test (1634 passed, 2 skipped, 4 xfailed)
 
 ### T-175 Producers propagate parent_event_id through the chain
 - status: todo
