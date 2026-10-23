@@ -59,6 +59,7 @@ TABLE = [
     ("GET", "jobs/5", "core", "/internal/core/jobs/5"),
     ("GET", "admin/tenant-config", "core", "/internal/core/admin/tenant-config"),
     ("PUT", "admin/tenant-config", "core", "/internal/core/admin/tenant-config"),
+    ("POST", "compliance/opt-out", "core", "/internal/core/compliance/opt-out"),
 ]
 
 
@@ -111,3 +112,10 @@ async def test_public_requests_never_reach_an_analytics_service(client: Any, wor
 def test_gateway_sources_do_not_mention_the_retired_service() -> None:
     for file in (Path(gw.__file__).parent).glob("*.py"):
         assert "analytics" not in file.read_text().lower(), file.name
+
+
+def test_compliance_opt_out_resolves_only_for_post_and_purge_stays_internal() -> None:
+    settings = get_settings()
+    assert resolve("compliance/opt-out", "GET", settings) == "method_not_allowed"
+    assert resolve("compliance/purge", "POST", settings) is None
+    assert resolve("compliance", "POST", settings) is None

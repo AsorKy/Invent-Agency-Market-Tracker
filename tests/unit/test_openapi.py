@@ -32,7 +32,6 @@ NOT_PUBLIC = {
     ): "brief service only, never public",
     # T-144
     ("GET", "/internal/core/admin/score-rules"): "ml service only, never public",
-    ("POST", "/internal/core/compliance/opt-out"): "n8n and ops only, never public",
     ("POST", "/internal/core/compliance/purge"): "n8n and ops only, never public",
     ("POST", "/internal/pulse/ingest/profiles"): "ml service only, never public",
     ("POST", "/internal/pulse/ingest/communities"): "ml service only, never public",

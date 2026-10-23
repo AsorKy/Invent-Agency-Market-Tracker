@@ -888,6 +888,43 @@
         "title": "LeadStatusPatch",
         "type": "object"
       },
+      "OptOutRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "company_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Company Id"
+          },
+          "nit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Nit"
+          },
+          "requested_via": {
+            "default": "legal_inbox",
+            "title": "Requested Via",
+            "type": "string"
+          }
+        },
+        "title": "OptOutRequest",
+        "type": "object"
+      },
       "OutcomeCreate": {
         "additionalProperties": false,
         "properties": {
@@ -2367,6 +2404,103 @@
         "summary": "Create or update a company",
         "tags": [
           "companies"
+        ]
+      }
+    },
+    "/api/v1/compliance/opt-out": {
+      "post": {
+        "operationId": "post_compliance_opt_out",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OptOutRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JsonObject"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Invalid cursor or parameter"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Forbidden or CSRF token invalid"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Validation error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Rate limit exceeded"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Upstream unavailable"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "summary": "Delete one company of the caller's tenant on a data subject request (admin only)",
+        "tags": [
+          "admin"
         ]
       }
     },

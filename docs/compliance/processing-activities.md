@@ -46,7 +46,8 @@ roles (`ensure_public_role`) in `services/core/app/retention.py`.
 1. The request arrives through the public form or the legal inbox.
 2. An operator calls `POST /internal/core/compliance/opt-out` with the company id or NIT and the
    `X-Tenant-Id` header (400 without it). The request only reaches companies of that tenant; the
-   same company in two tenants needs two requests.
+   same company in two tenants needs two requests. An admin user can send the same request from the
+   app with `POST /api/v1/compliance/opt-out`; the gateway takes the tenant from the JWT only.
 3. Core deletes the company and its dependants in one transaction. Repeating the call is safe and
    returns `already_removed`.
 4. The audit log keeps only a SHA-256 of the identifier, the channel, row counts, and the tenant id.
