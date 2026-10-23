@@ -12,7 +12,8 @@ This runbook switches a local stack from mock data to live Bright Data sources a
 
 1. Run `make invent-tracker`. It creates `.env` from `.env.example` (generating passwords), starts Postgres and Redis, creates the per-service database roles, builds and starts all services, waits for readiness, and loads demo data once (marker file `.env.seeded`). It is safe to run again.
 2. Run `make doctor` and confirm that nothing required is missing (section 6).
-3. Stop with `make invent-tracker-down`. `make invent-tracker-reset` also deletes the data volumes and asks for confirmation.
+3. Migration check for an existing database: before the first migrate of a database that already holds data (for example from F0), run `python ops/doctor.py --tenants` (read only, counts only, no row or id printed). It counts rows with a NULL `tenant_id` in `core.company`, `core.lead`, `core.signal`, `core.location` and `core.lead_outcome`, and the rows of signal, location and lead outcome whose company or lead also has no tenant. Migration `20261023_0014` stops the `migrate` container on such rows. Exit 1 means a count is above zero: assign a tenant to those rows (never delete them), then run the command again until it exits 0. A fresh stack needs no check.
+4. Stop with `make invent-tracker-down`. `make invent-tracker-reset` also deletes the data volumes and asks for confirmation.
 
 ## 3. Credentials and enabling sources
 
@@ -102,6 +103,8 @@ make verify-live SOURCE=maps INPUTS=inputs.json
 - It triggers one collection, then follows the data through the hops `trigger`, `snapshot`, `normalize`, `resolve`, `signal`, `score`, and `api_read`. Each hop is polled until a timeout (`--timeout`, 300 seconds by default). The first failing hop stops the run, later hops show as skipped, and the failure prints the next step.
 - When every hop passes it captures redacted fixtures and prints mapping coverage (section 5).
 - Exit code 0 means all hops passed, 1 a hop failed, 2 a refusal or usage error.
+
+Database role: the signal hop reads `core.signal` directly, which is under row level security, so `VERIFY_LIVE_DATABASE_URL` must use the owner role (`POSTGRES_USER`); `ops/verify_live.py` refuses with exit code 2 when the role name ends in `_app`, because such a role would count 0 rows.
 
 In-network run (T-186): `make verify-live` runs `docker compose --profile tools run --rm verify-live python ops/verify_live.py ...`, so it reaches ingest and core by service name (`http://ingest:8000`, `http://core:8000`) and publishes no port. It is not yet proven on a machine with Docker (T-187 confirms it).
 

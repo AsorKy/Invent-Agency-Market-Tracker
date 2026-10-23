@@ -157,3 +157,26 @@ def test_live_backend_honours_service_url_overrides() -> None:
     assert backend._ingest == "http://ingest:8000"
     assert backend._core == "http://core:8000"
     assert backend._database.endswith("@postgres:5432/d")
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        {"VERIFY_LIVE_DATABASE_URL": f"postgresql+asyncpg://core_app:{SENTINEL}@postgres:5432/d"},
+        {"POSTGRES_USER": "ml_app"},
+    ],
+)
+def test_refuses_an_app_role_without_printing_values(
+    extra: dict[str, str], capsys: pytest.CaptureFixture[str]
+) -> None:
+    reason = vl.refusal(_env(**extra), "maps")
+    assert reason is not None and "_app" in reason
+    assert SENTINEL not in reason and "core_app" not in reason
+    assert vl.main(["--source", "maps"], environ=_env(**extra)) == 2
+    assert SENTINEL not in capsys.readouterr().out
+
+
+def test_owner_role_is_accepted() -> None:
+    url = f"postgresql+asyncpg://postgres:{SENTINEL}@postgres:5432/d"
+    assert vl.refusal(_env(VERIFY_LIVE_DATABASE_URL=url), "maps") is None
+    assert vl.refusal(_env(), "maps") is None

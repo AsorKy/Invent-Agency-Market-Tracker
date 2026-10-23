@@ -153,3 +153,46 @@ def test_main_pipeline_query_failure_exits_1(
         raise RuntimeError("psql failed")
 
     assert doctor.main(["--pipeline"], boom) == 1
+
+
+def _tenant_query(unresolved: int = 0, nulls: int = 0) -> Callable[[str], int]:
+    def query(sql: str) -> int:
+        return unresolved if "NOT EXISTS" in sql else nulls
+
+    return query
+
+
+def test_tenant_queries_are_counts_only() -> None:
+    queries = doctor.tenant_queries()
+    assert len(queries) == 8
+    for _label, sql in queries:
+        assert sql.startswith("SELECT count(*) FROM core.")
+        assert "tenant_id" in sql
+
+
+def test_tenants_report_clean_and_dirty() -> None:
+    lines, clean = doctor.tenants_report(_tenant_query())
+    assert clean
+    assert "  core.signal rows without tenant_id: 0" in lines
+    lines, clean = doctor.tenants_report(_tenant_query(unresolved=3))
+    assert not clean
+    assert any("UNRESOLVED" in line for line in lines)
+    assert not doctor.tenants_report(_tenant_query(nulls=1))[1]
+
+
+def test_main_tenants_exit_code(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    monkeypatch.setattr(doctor, "ROOT", tmp_path)
+    monkeypatch.setattr(doctor, "fetch", lambda _u, timeout=3.0: (0, ""))
+    for name in doctor.REQUIRED:
+        monkeypatch.setenv(name, SENTINEL)
+    assert doctor.main(["--tenants"], _tenant_query()) == 0
+    assert "Tenants before migration 0014" in capsys.readouterr().out
+    assert doctor.main(["--tenants"], _tenant_query(unresolved=2)) == 1
+
+    def boom(_sql: str) -> int:
+        raise RuntimeError("psql failed")
+
+    assert doctor.main(["--tenants"], boom) == 1
+    assert SENTINEL not in capsys.readouterr().out
