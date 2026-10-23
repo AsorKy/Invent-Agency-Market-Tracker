@@ -52,6 +52,7 @@ Size is a rough token cost guide: S under 1 USD, M 1 to 3 USD, L 3 to 8 USD. Tes
 | r1-l | Short wave, two parallel sessions: loopback ports and smoke task closure T-170, T-172; e2e proof of auto qualified leads and the backfill, doctor pipeline report T-171, T-173 | 4 tasks | about 30 USD |
 | r1-m | Wave, three parallel sessions: verify-live in the Compose network and the versioned feature baseline T-186, T-178; production refusal of seed and verify_live tokens and the n8n mint credential T-184, T-185; typed chain payloads, parent ids, the ml outbox with one shared relay and the pulse stage projection T-174 to T-177 | 8 tasks | about 65 USD |
 | r1-n | Wave, two parallel sessions: row level security on signal, location and lead outcome T-082, then the pulse refresh allow list T-189 and the test lint T-190; validation inputs served end to end T-179, T-180, funnel per project T-181, and real parent ids in the production callers T-188 | 7 tasks | about 70 USD |
+| r1-o | Wave, three parallel sessions: per-tenant unique key on core.signal, expand only T-195; identity lists the tenants for service callers T-194; doctor check for rows without a tenant and the verify-live owner role pin T-192, T-193 | 4 tasks | about 35 USD |
 | r2 | Continuation with ADR-0002: T-100 to T-112, only if budget remains after T-080; run as r1-f and r1-g | 13 tasks | about 38 USD |
 
 Total estimate for run 1 (smoke to r1-d): about 197 USD (183 USD of the v3 plan plus about 14 USD for T-090 to T-097 and about 30 USD for the v6 follow-ups), plus about 38 USD for the optional ADR-0002 continuation, to be corrected after the smoke run shows real cost per task. Blocked tasks do not consume budget. Set the session budget of each run to about 1.5 times its estimate.
@@ -2242,4 +2243,16 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: S
 - acceptance: `pytest -q tests/unit/test_gateway_routes.py tests/unit/test_openapi.py tests/unit/test_contract_snapshot.py` and `make static` and `make test`
 - note: tracked by decision D-36 (owner). For the go-live of run 1 the internal path of T-191 is enough: the retention job covers the age based purge and the operator runs a one-off opt-out through the seed. This task is the way a data subject's deletion request is processed from the app by an admin or legal user, and it is required BEFORE go-live if legal requests are processed by users. Do not launch it before T-191. Map `POST /api/v1/compliance/opt-out` in the gateway for the admin role only; the gateway injects `X-Tenant-Id` from the JWT as it does on the other routes (never from the request body) and forwards to `POST /internal/core/compliance/opt-out`. Purge stays internal. The change must be additive for the OpenAPI diff; regenerate `docs/api/openapi.json` and the snapshots. Tests: admin allowed; every other role 403; a body that names another tenant does not change the tenant sent to core.
+- evidence: filled by the agent when done
+
+### T-198 Close the open parent ids of the event chain
+- status: todo
+- spec: REQ-LNS-012, REQ-EVT-008
+- owner: lead-backend-engineer
+- depends: T-188
+- write_scope: to be fixed by the planner before launch (services/core/app/main.py, services/core/app/imports.py, services/core/app/repository.py, services/core/app/worker.py, services/ml/app/core_features.py, a new expand migration, tests/unit/, tests/integration/test_sql_r1_flows.py, docs/runbooks/event-chain.md section 6)
+- context: docs/runs/RUN-r1-n-validation.md (T-188 blockers), T-188 evidence, SPEC.md decision D-21 and REQ-LNS-012
+- size: M
+- acceptance: to be fixed by the planner; at minimum the offline test per caller from T-188 and `make static` and `make test`
+- note: T-188 closed the funnel gate hook and the backfill forwarding, and was blocked on three gaps that need files outside its scope: (a) core's internal features route and `services/ml/app/core_features.py` do not carry the id of the `signal.tagged` event, so the ml backfill has nothing to forward; (b) core stores no `signal.scored` event id (INV-01: it cannot read the ml outbox), so the lead create calls in `main.py` and `imports.py` cannot pass `scored_event_id`; this needs an expand migration, a worker handler that records the id when core consumes `signal.scored`, and a repository read; (c) no route links a gate decision to a stage change. Each field stays optional and a missing id never fails a request. Pick the next free migration number when this is planned (0017 is T-195 and 0018 is T-196). Do not launch before T-188 and T-195 are merged, because the files overlap with `repository.py`.
 - evidence: filled by the agent when done
