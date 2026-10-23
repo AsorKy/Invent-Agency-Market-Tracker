@@ -27,6 +27,20 @@ class InternalServiceToken(BasePermission):
         return bool(presented) and verify_service_token(presented, secret) is not None
 
 
+TENANT_LIST_ALLOWED_SERVICES = frozenset({"core"})
+
+
+class CoreServiceToken(BasePermission):
+    """Allow only a valid signed service token issued for ``core`` (D-36, REQ-SEC-005)."""
+
+    def has_permission(self, request: Request, view: Any) -> bool:
+        presented = request.headers.get("X-Service-Token", "")
+        if not presented:
+            return False
+        secret: str = settings.IDENTITY_INTERNAL_SERVICE_TOKEN
+        return verify_service_token(presented, secret) in TENANT_LIST_ALLOWED_SERVICES
+
+
 MINT_CREDENTIAL_VARIABLE = "N8N_SOCIOECO_MINT_CREDENTIAL"
 MINT_CREDENTIAL_HEADER = "X-Mint-Credential"
 
