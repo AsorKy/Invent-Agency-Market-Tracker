@@ -2198,7 +2198,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: filled by the agent when done
 
 ### T-194 Identity lists the tenants for service callers
-- status: todo
+- status: done
 - spec: REQ-SEC-005
 - owner: lead-backend-engineer
 - depends: T-185
@@ -2207,7 +2207,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: S
 - acceptance: `pytest -q tests/unit/test_identity_tenants.py tests/unit/test_openapi.py` and `make static` and `make test`
 - note: the retention job needs the list of tenants and must not read `core.tenant_config` (row level security) nor another schema (INV-01). Add `GET /internal/identity/tenants`, read only, protected by a signed service token with an allow list that contains only `core`; it returns the tenant ids and nothing else (no names, no members, no secrets) and only active tenants. Tests: accepted for `core`; 401 for gateway, seed, verify_live and a missing token; the body has only ids. Not public (NOT_PUBLIC in `test_openapi.py`).
-- evidence: filled by the agent when done
+- evidence: `pytest -q tests/unit/test_identity_tenants.py tests/unit/test_openapi.py` 18 passed; `make static` clean; `make test` 1728 passed, 2 skipped, 4 xfailed
 
 ### T-195 Per-tenant unique key on core.signal (expand)
 - status: todo

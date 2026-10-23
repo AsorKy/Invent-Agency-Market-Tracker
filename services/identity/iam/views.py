@@ -16,8 +16,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from services.identity.iam.keys import jwks_document
-from services.identity.iam.models import TenantMembership
-from services.identity.iam.permissions import DedicatedMintCredential
+from services.identity.iam.models import Tenant, TenantMembership
+from services.identity.iam.permissions import CoreServiceToken, DedicatedMintCredential
 from services.identity.iam.tokens import (
     SOCIOECO_MINT_SERVICE,
     issue_service_token,
@@ -50,6 +50,21 @@ class ServiceTokenView(APIView):
         if not service.isidentifier():
             return Response({"detail": "invalid_service"}, status=400)
         return Response({"access_token": issue_service_token(service), "token_type": "Bearer"})
+
+
+class TenantListView(APIView):
+    """List the ids of the active tenants for the ``core`` service only (D-36).
+
+    Returns ids and nothing else: no names, members or secrets.
+    """
+
+    permission_classes: list[type] = []
+
+    def get(self, request: Request) -> Response:
+        if not CoreServiceToken().has_permission(request, self):
+            return Response({"detail": "invalid_service_token"}, status=401)
+        ids = Tenant.objects.filter(status="active").order_by("id").values_list("id", flat=True)
+        return Response({"tenant_ids": [str(tenant_id) for tenant_id in ids]})
 
 
 class SocioecoMintView(APIView):

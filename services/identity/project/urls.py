@@ -18,6 +18,7 @@ urlpatterns = [
     path(".well-known/jwks.json", views.jwks),
     path("internal/identity/service-token", views.ServiceTokenView.as_view()),
     path("internal/identity/mint/socioeco", views.SocioecoMintView.as_view()),
+    path("internal/identity/tenants", views.TenantListView.as_view()),
     path("internal/identity/tokens/user", views.UserTokenView.as_view()),
     path("internal/identity/auth/session", session_views.LoginView.as_view()),
     path("internal/identity/me", session_views.MeView.as_view()),

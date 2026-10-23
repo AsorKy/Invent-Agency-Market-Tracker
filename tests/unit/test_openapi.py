@@ -43,6 +43,8 @@ NOT_PUBLIC = {
     # T-165
     ("GET", "/internal/core/admin/score-features"): "ml service only, never public",
     # T-179
+    # T-194
+    ("GET", "/internal/identity/tenants"): "core service only, never public",
     # T-151
     ("GET", "/internal/ml/explanations/{company_id}"): "brief service only, never public",
 }
