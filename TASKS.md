@@ -2017,7 +2017,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_score_features.py tests/unit/test_demo_pipeline.py tests/unit/test_ml_backfill.py` 29 passed; `make static` ok
 
 ### T-179 Core route for the validation inputs
-- status: todo
+- status: done
 - spec: REQ-LNS-014, REQ-SEC-005, REQ-IDN-001
 - owner: lead-backend-engineer
 - depends: T-147
@@ -2026,7 +2026,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_validation_inputs.py tests/unit/test_validation_routes.py tests/unit/test_validation_worker.py tests/unit/test_openapi.py tests/unit/test_sql_consistency.py` and `make static` and `make test`
 - note: decision D-24 (owner). Add `PUT /internal/core/projects/{id}/validation-inputs`, gateway-only service token, tenant scoped, with the ETag and `If-Match` behavior of `tenant_config` (a stale ETag answers 412). It validates a typed object (pydantic, `extra="forbid"`, the fields V1, V2, V4 and V5 already read from `core.project.metadata->'validation'`; read `validation_worker.py` for the exact keys and ranges) and stores it under that key without touching the rest of `metadata`. The role check (`strategist` or `admin`) is done by the gateway (T-180); the core route rejects a request without the gateway identity. Write an audit row. Until an input exists, the validation cards answer empty with the reason `needs_strategist_input` (change the current empty reason of V1, V2, V4 and V5 to this value and update its tests). A real Postgres test as `core_app` proves the write is tenant scoped (another tenant's project answers 404 and nothing is written).
-- evidence: filled by the agent when done
+- evidence: `pytest -q tests/unit/test_validation_inputs.py tests/unit/test_validation_routes.py tests/unit/test_validation_worker.py tests/unit/test_openapi.py tests/unit/test_sql_consistency.py` 78 passed; `make static` OK; `make test` 1711 passed, 2 skipped, 4 xfailed; real-Postgres cases in tests/integration/test_sql_r1_flows.py not run here (no Docker)
 
 ### T-180 Gateway route for the validation inputs
 - status: todo

@@ -933,3 +933,66 @@ async def test_brief_facts_and_score_features_count_signals_only_under_the_conte
         assert all(c["company_id"] != str(company) for c in theirs["companies"])
     finally:
         await repository.close()
+
+
+# --- T-179: validation inputs -----------------------------------------------------------
+
+
+def _inputs_uow(engines: dict[str, Any], tenant: UUID) -> Any:
+    from services.core.app.repository import SqlValidationInputUnitOfWork
+
+    return SqlValidationInputUnitOfWork(engines["core"], tenant)
+
+
+async def test_validation_inputs_write_one_key_audit_and_etag_as_core_app(
+    db: Db, engines: dict[str, Any]
+) -> None:
+    from services.core.app.validation_inputs import (
+        StaleInputsError,
+        ValidationInputs,
+        update_inputs,
+    )
+
+    project = _project(db, TENANT, metadata={"keep": "me", "version": 4})
+    inputs = ValidationInputs.model_validate(
+        {"growth": {"starting_mrr": 100, "new": 10}, "portfolio": {"npvs": [1, 2]}}
+    )
+    body = await update_inputs(
+        _inputs_uow(engines, TENANT), TENANT, project, inputs, if_match=0, updated_by=uuid4()
+    )
+    assert body["version"] == 1
+    keep, funnel_version, growth, version = db.one(
+        "SELECT metadata->>'keep', metadata->>'version', metadata->'validation'->'growth'->>'new',"
+        " metadata->'validation'->>'version' FROM core.project WHERE id = %s",
+        project,
+    )
+    assert (keep, funnel_version, growth, version) == ("me", "4", "10", "1")
+    action, tenant, sections = db.one(
+        "SELECT action, tenant_id, payload->'sections' FROM core.audit_log WHERE aggregate_id = %s",
+        project,
+    )
+    assert (action, tenant, sections) == (
+        "validation.inputs_updated",
+        TENANT,
+        ["growth", "portfolio"],
+    )
+    with pytest.raises(StaleInputsError):
+        await update_inputs(_inputs_uow(engines, TENANT), TENANT, project, inputs, if_match=0)
+    assert db.one("SELECT count(*) FROM core.audit_log WHERE aggregate_id = %s", project) == (1,)
+
+
+async def test_validation_inputs_of_another_tenant_project_are_not_found_and_not_written(
+    db: Db, engines: dict[str, Any]
+) -> None:
+    from services.core.app.validation_inputs import (
+        ProjectNotFoundError,
+        ValidationInputs,
+        update_inputs,
+    )
+
+    project = _project(db, OTHER, metadata={"keep": "me"})
+    inputs = ValidationInputs.model_validate({"growth": {"new": 1}})
+    with pytest.raises(ProjectNotFoundError):
+        await update_inputs(_inputs_uow(engines, TENANT), TENANT, project, inputs, if_match=0)
+    assert db.one("SELECT metadata FROM core.project WHERE id = %s", project) == ({"keep": "me"},)
+    assert db.one("SELECT count(*) FROM core.audit_log WHERE aggregate_id = %s", project) == (0,)

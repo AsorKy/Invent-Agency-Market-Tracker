@@ -77,6 +77,10 @@ UNAVAILABLE: dict[str, dict[str, str]] = {
 }
 
 
+# V1, V2, V4 and V5 have no worker input until a strategist writes it (D-24, T-179).
+INPUT_CARDS = frozenset({"financial", "unit-economics", "growth", "portfolio"})
+NEEDS_INPUT = "needs_strategist_input"
+
 _PROJECT_EXISTS = """
     SELECT id FROM core.project WHERE id = :id AND tenant_id = :tenant_id
 """
@@ -238,7 +242,7 @@ def build_card(card: str, project_id: UUID, row: Mapping[str, Any] | None) -> di
     if row is None:
         body |= {
             "empty": True,
-            "reason": "no_measurement",
+            "reason": NEEDS_INPUT if card in INPUT_CARDS else "no_measurement",
             "measured_at": None,
             "source_version": None,
             "thresholds": {},
