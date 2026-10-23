@@ -45,6 +45,8 @@ from services.pulse.app.socio_loader import SocioDataError, load_records
 
 ML_ONLY = Depends(require_service_token("ml"))
 INTERNAL = Depends(require_internal_token)
+# The monthly refresh accepts only the fixed caller that identity mints a token for (T-189).
+SOCIOECO_ONLY = Depends(require_service_token("n8n_socioeco"))
 MAX_ITEMS = 100_000
 MAX_TOPICS = 1_000
 MAX_ROWS = 50_000
@@ -425,7 +427,7 @@ async def project_metrics(
     )
 
 
-@router.post("/socioeconomic/refresh", dependencies=[INTERNAL])
+@router.post("/socioeconomic/refresh", dependencies=[SOCIOECO_ONLY])
 async def socioeconomic_refresh(body: SocioRefreshIn, request: Request) -> SocioRefreshResult:
     """Reload and validate the indicator files; used by the monthly n8n workflow."""
     try:

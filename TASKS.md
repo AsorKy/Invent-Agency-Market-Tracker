@@ -1945,7 +1945,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `ops/doctor.py --pipeline [--max-backlog-seconds N]` added (injectable query, exit 1 on dead letters or stale backlog); go-live runbook line and test_runbook needle added; test_doctor, test_runbook, test_sql_consistency, check_language and make static pass
 
 ### T-082 Row level security on core.signal, core.location and core.lead_outcome
-- status: todo
+- status: done
 - spec: REQ-DAT-005, REQ-SEC-005
 - owner: database-engineer
 - depends: T-162, T-168
@@ -1954,7 +1954,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/integration/test_sql_postgres.py tests/integration/test_sql_r1_flows.py tests/unit/test_sql_consistency.py tests/unit/test_schema_catalog.py` and `python ops/check_migrations.py` and `make static` and `make test`
 - note: decision D-29 (owner, closed 2026-10-22), the former F-r1e-11. `core.signal`, `core.location` and `core.lead_outcome` carry business data per tenant and must not stay exempt: one expand migration that does ENABLE and FORCE row level security and creates the policy `<table>_tenant_isolation` on `tenant_id = current_setting('app.tenant_id')::uuid`, following the pattern of `20261018_0004`. If any of the three has a nullable `tenant_id`, backfill and set it `NOT NULL` in the same expand file (the statement must be re-runnable). Then every writer and reader of those tables must run under `set_tenant_context`: find them all (signal create, the import and location writers, the outcome route and the readers behind brief facts and lead reads) and prove each one with a real Postgres test as `core_app` (a write and a read with the context succeed, without it they see or write nothing). The final exempt registry has five tables, each with its real reason and no wording like "guess": `core.outbox_event`, `core.outbox_dead_letter`, `core.processed_event`, `ml.processed_event` (messaging and idempotency infrastructure read and written only by the owning service role, never exposed by a public API; isolation comes from INV-01 and the role, and `tenant_id` is routing metadata) and `core.audit_log` (append-only, read only by an admin route of the same tenant with an explicit filter). Remove the "UNVERIFIED" comment, add the assertion that the three new tables DO have RLS, and check that no live migration or test still names `analytics.processed_event` (the historical expand files may keep it, the contract migration drops it). Name the migration exactly as above. Do not weaken any existing policy.
-- evidence: filled by the agent when done
+- evidence: pytest -q test_sql_postgres test_sql_r1_flows test_sql_consistency test_schema_catalog against a local PostgreSQL 16 (TEST_DATABASE_URL): passed; python ops/check_migrations.py OK; make static OK; make test 1680 passed, 2 skipped, 4 xfailed (see docs/runs/RUN-r1-n-rls.md)
 
 ### T-174 Typed payloads for the six chain events
 - status: done
@@ -2137,7 +2137,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: filled by the agent when done
 
 ### T-189 The pulse socioeconomic refresh accepts only its own caller
-- status: todo
+- status: done
 - spec: REQ-SEC-005
 - owner: lead-backend-engineer
 - depends: T-185
@@ -2146,10 +2146,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: S
 - acceptance: `pytest -q tests/unit/test_pulse_lens.py tests/unit/test_internal_auth.py` and `make static` and `make test`
 - note: T-185 mints a 60 second token for the fixed caller `n8n_socioeco`, but the pulse refresh route still uses `require_internal_token`, which accepts a validly signed token from any service name. Replace that dependency on the refresh route with `require_service_token("n8n_socioeco")` and keep the other pulse routes as they are. Tests: the `n8n_socioeco` token is accepted; the `gateway`, `seed` and `verify_live` tokens and a missing token answer 401; a token signed with another key answers 401. Do not change the mint route or the workflow, and do not activate the workflow.
-- evidence: filled by the agent when done
+- evidence: pytest -q tests/unit/test_pulse_lens.py tests/unit/test_internal_auth.py (plus test_pulse_lens_routes.py, test_openapi.py) passed; make static OK; make test 1689 passed, 2 skipped, 4 xfailed. Note: test_pulse_lens.py is new (the file named in the task did not exist); the refresh cases of test_pulse_lens_routes.py now send the n8n_socioeco token
 
 ### T-190 Bring the test lint to zero
-- status: todo
+- status: done
 - spec: REQ-QA-001
 - owner: coordinator
 - depends: T-172
@@ -2158,4 +2158,4 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: S
 - acceptance: `ruff check tests` reports no finding, and `make static` and `make test` pass
 - note: T-172 left the findings of `ruff check tests` that `make static` does not cover (B905, E501, F401, B023, I001 in the files above). Fix them without changing what a test asserts; if a fix would change behaviour, add a narrow `# noqa` with the reason instead. Then list in the report the exact command and its result. Do NOT change the Makefile or the CI workflow: whether `ruff check tests` joins `make static` is a decision for the owner, so state your recommendation in the report.
-- evidence: filled by the agent when done
+- evidence: `ruff check tests` -> All checks passed (was 14 findings); make static OK; make test 1689 passed, 2 skipped, 4 xfailed

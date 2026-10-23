@@ -694,3 +694,242 @@ async def test_ml_relay_publishes_the_row_with_its_tenant(db: Db) -> None:
         "SELECT published_at IS NOT NULL FROM ml.outbox_event WHERE aggregate_id = %s", company
     ) == (True,)
     assert db.one("SELECT count(*) FROM ml.outbox_dead_letter WHERE tenant_id = %s", TENANT) == (0,)
+
+
+# --- T-082: row level security on core.signal, core.location, core.lead_outcome ---------------
+# Writers and readers found (all run as core_app): ``CoreRepository.create_signal`` (signal
+# insert), ``record_outcome`` through ``action_unit_of_work`` (outcome insert), the retention
+# deletes of ``SqlRetentionTransaction.delete_company_data`` (all three tables; the only code
+# that touches core.location), the readers ``read_brief_facts`` and ``read_score_features``
+# (core.signal). Each case fails when the tenant context is missing.
+
+
+def _lead(db: Db, tenant: UUID, company: UUID) -> UUID:
+    lead_id = uuid4()
+    db.rows(
+        "INSERT INTO core.lead (id, tenant_id, company_id, service_line) VALUES (%s, %s, %s, 'x')",
+        lead_id,
+        tenant,
+        company,
+    )
+    return lead_id
+
+
+def _fixture_signal(db: Db, tenant: UUID, company: UUID, signal_type: str = "hiring") -> UUID:
+    signal_id = uuid4()
+    db.rows(
+        "INSERT INTO core.signal (id, tenant_id, company_id, source, source_external_id,"
+        " signal_type, observed_at) VALUES (%s, %s, %s, 'maps', %s, %s, now())",
+        signal_id,
+        tenant,
+        company,
+        f"x-{signal_id.hex}",
+        signal_type,
+    )
+    return signal_id
+
+
+def _fixture_location(db: Db, tenant: UUID, company: UUID) -> UUID:
+    location_id = uuid4()
+    db.rows(
+        "INSERT INTO core.location (id, tenant_id, company_id, city) VALUES (%s, %s, %s, 'Cali')",
+        location_id,
+        tenant,
+        company,
+    )
+    return location_id
+
+
+def _fixture_outcome(db: Db, tenant: UUID, lead: UUID) -> UUID:
+    outcome_id = uuid4()
+    db.rows(
+        "INSERT INTO core.lead_outcome (id, tenant_id, lead_id, outcome, occurred_at)"
+        " VALUES (%s, %s, %s, 'contact', now())",
+        outcome_id,
+        tenant,
+        lead,
+    )
+    return outcome_id
+
+
+_TABLES = (
+    ("core.signal", "id"),
+    ("core.location", "id"),
+    ("core.lead_outcome", "id"),
+)
+
+
+async def test_the_three_tables_hide_rows_without_context_and_across_tenants(
+    db: Db, engines: dict[str, Any]
+) -> None:
+    from sqlalchemy import text
+
+    from libs.common.tenant import set_tenant_context
+
+    company = _company(db, TENANT)
+    lead = _lead(db, TENANT, company)
+    ids = {
+        "core.signal": _fixture_signal(db, TENANT, company),
+        "core.location": _fixture_location(db, TENANT, company),
+        "core.lead_outcome": _fixture_outcome(db, TENANT, lead),
+    }
+    for table, column in _TABLES:
+        query = text(f"SELECT {column} FROM {table} WHERE {column} = :id")  # noqa: S608
+        params = {"id": ids[table]}
+        async with engines["core"].connect() as connection:
+            assert (await connection.execute(query, params)).all() == [], table
+        async with engines["core"].connect() as connection:
+            await set_tenant_context(connection, OTHER)
+            assert (await connection.execute(query, params)).all() == [], table
+        async with engines["core"].connect() as connection:
+            await set_tenant_context(connection, TENANT)
+            found = (await connection.execute(query, params)).all()
+            assert [r[0] for r in found] == [ids[table]], table
+
+
+async def test_the_three_tables_refuse_writes_without_the_matching_context(
+    db: Db, engines: dict[str, Any]
+) -> None:
+    from sqlalchemy import text
+    from sqlalchemy.exc import DBAPIError
+
+    from libs.common.tenant import set_tenant_context
+
+    company = _company(db, TENANT)
+    lead = _lead(db, TENANT, company)
+    inserts = {
+        "core.signal": (
+            "INSERT INTO core.signal (tenant_id, company_id, source, source_external_id,"
+            " signal_type, observed_at) VALUES (:t, :c, 'maps', :x, 'hiring', now())"
+        ),
+        "core.location": "INSERT INTO core.location (tenant_id, company_id, city)"
+        " VALUES (:t, :c, 'Cali')",
+        "core.lead_outcome": "INSERT INTO core.lead_outcome (tenant_id, lead_id, outcome,"
+        " occurred_at) VALUES (:t, :l, 'contact', now())",
+    }
+    for table, sql_text in inserts.items():
+        params = {"t": TENANT, "c": company, "l": lead, "x": uuid4().hex}
+        for context in (None, OTHER):  # missing context, then the wrong tenant
+            with pytest.raises(DBAPIError):
+                async with engines["core"].begin() as connection:
+                    if context is not None:
+                        await set_tenant_context(connection, context)
+                    await connection.execute(text(sql_text), params)
+        async with engines["core"].begin() as connection:  # the right context writes
+            await set_tenant_context(connection, TENANT)
+            await connection.execute(text(sql_text), params)
+        assert db.one(f"SELECT count(*) FROM {table} WHERE tenant_id = %s", TENANT)[0] >= 1, table
+
+
+async def test_create_signal_writes_the_tenant_and_needs_a_visible_company(
+    db: Db, engines: dict[str, Any]
+) -> None:
+    from libs.contracts.api import SignalCreate
+
+    company = _company(db, TENANT)
+    repository = _core_repository(db)
+
+    def payload(tenant: UUID | None) -> Any:
+        return SignalCreate(
+            company_id=company,
+            tenant_id=tenant,
+            source="maps",
+            signal_type="new_branch",
+            observed_at=datetime.now(UTC),
+            strength=0.5,
+        )
+
+    try:
+        signal_id, event_id = await repository.create_signal(payload(TENANT), request_id=None)
+        assert event_id is not None
+        assert db.one("SELECT tenant_id FROM core.signal WHERE id = %s", signal_id) == (TENANT,)
+        before = db.one("SELECT count(*) FROM core.signal WHERE company_id = %s", company)[0]
+        # Without any context the tenant cannot be derived: the insert is refused, not orphaned.
+        with pytest.raises(Exception):  # noqa: B017, PT011
+            await repository.create_signal(payload(None), request_id=None)
+        assert db.one("SELECT count(*) FROM core.signal WHERE company_id = %s", company) == (
+            before,
+        )
+    finally:
+        await repository.close()
+
+
+async def test_record_outcome_runs_under_the_tenant_context(db: Db) -> None:
+    from services.core.app.actions import LeadNotFoundError, OutcomeCreate, record_outcome
+
+    company = _company(db, TENANT)
+    lead = _lead(db, TENANT, company)
+    repository = _core_repository(db)
+    body = OutcomeCreate(outcome="contact", notes="called")
+    try:
+        result = await record_outcome(
+            repository.action_unit_of_work(TENANT), lead, body, tenant_id=TENANT
+        )
+        assert result
+        assert db.one(
+            "SELECT tenant_id, outcome FROM core.lead_outcome WHERE lead_id = %s", lead
+        ) == (TENANT, "contact")
+        # Without the context the lead is invisible: 404 and nothing is written.
+        with pytest.raises(LeadNotFoundError):
+            await record_outcome(repository.action_unit_of_work(), lead, body, tenant_id=TENANT)
+        with pytest.raises(LeadNotFoundError):
+            await record_outcome(repository.action_unit_of_work(OTHER), lead, body, tenant_id=OTHER)
+    finally:
+        await repository.close()
+    assert db.one("SELECT count(*) FROM core.lead_outcome WHERE lead_id = %s", lead) == (1,)
+
+
+async def test_retention_delete_removes_the_three_tables_only_under_the_context(db: Db) -> None:
+    company = _company(db, TENANT)
+    lead = _lead(db, TENANT, company)
+    _fixture_signal(db, TENANT, company)
+    _fixture_location(db, TENANT, company)
+    _fixture_outcome(db, TENANT, lead)
+    repository = _core_repository(db)
+    try:
+        async with repository.company_unit_of_work() as tx:  # no context
+            blind = await _delete_company_data(repository, tx, company)
+        assert blind["signal"] == blind["location"] == blind["lead_outcome"] == 0
+        async with repository.retention_unit_of_work() as tx:  # no context
+            assert (await tx.delete_company_data(company))["signal"] == 0
+        counts = await _retention_delete(repository, TENANT, company)
+    finally:
+        await repository.close()
+    assert (counts["signal"], counts["location"], counts["lead_outcome"]) == (1, 1, 1)
+    for table in ("core.signal", "core.location"):
+        assert db.one(f"SELECT count(*) FROM {table} WHERE company_id = %s", company) == (0,)
+    assert db.one("SELECT count(*) FROM core.lead_outcome WHERE lead_id = %s", lead) == (0,)
+
+
+async def _delete_company_data(repository: Any, tx: Any, company: UUID) -> dict[str, int]:
+    from services.core.app.repository import SqlRetentionTransaction
+
+    return await SqlRetentionTransaction(tx.connection).delete_company_data(company)
+
+
+async def _retention_delete(repository: Any, tenant: UUID, company: UUID) -> dict[str, int]:
+    from services.core.app.repository import SqlRetentionUnitOfWork
+
+    async with SqlRetentionUnitOfWork(repository.engine, tenant) as tx:
+        return await tx.delete_company_data(company)
+
+
+async def test_brief_facts_and_score_features_count_signals_only_under_the_context(
+    db: Db,
+) -> None:
+    company = _company(db, TENANT)
+    _fixture_signal(db, TENANT, company, "hiring")
+    _fixture_signal(db, TENANT, company, "new_branch")
+    repository = _core_repository(db)
+    try:
+        facts = await repository.brief_facts(company, TENANT)
+        assert facts is not None and sorted(facts["signal_codes"]) == ["hiring", "new_branch"]
+        assert await repository.brief_facts(company, OTHER) is None
+        assert await repository.brief_facts(company, None) is None  # no context: all rows hidden
+        mine = await repository.score_features(TENANT, 500, None)
+        row = next(c for c in mine["companies"] if c["company_id"] == str(company))
+        assert row["signal_strength"] > 0  # two signals counted
+        theirs = await repository.score_features(OTHER, 500, None)
+        assert all(c["company_id"] != str(company) for c in theirs["companies"])
+    finally:
+        await repository.close()

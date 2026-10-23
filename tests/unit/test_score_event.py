@@ -17,12 +17,12 @@ pytest.importorskip("structlog")
 pytest.importorskip("redis.asyncio")
 pytest.importorskip("fakeredis")
 
+from support_outbox import StopLoop  # noqa: E402
 from test_pulse_consumer import FakePulseDb, install_consumer, stream_message  # noqa: E402
 
 from services.core.app.dead_letter import stream_fields  # noqa: E402
 from services.ml.app.scoring_service import score_event_fields  # noqa: E402
 from services.pulse.app import consumer as pulse_consumer  # noqa: E402
-from support_outbox import StopLoop  # noqa: E402
 
 TENANT = uuid4()
 COMPANY = uuid4()

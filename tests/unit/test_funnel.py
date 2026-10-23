@@ -155,7 +155,9 @@ class FakeUow:
 def run(inputs: dict, project: dict | None = None, **kw) -> FakeTx:
     tenant = uuid4()
     tx = FakeTx(project if project is not None else {"tenant_id": tenant})
-    asyncio.run(evaluate_project_gate(FakeUow(tx), uuid4(), "G3", inputs, checklist=checklist(), **kw))
+    asyncio.run(
+        evaluate_project_gate(FakeUow(tx), uuid4(), "G3", inputs, checklist=checklist(), **kw)
+    )
     return tx
 
 
