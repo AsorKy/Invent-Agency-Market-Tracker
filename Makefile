@@ -50,7 +50,7 @@ doctor:
 	python ops/doctor.py
 
 verify-live:
-	python ops/verify_live.py --source "$(SOURCE)" $(if $(INPUTS),--inputs "$(INPUTS)")
+	docker compose --profile tools run --rm $(if $(INPUTS),-v "$(abspath $(INPUTS)):/tmp/verify_inputs.json:ro") verify-live python ops/verify_live.py --source "$(SOURCE)" $(if $(INPUTS),--inputs /tmp/verify_inputs.json)
 
 static:
 	python ops/check_migrations.py

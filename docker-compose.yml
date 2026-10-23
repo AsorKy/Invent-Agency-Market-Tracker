@@ -554,6 +554,34 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  verify-live:
+    # One-shot tool (T-186), outside the default stack: `make verify-live` runs it with
+    # `docker compose --profile tools run --rm verify-live ...`. It reaches ingest and core by
+    # service name on the container port, so no port of either service is published.
+    profiles: ["tools"]
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.python
+    env_file:
+      - path: .env
+        required: false
+    command: ["python", "ops/verify_live.py", "--help"]
+    environment:
+      <<: *app_env
+      VERIFY_LIVE_INGEST_URL: http://ingest:8000
+      VERIFY_LIVE_CORE_URL: http://core:8000
+      VERIFY_LIVE_DATABASE_URL: "postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-invent_market_tracker}"
+    volumes:
+      - ./tests/fixtures/brightdata:/app/tests/fixtures/brightdata
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ingest:
+        condition: service_healthy
+      core:
+        condition: service_healthy
+    restart: "no"
+
   mocks:
     build:
       context: .
