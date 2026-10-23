@@ -18,3 +18,6 @@ Tasks done: T-171 (qa-reviewer), T-173 (second-backend-engineer). Both depends w
 - No Docker: the CI e2e stage is the real check. Order of assertions: existing data checks, then qualified companies have an auto_qualification lead (most likely first failure), then the ml backfill and zero rows without features, then `--chain`.
 - The new SQL in `ops/` (e2e_check, doctor) is not covered by test_sql_consistency; column names were checked by hand against migrations.
 - No workflow files changed, no migrations added.
+
+## Coordinator fix
+- CI e2e failed with `ModuleNotFoundError: No module named ops` because the job runs `python ops/e2e_check.py`; the script now puts the repository root on `sys.path` (checked by running it by path from another directory).

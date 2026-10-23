@@ -28,9 +28,14 @@ import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from pathlib import Path
 from uuid import uuid4
 
 import httpx
+
+# CI runs this file as ``python ops/e2e_check.py``: the repository root is not on the path then,
+# and the leads step imports ``ops.seed`` and ``services.core`` lazily.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 PSQL = 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tA -v ON_ERROR_STOP=1 -c "$0"'
 PENDING_OUTBOX = "SELECT count(*) FROM core.outbox_event WHERE published_at IS NULL"
