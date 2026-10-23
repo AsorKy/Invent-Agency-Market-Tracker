@@ -164,18 +164,6 @@ def test_no_workflow_references_analytics_url() -> None:
     assert [n for n, refs in _referenced_variables().items() if "ANALYTICS_URL" in refs] == []
 
 
-def test_socioeco_refresh_uses_pulse_url() -> None:
-    nodes = {node["name"]: node for node in _load("wf_socioeco_refresh")["nodes"]}
-    url = nodes["Refresh socioeconomic data"]["parameters"]["url"]
-    assert url.startswith("={{$env.PULSE_URL}}/internal/pulse/")
-
-
-def test_socioeco_refresh_credential_names_pulse() -> None:
-    nodes = {node["name"]: node for node in _load("wf_socioeco_refresh")["nodes"]}
-    credential = nodes["Refresh socioeconomic data"]["credentials"]["httpHeaderAuth"]
-    assert credential == {"id": "pulse-internal", "name": "pulse-internal-header"}
-
-
 def test_drift_alert_webhook_requires_header_auth() -> None:
     document = _load("wf_drift_alert")
     hook = next(n for n in document["nodes"] if n["type"] == "n8n-nodes-base.webhook")

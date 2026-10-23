@@ -8,7 +8,9 @@ FastAPI routes in ``services/*/app/main.py`` validate it through
 ``require_internal_token``. Tenant headers (``X-Tenant-ID``) are honoured only
 behind a valid token, ``require_gateway_token`` pins the caller to the gateway,
 and ``require_service_token`` pins it to an explicit allow list of services.
-The raw shared secret is never accepted: every sender signs a token per request
+The caller names ``seed`` and ``verify_live`` exist only outside production
+(D-28): ``require_service_token`` answers 401 for them when the profile is
+production. The raw shared secret is never accepted: every sender signs a token per request
 (``service_token_header``) because a token lives only 60 seconds.
 """
 
@@ -24,6 +26,10 @@ from libs.common.settings import get_settings
 TOKEN_VERSION = "v1"
 DEFAULT_TTL_SECONDS = 60
 GATEWAY_SERVICE = "gateway"
+# Caller names that exist only outside production (REQ-SEC-005, D-28).
+NON_PRODUCTION_CALLERS = frozenset({"seed", "verify_live"})
+# Same list as ops/bootstrap_roles.py: anything else counts as production.
+LOCAL_ENVIRONMENTS = frozenset({"local", "test", "ci", "dev", "development"})
 
 
 def _mac(secret: str, message: str) -> str:
@@ -71,6 +77,15 @@ def service_token_header(service: str, secret: str) -> dict[str, str]:
     return {"X-Service-Token": sign_service_token(service, secret)}
 
 
+def is_production() -> bool:
+    """Return True unless both the profile and the environment are non production."""
+
+    settings = get_settings()
+    if settings.app_profile == "production":
+        return True
+    return settings.environment.strip().lower() not in LOCAL_ENVIRONMENTS
+
+
 def caller_service(token: str | None) -> str | None:
     """Return the calling service of a valid signed token, else ``None``."""
 
@@ -98,7 +113,8 @@ def require_service_token(*allowed: str) -> Callable[..., Awaitable[None]]:
     async def dependency(
         x_service_token: str | None = Header(default=None, alias="X-Service-Token"),
     ) -> None:
-        if caller_service(x_service_token) not in permitted:
+        caller = caller_service(x_service_token)
+        if caller not in permitted or (caller in NON_PRODUCTION_CALLERS and is_production()):
             raise HTTPException(status_code=401, detail="invalid_service_token")
 
     return dependency

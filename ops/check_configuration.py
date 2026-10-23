@@ -10,9 +10,11 @@ never the matched text.
 """
 
 import ast
+import os
 import re
 import subprocess
 import sys
+from collections.abc import Mapping
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -20,6 +22,7 @@ import yaml  # type: ignore[import-untyped]
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from libs.common.internal_auth import LOCAL_ENVIRONMENTS  # noqa: E402
 from ops.schemas import SCHEMAS  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -54,6 +57,8 @@ REDIS_DATA_SERVICES = (
     "ml-consumer",
     "brief",
 )
+NON_PRODUCTION_PREFIXES = ("SEED_", "VERIFY_LIVE_")
+CREDENTIAL_SUFFIXES = ("_TOKEN", "_SECRET", "_KEY", "_PASSWORD", "_CREDENTIAL")
 SECRET_PATTERNS = (
     re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----"),
     re.compile(r"\bAKIA[0-9A-Z]{16}\b"),
@@ -165,6 +170,25 @@ def redis_acl_problems(compose_text: str) -> list[str]:
     return problems
 
 
+def production_caller_problems(env: Mapping[str, str]) -> list[str]:
+    """Return names of seed or verify_live credentials configured for production (D-28).
+
+    The two caller names are refused by ``require_service_token`` in production, so a
+    production configuration must not carry variables meant for them. Names only.
+    """
+    profile = env.get("APP_PROFILE", "local").strip().lower()
+    environment = env.get("ENVIRONMENT", "local").strip().lower()
+    if profile != "production" and environment in LOCAL_ENVIRONMENTS:
+        return []
+    return sorted(
+        name
+        for name, value in env.items()
+        if value.strip()
+        and name.upper().startswith(NON_PRODUCTION_PREFIXES)
+        and name.upper().endswith(CREDENTIAL_SUFFIXES)
+    )
+
+
 def main() -> int:
     compose = COMPOSE_PATH.read_text(encoding="utf-8")
     env_variables = _env_example_variables()
@@ -186,6 +210,11 @@ def main() -> int:
     if wiring:
         print("Database role and Redis ACL wiring problems:", file=sys.stderr)
         print("\n".join(wiring), file=sys.stderr)
+        return 1
+    forbidden = production_caller_problems(os.environ)
+    if forbidden:
+        print("Production must not carry seed or verify_live credentials:", file=sys.stderr)
+        print("\n".join(forbidden), file=sys.stderr)
         return 1
     findings = scan_for_secrets(list_repository_files(ROOT))
     if findings:

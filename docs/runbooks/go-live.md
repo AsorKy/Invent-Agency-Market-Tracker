@@ -162,10 +162,14 @@ The `backups` workflow stays disabled until its four repository secrets exist; w
 
 Create these two credentials in n8n (names only here; never write their values in the repository or in a commit):
 
-1. `pulse-internal-header`, a header-auth credential used by the workflow `wf_socioeco_refresh` to call the pulse refresh route.
+1. `socioeco-mint-credential`, a header-auth credential used by the first node of `wf_socioeco_refresh`. Header name `X-Mint-Credential`; its value must equal `N8N_SOCIOECO_MINT_CREDENTIAL` on the identity service. It is a dedicated secret, distinct from `INTERNAL_SERVICE_TOKEN`, and the identity route `POST /internal/identity/mint/socioeco` accepts only it. That route issues only the token of the fixed caller `n8n_socioeco`, valid 60 seconds, and writes one audit log line (logger `imt.audit`) per issue. An empty variable refuses every request.
 2. `drift-alert-header`, a header-auth credential used by the webhook of `wf_drift_alert`. Its header name and value must equal `DRIFT_ALERT_HEADER_NAME` and `DRIFT_ALERT_HEADER_VALUE` on the drift worker.
 
-Decision D-33 (owner, 2026-10-22): `wf_socioeco_refresh` authenticates with a short-lived service token for the pulse scope (service tokens live 60 seconds), minted before each run with a dedicated, single-purpose credential held by n8n. That credential is distinct from `INTERNAL_SERVICE_TOKEN`, which never enters n8n, and it can mint tokens only for pulse. If it cannot be bounded without exposing the shared key, the fallback is a rotated static header accepted by pulse with a written rotation policy, and D-33 is reopened. The workflow stays inactive until task T-185 delivers one of the two; do not activate it before. The credential list above is aligned with that decision by T-185. Checkable: the credential `drift-alert-header` exists in n8n and `wf_socioeco_refresh` is inactive.
+Decision D-33 (owner, 2026-10-22): `wf_socioeco_refresh` requests a service token (60 seconds) with the dedicated credential, then calls the pulse refresh route with it in `X-Service-Token`. `INTERNAL_SERVICE_TOKEN` never enters n8n. Set `N8N_SOCIOECO_MINT_CREDENTIAL` in `.env` (generate a long random value) before activating the workflow; it stays inactive until the owner activates it.
+
+Rotating the dedicated credential: generate a new random value, set it as `N8N_SOCIOECO_MINT_CREDENTIAL` in `.env`, recreate identity (`docker compose up -d identity`), then update the value of `socioeco-mint-credential` in n8n. Between the two steps the monthly run would fail with 401, so rotate away from the first day of the month 02:00 run. Rotate it on suspicion of leak and at least once a year. Clearing the variable disables the route.
+
+Checkable: the credentials `socioeco-mint-credential` and `drift-alert-header` exist in n8n and `wf_socioeco_refresh` is inactive.
 
 ## 13. Start the drift worker
 

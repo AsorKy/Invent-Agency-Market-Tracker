@@ -361,6 +361,7 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       SERVICE_NAME: ${SERVICE_NAME:-invent-market-tracker}
       INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:-local-development-token}
+      N8N_SOCIOECO_MINT_CREDENTIAL: ${N8N_SOCIOECO_MINT_CREDENTIAL:-}
       POSTGRES_HOST: postgres
       POSTGRES_DB: ${POSTGRES_DB:-invent_market_tracker}
       IDENTITY_DB_USER: ${IDENTITY_DB_USER:-identity_app}
