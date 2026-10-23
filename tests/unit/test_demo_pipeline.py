@@ -167,6 +167,15 @@ async def test_features_are_bounded_and_deterministic() -> None:
     assert rows == enrich.score_features(profiles)
 
 
+async def test_seed_features_match_the_pinned_baseline_rows() -> None:
+    from tests.unit.test_score_features import PINNED_PROFILES, PINNED_ROWS
+
+    rows = enrich.score_features(
+        {key: enrich.CompanyProfile(**vars(p)) for key, p in PINNED_PROFILES.items()}
+    )
+    assert rows == PINNED_ROWS[enrich.SCORE_SOURCE_VERSION]
+
+
 class FlakyPort:
     """Fails with 503 once, then answers; brief for ``bad`` always answers 404."""
 
