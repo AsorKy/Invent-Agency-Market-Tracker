@@ -153,3 +153,51 @@ def test_gateway_never_routes_internal(path: str) -> None:
 
     result = resolve(path, "GET", get_settings())
     assert not isinstance(result, Route)
+
+
+def _seed_app() -> TestClient:
+    app = FastAPI()
+
+    @app.get(
+        "/internal/seed",
+        dependencies=[Depends(require_service_token("gateway", "seed", "verify_live"))],
+    )
+    async def listed() -> dict[str, str]:
+        return {"ok": "1"}
+
+    return TestClient(app)
+
+
+@pytest.mark.parametrize("service", ["seed", "verify_live"])
+def test_seed_and_verify_live_are_accepted_outside_production(
+    monkeypatch: pytest.MonkeyPatch, service: str
+) -> None:
+    for environment in ("local", "ci"):
+        monkeypatch.setenv("ENVIRONMENT", environment)
+        monkeypatch.setenv("APP_PROFILE", "local")
+        get_settings.cache_clear()
+        response = _seed_app().get(
+            "/internal/seed", headers={"X-Service-Token": sign_service_token(service, SECRET)}
+        )
+        assert response.status_code == 200, environment
+
+
+@pytest.mark.parametrize("service", ["seed", "verify_live"])
+@pytest.mark.parametrize(
+    ("profile", "environment"),
+    [("production", "local"), ("local", "production"), ("production", "production")],
+)
+def test_seed_and_verify_live_are_refused_in_production(
+    monkeypatch: pytest.MonkeyPatch, service: str, profile: str, environment: str
+) -> None:
+    monkeypatch.setenv("APP_PROFILE", profile)
+    monkeypatch.setenv("ENVIRONMENT", environment)
+    monkeypatch.setenv("REDIS_URL", "redis://data@redis:6379/0")
+    get_settings.cache_clear()
+    client = _seed_app()
+    seed_token = sign_service_token(service, SECRET)
+    assert client.get("/internal/seed", headers={"X-Service-Token": seed_token}).status_code == 401
+    gateway_token = sign_service_token("gateway", SECRET)
+    assert (
+        client.get("/internal/seed", headers={"X-Service-Token": gateway_token}).status_code == 200
+    )

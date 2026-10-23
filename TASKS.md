@@ -2076,7 +2076,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: filled by the agent when done
 
 ### T-184 Refuse the seed and verify_live callers in production
-- status: todo
+- status: done
 - spec: REQ-SEC-005
 - owner: lead-backend-engineer
 - depends: T-123
@@ -2085,7 +2085,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: S
 - acceptance: `pytest -q tests/unit/test_internal_auth.py tests/unit/test_check_configuration.py` and `python ops/check_configuration.py` and `make static`
 - note: decision D-28 (owner) says the caller names `seed` and `verify_live` exist only outside production, but today the allow lists of core (`INGEST_WRITE`, `GATEWAY_OR_SEED`, `GATEWAY_OR_VERIFY`) accept them in any environment. Make `require_service_token` ignore those two names (answer 401 as for any unknown caller) when the environment is production, using the environment or profile setting that already exists (the non production names are local, test, ci and dev in `ops/bootstrap_roles.py`); do not add a new variable if one exists. Add a configuration check that fails when production is configured with the seed or verify credentials, and tests for both environments. The CI e2e and `make invent-tracker` run in a non production profile and must keep working.
-- evidence: filled by the agent when done
+- evidence: `pytest -q tests/unit/test_internal_auth.py tests/unit/test_check_configuration.py` 27 passed; `python ops/check_configuration.py` OK; `make static` and `make test` (1631 passed) green. Production = APP_PROFILE production or ENVIRONMENT outside local/test/ci/dev/development.
 
 ### T-185 The socioeconomic refresh workflow authenticates with a minted token
 - status: todo
