@@ -84,3 +84,34 @@ async def test_decision_denies_analyst_and_forwards_tenant(client: Any, world: W
     sent = world.core_requests()[0]
     assert sent.headers["x-user-role"] == "strategist"
     assert sent.url.path == "/internal/core/" + DECISION
+
+
+INPUTS = f"projects/{PID}/validation-inputs"
+
+
+def test_inputs_route_resolves_for_put_only() -> None:
+    route = resolve(INPUTS, "PUT", get_settings())
+    assert isinstance(route, Route)
+    assert route.url.endswith("/internal/core/" + INPUTS)
+    assert route.allowed_roles == {"admin", "strategist"}
+    assert resolve(INPUTS, "GET", get_settings()) == "method_not_allowed"
+
+
+async def test_inputs_denies_other_roles_and_allows_strategist(client: Any, world: World) -> None:
+    url = f"/api/v1/{INPUTS}"
+    for role in ("analyst", "bd_rep"):
+        denied = await client.put(
+            url, json={}, headers={**bearer(world.signer.token(role=role)), "If-Match": '"0"'}
+        )
+        assert denied.status_code == 403
+        assert denied.json() == {"detail": "forbidden"}
+    assert world.core_requests() == []
+    for role in ("strategist", "admin"):
+        ok = await client.put(
+            url, json={}, headers={**bearer(world.signer.token(role=role)), "If-Match": '"0"'}
+        )
+        assert ok.status_code == 200
+    sent = world.core_requests()[0]
+    assert sent.url.path == "/internal/core/" + INPUTS
+    assert sent.headers["x-user-role"] == "strategist"
+    assert sent.headers["if-match"] == '"0"'

@@ -43,7 +43,6 @@ NOT_PUBLIC = {
     # T-165
     ("GET", "/internal/core/admin/score-features"): "ml service only, never public",
     # T-179
-    ("PUT", "/internal/core/projects/{project_id}/validation-inputs"): "gateway route is T-180",
     # T-151
     ("GET", "/internal/ml/explanations/{company_id}"): "brief service only, never public",
 }
