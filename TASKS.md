@@ -2209,7 +2209,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: filled by the agent when done
 
 ### T-195 Per-tenant unique key on core.signal (expand)
-- status: todo
+- status: blocked
 - spec: REQ-DAT-005, REQ-SEC-005, REQ-ING-009
 - owner: database-engineer
 - depends: T-082
@@ -2218,7 +2218,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: the integration case with two tenants and the SAME `(source, source_external_id)` passes (each tenant gets its own row, neither sees the other's, `create_signal` does not raise), `python ops/check_migrations.py`, `pytest -q tests/unit/test_sql_consistency.py`, `make static` and `make test`
 - note: decision D-37 (owner), option B, priority: do it before a second tenant is onboarded. Today the global `UNIQUE (source, source_external_id)` makes `ON CONFLICT DO NOTHING` hit the row of another tenant, the fallback `SELECT ... scalar_one()` is hidden by row level security and raises, so `create_signal` fails. Expand only (INV-06), in ONE pull request: (1) the migration creates `UNIQUE (tenant_id, source, source_external_id)` (a unique index, `IF NOT EXISTS`, re-runnable) and FIRST verifies that no row violates it, failing with an explicit message and never deduplicating by deleting; the global unique stays until T-196; (2) `create_signal` uses `ON CONFLICT (tenant_id, source, source_external_id)` and the fallback SELECT filters by `tenant_id`; (3) the integration test above. The migration number is pinned to 0017 (0014 is T-082, 0015 is T-181, 0016 is the ml outbox).
-- evidence: filled by the agent when done
+- evidence: BLOCKED (run r1-o-schema). The acceptance case (two tenants, same `(source, source_external_id)`, each gets its own row, `create_signal` does not raise) cannot pass while the global `UNIQUE (source, source_external_id)` stays, which the note requires until T-196. `ON CONFLICT (tenant_id, source, source_external_id)` only absorbs a violation of that one index; the insert of the second tenant still violates the global unique and raises. See docs/runs/RUN-r1-o-schema.md for options.
 
 ### T-196 Drop the global unique key on core.signal (contract)
 - status: todo
