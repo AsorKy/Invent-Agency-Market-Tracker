@@ -231,3 +231,4 @@ Do not declare go-live until the first two prerequisites are resolved. Each item
 5. The credential `drift-alert-header` exists in n8n and `wf_socioeco_refresh` stays inactive (section 12).
 6. The example funnel checklists are replaced (section 14, decision D-06). This is business content and an owner task; production refuses the examples while `FUNNEL_ALLOW_EXAMPLE_CHECKLISTS` is `false`.
 7. Retention and opt-out are tenant-aware (task T-191, decision D-36): the purge job (`python -m services.core.app.retention`) lists the tenants from identity and exits 1 when one tenant fails; every opt-out needs the `X-Tenant-Id` header. Core needs `IDENTITY_URL` to reach identity.
+8. Admin users can process a data subject deletion with `POST /api/v1/compliance/opt-out` (task T-197): admin role only, the tenant comes from the JWT, purge stays internal.

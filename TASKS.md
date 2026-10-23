@@ -2236,7 +2236,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: docs/runs/RUN-r1-q-contract.md; contract migration 0018 drops the constraint found by its columns (core.signal_source_source_external_id_key); 2 integration cases (CI integration stage is the real check; not run locally, no Postgres)
 
 ### T-197 Gateway route for operator-initiated opt-out (admin role)
-- status: todo
+- status: done
 - spec: REQ-CMP-001, REQ-SEC-005
 - owner: lead-backend-engineer
 - depends: T-191
@@ -2245,7 +2245,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: S
 - acceptance: `pytest -q tests/unit/test_gateway_routes.py tests/unit/test_openapi.py tests/unit/test_contract_snapshot.py` and `make static` and `make test`
 - note: tracked by decision D-36 (owner). For the go-live of run 1 the internal path of T-191 is enough: the retention job covers the age based purge and the operator runs a one-off opt-out through the seed. This task is the way a data subject's deletion request is processed from the app by an admin or legal user, and it is required BEFORE go-live if legal requests are processed by users. Do not launch it before T-191. Map `POST /api/v1/compliance/opt-out` in the gateway for the admin role only; the gateway injects `X-Tenant-Id` from the JWT as it does on the other routes (never from the request body) and forwards to `POST /internal/core/compliance/opt-out`. Purge stays internal. The change must be additive for the OpenAPI diff; regenerate `docs/api/openapi.json` and the snapshots. Tests: admin allowed; every other role 403; a body that names another tenant does not change the tenant sent to core.
-- evidence: filled by the agent when done
+- evidence: docs/runs/RUN-r1-q-gateway.md; POST /api/v1/compliance/opt-out resolves to the internal opt-out, admin_only; tests in test_gateway_auth.py and test_gateway_routes.py; make static and make test pass; openapi diff is 134 insertions, 0 deletions
 
 ### T-198 Close the open parent ids of the event chain
 - status: todo

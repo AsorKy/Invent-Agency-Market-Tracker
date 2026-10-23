@@ -419,3 +419,27 @@ async def test_admin_tenant_config_requires_admin_role(client: Any, world: World
     put = await client.put("/api/v1/admin/tenant-config", content=b"{}", headers=admin)
     assert put.status_code == 200
     assert (await client.post("/api/v1/admin/tenant-config", headers=admin)).status_code == 405
+
+
+async def test_opt_out_is_admin_only_and_tenant_comes_from_the_jwt(
+    client: Any, world: World
+) -> None:
+    body = b'{"nit": "900123456", "tenant_id": "%s"}' % TENANT_B.encode()
+    for role in ("strategist", "analyst"):
+        denied = await client.post(
+            "/api/v1/compliance/opt-out", content=body, headers=bearer(world.signer.token(role=role))
+        )
+        assert denied.status_code == 403
+    assert world.core_requests() == []
+
+    admin = bearer(world.signer.token(role="admin"))
+    allowed = await client.post(
+        "/api/v1/compliance/opt-out", content=body, headers={**admin, "X-Tenant-Id": TENANT_B}
+    )
+
+    assert allowed.status_code == 200
+    sent = world.core_requests()[0]
+    assert sent.url.path == "/internal/core/compliance/opt-out"
+    assert sent.headers["x-tenant-id"] == TENANT_A
+    assert (await client.get("/api/v1/compliance/opt-out", headers=admin)).status_code == 405
+    assert (await client.post("/api/v1/compliance/purge", headers=admin)).status_code == 404

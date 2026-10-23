@@ -125,6 +125,18 @@ def resolve(path: str, method: str, settings: Settings) -> Resolution:
             path,
             admin_only=True,
         )
+    if first == "compliance":
+        if path != "compliance/opt-out":
+            return None
+        if method.upper() != "POST":
+            return "method_not_allowed"
+        return Route(
+            _join(settings.core_url, "/internal/core/compliance/opt-out"),
+            "core",
+            "core",
+            path,
+            admin_only=True,
+        )
     if first == "pulse":
         internal = f"/internal/pulse/{suffix}" if suffix else "/internal/pulse"
         return Route(_join(settings.pulse_url, internal), "pulse", "pulse", path)

@@ -31,6 +31,7 @@ from libs.contracts.api import (
 from services.core.app.actions import ActivityCreate, OutcomeCreate, ProjectCreate
 from services.core.app.companies import CompanyUpsert
 from services.core.app.leads import LeadCreate, LeadStatusPatch
+from services.core.app.retention import OptOutRequest
 from services.core.app.tenant_config import TenantConfig
 from services.core.app.validation_inputs import ValidationInputs
 
@@ -387,6 +388,15 @@ def _build() -> tuple[PublicRoute, ...]:
             errors=(*c, 412, 422),
             request_headers=("If-Match",),
             response_headers=("ETag",),
+        ),
+        PublicRoute(
+            "POST",
+            "/compliance/opt-out",
+            "Delete one company of the caller's tenant on a data subject request (admin only)",
+            "admin",
+            response=JsonObject,
+            request=OptOutRequest,
+            errors=(*c, 400, 422),
         ),
         PublicRoute(
             "PUT",
