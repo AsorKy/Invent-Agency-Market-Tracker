@@ -646,7 +646,7 @@ Template entry:
 - source: ADR-IMT-0002 section 2.6
 - statement: Each chain event (`signal.tagged`, `signal.scored`, `company.matched`, `signal.explained`, `project.pipeline_updated`, `project.forecast_updated`) has a typed payload in `libs/contracts/events.py` with `extra="forbid"` and a `schema_version`; the envelope stays `DomainEvent` (`version`, `source_version`). `parent_event_id` is mandatory in the payload (a UUID or null). Canonical payloads: tagged `{signal_id, company_id, tags{source, signal_type}, parent_event_id}`; scored `{signal_id, company_id, score, score_version, parent_event_id}`; matched `{company_id, lead_id, rues_matched, parent_event_id}`; explained `{lead_id, company_id, qualification_reason, parent_event_id}`; pipeline_updated `{lead_id, project_id or null, from, to, version, parent_event_id}`; forecast_updated `{lead_id, project_id or null, stage, parent_event_id}`.
 - verify: `pytest -q tests/unit/test_contracts.py`
-- tasks: T-174, T-175, T-176, T-188
+- tasks: T-174, T-175, T-176, T-188, T-198
 
 ### Pulse, Brief, and ML (L1 part)
 
@@ -1219,7 +1219,7 @@ All L2 requirements are `later-run`. They are specified now so that run 1 leaves
 - source: ADR-IMT-0002 section 2.6
 - statement: A `signal.created` traverses signal.tagged, signal.scored, company.matched, signal.explained, funnel.gate_decision, project.pipeline_updated, and project.forecast_updated. Every event carries `source_version` and a `parent_event_id` (REQ-EVT-008), and `signal.scored` leaves `ml` through its outbox like every other domain event, so one decision can be traced end to end: `trace_chain` closes the chain once the producers propagate the parent id (D-21). `project.pipeline_updated` and `project.forecast_updated` reflect the stage transition of the lead; Pulse projects them (REQ-PUL-004). No project forecast model with value or burn exists yet (D-35).
 - verify: `pytest -q tests/unit/test_event_chain.py`
-- tasks: T-110, T-149, T-159, T-175, T-176, T-177, T-188
+- tasks: T-110, T-149, T-159, T-175, T-176, T-177, T-188, T-198
 
 ### REQ-LNS-013 Validation page
 - status: accepted
