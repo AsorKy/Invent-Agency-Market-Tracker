@@ -7,11 +7,15 @@ another request holds the lock. It relates to ``services/ml/app/main.py``,
 storage.
 """
 
+import json
 import logging
 from datetime import UTC, datetime
+from types import TracebackType
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 
 from libs.common.db import create_engine
 from libs.domain.scoring import ScoreWeights, resolve_weights
@@ -20,10 +24,164 @@ from services.ml.app.core_rules import CoreRules, CoreRulesUnavailable
 _log = logging.getLogger(__name__)
 
 
+_INSERT_OUTBOX = text(
+    """
+    INSERT INTO ml.outbox_event
+        (event_id, tenant_id, aggregate_type, aggregate_id, event_type, version,
+         schema_version, payload, occurred_at)
+    VALUES
+        (:event_id, :tenant_id, :aggregate_type, :aggregate_id, :event_type, :version,
+         1, CAST(:payload AS jsonb), :occurred_at)
+    """
+)
+
+
+async def insert_outbox_events(
+    connection: AsyncConnection, events: list[dict[str, Any]], now: datetime
+) -> None:
+    """Write events to ``ml.outbox_event`` on the caller's connection (its transaction).
+
+    ``ml.outbox_event`` has no row level security (infrastructure, D-29); ``tenant_id`` is the
+    routing metadata the relay copies into the stream entry.
+    """
+    for event in events:
+        await connection.execute(
+            _INSERT_OUTBOX,
+            {
+                "event_id": UUID(str(event["event_id"])),
+                "tenant_id": event["tenant_id"],
+                "aggregate_type": event["aggregate_type"],
+                "aggregate_id": event["aggregate_id"],
+                "event_type": event["event_type"],
+                "version": int(event["version"]),
+                "payload": json.dumps(event["payload"]),
+                "occurred_at": now,
+            },
+        )
+
+
+class MlOutboxTransaction:
+    """Claim, publish bookkeeping and dead lettering on ``ml.outbox_event`` (one connection)."""
+
+    def __init__(self, connection: AsyncConnection) -> None:
+        self.connection = connection
+
+    async def claim_due(self, now: datetime, limit: int) -> list[dict[str, Any]]:
+        """Due, undelivered events; an aggregate with an earlier waiting event is held back."""
+        result = await self.connection.execute(
+            text(
+                """
+                SELECT e.id, e.event_id, e.aggregate_type, e.aggregate_id, e.event_type,
+                       e.version, e.payload, e.attempts, e.replay, e.tenant_id
+                FROM ml.outbox_event e
+                WHERE e.published_at IS NULL AND e.dead_lettered_at IS NULL
+                  AND (e.next_attempt_at IS NULL OR e.next_attempt_at <= :now)
+                  AND NOT EXISTS (
+                      SELECT 1 FROM ml.outbox_event p
+                      WHERE p.aggregate_id = e.aggregate_id AND p.id < e.id
+                        AND p.published_at IS NULL AND p.dead_lettered_at IS NULL
+                        AND p.next_attempt_at > :now
+                  )
+                ORDER BY e.id
+                LIMIT :limit
+                FOR UPDATE SKIP LOCKED
+                """
+            ),
+            {"now": now, "limit": limit},
+        )
+        return [dict(row) for row in result.mappings().all()]
+
+    async def mark_published(self, row_id: int, now: datetime) -> None:
+        await self.connection.execute(
+            text("UPDATE ml.outbox_event SET published_at = :now WHERE id = :id"),
+            {"id": row_id, "now": now},
+        )
+
+    async def record_failure(
+        self, row_id: int, *, attempts: int, next_attempt_at: datetime, error: str
+    ) -> None:
+        await self.connection.execute(
+            text(
+                """
+                UPDATE ml.outbox_event
+                SET attempts = :attempts, next_attempt_at = :next_attempt_at, last_error = :error
+                WHERE id = :id
+                """
+            ),
+            {
+                "id": row_id,
+                "attempts": attempts,
+                "next_attempt_at": next_attempt_at,
+                "error": error,
+            },
+        )
+
+    async def dead_letter(
+        self, row: dict[str, Any], *, attempts: int, error: str, now: datetime
+    ) -> None:
+        await self.connection.execute(
+            text(
+                """
+                INSERT INTO ml.outbox_dead_letter
+                    (event_id, tenant_id, event_type, payload, error, attempts,
+                     source_outbox_id, replay)
+                VALUES
+                    (:event_id, :tenant_id, :event_type, CAST(:payload AS jsonb), :error,
+                     :attempts, :id, COALESCE(:replay, false))
+                """
+            ),
+            {
+                "event_id": row["event_id"],
+                "tenant_id": row.get("tenant_id"),
+                "event_type": row["event_type"],
+                "payload": json.dumps(row["payload"], default=str),
+                "error": error,
+                "attempts": attempts,
+                "id": row["id"],
+                "replay": row.get("replay"),
+            },
+        )
+        await self.connection.execute(
+            text(
+                """
+                UPDATE ml.outbox_event
+                SET attempts = :attempts, last_error = :error, dead_lettered_at = :now
+                WHERE id = :id
+                """
+            ),
+            {"id": row["id"], "attempts": attempts, "error": error, "now": now},
+        )
+
+
+class MlOutboxUnitOfWork:
+    """One transaction per relay pass: commit on success, roll back on error."""
+
+    def __init__(self, engine: AsyncEngine) -> None:
+        self._engine = engine
+        self._context: Any = None
+
+    async def __aenter__(self) -> MlOutboxTransaction:
+        self._context = self._engine.begin()
+        return MlOutboxTransaction(await self._context.__aenter__())
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
+    ) -> None:
+        await self._context.__aexit__(exc_type, exc, tb)
+
+
 class MlRepository:
     def __init__(self, database_url: str | None, core_rules: CoreRules | None = None) -> None:
         self.engine = create_engine(database_url, pool_size=2)
         self._core_rules = core_rules
+
+    def outbox_unit_of_work(self) -> MlOutboxUnitOfWork:
+        if self.engine is None:
+            raise RuntimeError("DATABASE_URL is required for ml writes")
+        return MlOutboxUnitOfWork(self.engine)
 
     async def close(self) -> None:
         if self._core_rules:
@@ -41,8 +199,13 @@ class MlRepository:
         score_version: str,
         features: tuple[float, float, float] | None = None,
         weights: tuple[float, float, float] | None = None,
+        outbox_events: list[dict[str, Any]] | None = None,
     ) -> None:
-        """Upsert the score; ``features`` and ``weights`` are (icp, signal, territory)."""
+        """Upsert the score; ``features`` and ``weights`` are (icp, signal, territory).
+
+        ``outbox_events`` are written to ``ml.outbox_event`` in this same transaction, so the
+        score and its events commit or roll back together (D-21).
+        """
         if self.engine is None:
             raise RuntimeError("DATABASE_URL is required for ml writes")
         f = features or (None, None, None)
@@ -100,6 +263,8 @@ class MlRepository:
                 ),
                 {"company_id": company_id, "score": score, "source_version": source_version},
             )
+            if outbox_events:
+                await insert_outbox_events(connection, outbox_events, datetime.now(UTC))
 
     async def latest_score(self, company_id: UUID) -> dict[str, object] | None:
         if self.engine is None:

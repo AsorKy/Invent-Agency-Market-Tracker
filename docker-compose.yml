@@ -521,6 +521,28 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  ml-relay:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.python
+    env_file:
+      - path: .env
+        required: false
+    command: ["python", "-m", "services.ml.app.outbox_relay"]
+    environment:
+      <<: *app_env
+      DATABASE_URL: "postgresql+asyncpg://ml_app:${BOOTSTRAP_PASSWORD_ML:-CHANGE_ME_ML}@postgres:5432/${POSTGRES_DB:-invent_market_tracker}"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      bootstrap-roles:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
   drift-worker:
     # Optional nightly drift loop (REQ-LNS-007), outside the default stack: start it with
     # `docker compose --profile lens up -d drift-worker`. It reads series from pulse over HTTP

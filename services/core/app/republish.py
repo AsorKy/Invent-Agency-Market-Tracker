@@ -18,7 +18,7 @@ from datetime import UTC, datetime
 from typing import Any, Protocol
 from uuid import UUID
 
-from services.core.app.dead_letter import MissingTenantError, stream_fields
+from libs.messaging.relay import MissingTenantError, stream_fields
 
 TARGETS = ("pulse", "brief", "ml")
 LOCK_TTL_SECONDS = 6 * 3600

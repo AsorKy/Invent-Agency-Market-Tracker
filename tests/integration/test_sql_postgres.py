@@ -42,6 +42,12 @@ RLS_EXEMPT: dict[str, str] = {
     "core.outbox_event": "transactional outbox, read by the relay across tenants",
     "core.processed_event": "consumer idempotency ledger, written by the service only",
     "core.signal": "ingest-derived signal rows written by the pipeline",
+    "ml.outbox_dead_letter": (
+        "messaging infrastructure read and written only by ml_app, tenant_id is routing metadata"
+    ),
+    "ml.outbox_event": (
+        "messaging infrastructure read and written only by ml_app, tenant_id is routing metadata"
+    ),
     "ml.processed_event": "consumer idempotency ledger, written by the service only",
 }
 

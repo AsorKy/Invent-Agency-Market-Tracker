@@ -602,3 +602,95 @@ async def test_score_event_of_another_tenant_creates_no_lead(db: Db) -> None:
     finally:
         await repository.close()
     assert db.rows(_LEAD_ROWS, company) == []
+
+
+# --- T-176: ml outbox ----------------------------------------------------------------------
+
+
+def _scored_events(company: UUID) -> list[dict[str, Any]]:
+    from services.ml.app.scoring_service import chain_outbox_events
+
+    return chain_outbox_events(
+        company_id=company, tenant_id=TENANT, score=70, source_version="2", parent_event_id=uuid4()
+    )
+
+
+async def test_ml_score_and_outbox_row_commit_together(db: Db) -> None:
+    from services.ml.app.repository import MlRepository
+
+    company = uuid4()
+    repository = MlRepository(asyncpg_url(db.app["ml"]))
+    try:
+        await repository.upsert_score(
+            company_id=company,
+            score=70,
+            is_hot=False,
+            source_version="2",
+            score_version="v1",
+            outbox_events=_scored_events(company),
+        )
+    finally:
+        await repository.close()
+    assert db.one("SELECT count(*) FROM ml.lead_score WHERE company_id = %s", company) == (1,)
+    assert db.one(
+        "SELECT event_type, tenant_id FROM ml.outbox_event WHERE aggregate_id = %s", company
+    ) == ("signal.scored", TENANT)
+
+
+async def test_ml_score_and_outbox_row_roll_back_together(db: Db) -> None:
+    from services.ml.app.repository import MlRepository
+
+    company = uuid4()
+    events = _scored_events(company)
+    # A duplicate event_id violates the unique key on the second insert, after the score write.
+    events.append(dict(events[0]))
+    repository = MlRepository(asyncpg_url(db.app["ml"]))
+    try:
+        with pytest.raises(Exception):  # noqa: B017 - the driver wraps the unique violation
+            await repository.upsert_score(
+                company_id=company,
+                score=70,
+                is_hot=False,
+                source_version="2",
+                score_version="v1",
+                outbox_events=events,
+            )
+    finally:
+        await repository.close()
+    assert db.one("SELECT count(*) FROM ml.lead_score WHERE company_id = %s", company) == (0,)
+    assert db.one("SELECT count(*) FROM ml.score_history WHERE company_id = %s", company) == (0,)
+    assert db.one("SELECT count(*) FROM ml.outbox_event WHERE aggregate_id = %s", company) == (0,)
+
+
+async def test_ml_relay_publishes_the_row_with_its_tenant(db: Db) -> None:
+    from libs.messaging.relay import relay_due_events, stream_fields
+    from services.ml.app.repository import MlRepository
+
+    company = uuid4()
+    repository = MlRepository(asyncpg_url(db.app["ml"]))
+    published: list[dict[str, str]] = []
+
+    async def publish(row: dict[str, Any]) -> None:
+        if row["aggregate_id"] == company:
+            published.append(stream_fields(row))
+
+    try:
+        await repository.upsert_score(
+            company_id=company,
+            score=70,
+            is_hot=False,
+            source_version="2",
+            score_version="v1",
+            outbox_events=_scored_events(company),
+        )
+        counts = await relay_due_events(repository.outbox_unit_of_work(), publish)
+    finally:
+        await repository.close()
+    assert counts["published"] >= 1 and counts["dead_lettered"] == 0
+    assert len(published) == 1
+    assert published[0]["tenant_id"] == str(TENANT)
+    assert published[0]["event_type"] == "signal.scored"
+    assert db.one(
+        "SELECT published_at IS NOT NULL FROM ml.outbox_event WHERE aggregate_id = %s", company
+    ) == (True,)
+    assert db.one("SELECT count(*) FROM ml.outbox_dead_letter WHERE tenant_id = %s", TENANT) == (0,)

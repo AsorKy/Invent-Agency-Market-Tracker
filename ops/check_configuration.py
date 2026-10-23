@@ -52,6 +52,7 @@ REDIS_DATA_SERVICES = (
     "pulse-consumer",
     "ml",
     "ml-consumer",
+    "ml-relay",
     "brief",
 )
 SECRET_PATTERNS = (

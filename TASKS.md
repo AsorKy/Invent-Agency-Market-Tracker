@@ -1980,7 +1980,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: acceptance pytest (22 passed; test_event_chain_contracts.py does not exist), make static, make test (1635 passed, 2 skipped, 4 xfailed). Open: funnel.py does not expose the gate event id; production callers do not yet send parent ids (see RUN report)
 
 ### T-176 ML publishes signal.scored through an outbox
-- status: todo
+- status: done
 - spec: REQ-LNS-012, REQ-EVT-001, REQ-EVT-008
 - owner: second-backend-engineer
 - depends: T-174, T-175
@@ -1989,7 +1989,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/unit/test_ml_outbox.py tests/unit/test_dead_letter.py tests/unit/test_outbox_relay.py tests/unit/test_ml_singleflight.py tests/unit/test_event_chain_producers.py tests/unit/test_sql_consistency.py tests/unit/test_schema_catalog.py tests/unit/test_compose.py tests/integration/test_sql_r1_flows.py tests/integration/test_sql_postgres.py` and `python ops/check_migrations.py` and `python ops/check_configuration.py` and `make static` and `make test`
 - note: decisions D-21 and D-17 (owner, clarified 2026-10-22): a domain event outside the outbox breaks the outbox rule, so `signal.scored` leaves `ml` through a transactional outbox written in the same transaction as the score. This does NOT conflict with D-17: there is ONE relay implementation and one INSTANCE per schema with an outbox. So: (1) move the generic part of the relay (retry schedule, dead letter, `relay_due_events`, `stream_fields`) from `services/core/app/dead_letter.py` to the shared module `libs/messaging/relay.py`; core and ml pass their own unit of work (`core.outbox_event` and `ml.outbox_event`); it is one algorithm in two processes, not a second implementation, and core behavior and its public names stay unchanged. (2) Expand migration with the exact name above: `ml.outbox_event` (and `ml.outbox_dead_letter` if the relay needs it) owned by `ml_app`, same columns as `core.outbox_event`, no row level security (infrastructure, D-29); add both tables to the `RLS_EXEMPT` registry with the real reason. (3) The `ml` relay instance (`services/ml/app/outbox_relay.py`, compose service `ml-relay`) reads and writes only `ml.*` (INV-01). `lead.score_updated` keeps its current path unless moving it is the only way to keep the two events ordered; if so, say so in the report instead of changing it silently. Add a real Postgres test as `ml_app`: the score and its outbox row commit together and roll back together, and the ml relay publishes the row with its tenant. The task is no longer blocked by D-17.
-- evidence: filled by the agent when done
+- evidence: acceptance pytest (137 passed, 28 integration skipped: no Postgres), check_migrations, check_configuration, make static, make test (1649 passed, 2 skipped, 4 xfailed). Real Postgres cases written but not run (no Docker)
 
 ### T-177 Pulse projects the project stage events
 - status: done
