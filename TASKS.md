@@ -2210,7 +2210,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_identity_tenants.py tests/unit/test_openapi.py` 18 passed; `make static` clean; `make test` 1728 passed, 2 skipped, 4 xfailed
 
 ### T-195 Per-tenant unique key on core.signal (expand)
-- status: todo
+- status: done
 - spec: REQ-DAT-005, REQ-SEC-005, REQ-ING-009
 - owner: database-engineer
 - depends: T-082
@@ -2219,7 +2219,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: the integration cases below pass on real Postgres, `python ops/check_migrations.py`, `pytest -q tests/unit/test_sql_consistency.py`, `make static` and `make test`
 - note: decision D-37 (owner), option B, priority: do it before a second tenant is onboarded. Today the global `UNIQUE (source, source_external_id)` makes `ON CONFLICT DO NOTHING` hit the row of another tenant, the fallback `SELECT ... scalar_one()` is hidden by row level security and raises, so `create_signal` fails. Expand only (INV-06), in ONE pull request: (1) the migration creates `UNIQUE (tenant_id, source, source_external_id)` (a unique index, `IF NOT EXISTS`, re-runnable) and FIRST verifies that no row violates it, failing with an explicit message and never deduplicating by deleting; the global unique stays until T-196; (2) `create_signal` uses `ON CONFLICT (tenant_id, source, source_external_id)` and the fallback SELECT filters by `tenant_id`; (3) integration cases that pass WHILE the global unique still exists: the new unique index is present in `pg_indexes`; `create_signal` called twice in the same tenant with the same `(source, source_external_id)` returns the same id and keeps one row; the fallback SELECT filters by `tenant_id` (assert it with a second tenant that holds a different external id). The two tenant case with the SAME external id cannot pass until the global key is gone, so it belongs to T-196 (first attempt of this task, run r1-o-schema, was blocked on exactly this; see docs/runs/RUN-r1-o-schema.md). Until T-196 is merged and applied, a second tenant that collides on an external id still fails; that is accepted by D-37 option B and the order expand then contract of INV-06. The migration number is pinned to 0017 (0014 is T-082, 0015 is T-181, 0016 is the ml outbox).
-- evidence: filled by the agent when done
+- evidence: docs/runs/RUN-r1-p-schema.md; migration 0017, create_signal on the tenant key, 3 integration cases (CI integration stage is the real check; not run locally, no Postgres)
 
 ### T-196 Drop the global unique key on core.signal (contract)
 - status: todo
