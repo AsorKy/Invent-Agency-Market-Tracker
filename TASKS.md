@@ -55,6 +55,7 @@ Size is a rough token cost guide: S under 1 USD, M 1 to 3 USD, L 3 to 8 USD. Tes
 | r1-o | Wave, three parallel sessions: per-tenant unique key on core.signal, expand only T-195; identity lists the tenants for service callers T-194; doctor check for rows without a tenant and the verify-live owner role pin T-192, T-193 | 4 tasks | about 35 USD |
 | r1-p | Wave, two parallel sessions: per-tenant unique key on core.signal, expand only T-195; tenant-aware compliance routes and retention job T-191 | 2 tasks | about 35 USD |
 | r1-q | Wave, two parallel sessions with separate pull requests: drop of the global unique key on core.signal, contract only T-196; gateway route for operator-initiated opt-out T-197 | 2 tasks | about 20 USD |
+| r1-r | Short wave, one session: the open parent ids of the event chain, the signal.tagged id on the core features route and the stored signal.scored id with an expand migration T-198 | 1 task | about 20 USD |
 | r2 | Continuation with ADR-0002: T-100 to T-112, only if budget remains after T-080; run as r1-f and r1-g | 13 tasks | about 38 USD |
 
 Total estimate for run 1 (smoke to r1-d): about 197 USD (183 USD of the v3 plan plus about 14 USD for T-090 to T-097 and about 30 USD for the v6 follow-ups), plus about 38 USD for the optional ADR-0002 continuation, to be corrected after the smoke run shows real cost per task. Blocked tasks do not consume budget. Set the session budget of each run to about 1.5 times its estimate.
