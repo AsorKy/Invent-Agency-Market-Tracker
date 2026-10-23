@@ -276,7 +276,7 @@ Template entry:
 - source: ADR-IMT-0001 section 5.4
 - statement: Row-level security is enabled on `core.company`, `core.lead`, `core.project`, `core.signal`, `core.location`, and `core.lead_outcome` by `tenant_id` (D-29); the infrastructure tables `core.outbox_event`, `core.outbox_dead_letter`, `core.processed_event`, `ml.processed_event`, and `core.audit_log` are exempt with a recorded reason; the Supabase Data API is not used; connections require SSL verification; the service_role key never reaches the frontend or the gateway.
 - verify: `python ops/check_migrations.py` asserts `ENABLE ROW LEVEL SECURITY` and tenant policies for the three tables.
-- tasks: T-018, T-082, T-093, T-094, T-095, T-125, T-132, T-143
+- tasks: T-018, T-082, T-093, T-094, T-095, T-125, T-132, T-143, T-191, T-192
 
 ### REQ-DAT-006 Extensions and roles bootstrap
 - status: accepted
@@ -833,7 +833,7 @@ Template entry:
 - source: ADR-IMT-0001 section 6.4
 - statement: Each service connects with its own `_app` role. Service-to-service calls carry a signed service token. Redis has ACL users `edge` (rate-limit keys only) and `data` (streams, cache). `/internal/*` is never routed by the gateway. Service tokens are signed with HMAC-SHA256 and one shared key (`INTERNAL_SERVICE_TOKEN`), live 60 seconds, and each route has an allow list of services. Per-service keys (one per issuer, rotatable) are planned L2 work (D-28); asymmetric tokens are rejected as not worth their cost at this team size. The caller names `seed` and `verify_live` are accepted only outside production.
 - verify: `pytest -q tests/unit/test_internal_auth.py` and `python ops/check_configuration.py`
-- tasks: T-060, T-082, T-123, T-130, T-131, T-140, T-144, T-146, T-147, T-150, T-151, T-153, T-158, T-160, T-162, T-163, T-165, T-168, T-170, T-179, T-183, T-184, T-185, T-189
+- tasks: T-060, T-082, T-123, T-130, T-131, T-140, T-144, T-146, T-147, T-150, T-151, T-153, T-158, T-160, T-162, T-163, T-165, T-168, T-170, T-179, T-183, T-184, T-185, T-189, T-193
 
 ### REQ-CMP-001 Habeas data compliance
 - status: accepted
@@ -843,7 +843,7 @@ Template entry:
 - source: ADR-IMT-0001 section 13.4 (formal ADR pending: ADR-IMT-0006-HABEAS)
 - statement: Records are purged 12 months after the last signal. An opt-out request executes an idempotent delete in `core`. Stored persons are limited to public business roles. A processing-activities record exists in `docs/`.
 - verify: `pytest -q tests/unit/test_retention.py`
-- tasks: T-027
+- tasks: T-027, T-191
 
 ### Resilience, CI/CD, backups, operations
 
@@ -947,7 +947,7 @@ Template entry:
 - source: owner requirement 2026-10-18; ADR-IMT-0001 section 16
 - statement: `make invent-tracker` is the single command that starts the whole application. It creates `.env` from `.env.example` when missing (generating local-only secrets without printing them), builds the images, runs migrations, starts every service and worker, loads demo data on the first run, waits until the gateway `/ready` is green, and prints the service URLs and next steps. Running it again is safe. `make invent-tracker-down` stops it and `make invent-tracker-reset` removes volumes after confirmation.
 - verify: `make -n invent-tracker` lists the steps; `pytest -q tests/unit/test_make_targets.py` parses the Makefile. The owner runs it once with Docker.
-- tasks: T-074, T-125, T-130, T-140, T-141, T-161, T-164, T-170, T-171, T-173, T-187
+- tasks: T-074, T-125, T-130, T-140, T-141, T-161, T-164, T-170, T-171, T-173, T-187, T-192
 
 ### REQ-RUN-002 Migration runner
 - status: accepted
@@ -997,7 +997,7 @@ Template entry:
 - source: owner requirement 2026-10-18
 - statement: `make verify-live SOURCE=<name>` triggers one bounded collection (at most 5 records) for a live source, follows it through ingest and core, and reports pass or fail per hop (trigger, snapshot, normalize, resolve, signal, score, API read). It refuses to run in mock mode.
 - verify: `pytest -q tests/unit/test_verify_live.py` with fakes. The owner runs the command with real credentials.
-- tasks: T-076, T-096
+- tasks: T-076, T-096, T-193
 
 ### REQ-DOC-001 Go-live runbook
 - status: accepted
@@ -1466,6 +1466,8 @@ An agent must not resolve open decisions. A task that depends on one stays `bloc
 | D-33 | Authentication of `wf_socioeco_refresh` | The workflow authenticates with a short-lived service token (scope `pulse` only) minted before each run, not with a static header credential. The mint step uses a dedicated, single-purpose credential held by n8n, distinct from `INTERNAL_SERVICE_TOKEN` (its own secret, minimal scope: it can mint tokens only for `pulse` and reach nothing else). `INTERNAL_SERVICE_TOKEN` never enters n8n, in any case. Fallback, only if the credential cannot be bounded without exposing the shared key: a rotated static header accepted by pulse (`pulse-internal-header`) with a documented rotation policy, and D-33 is reopened with the note that identity cannot issue a bounded mint credential without the shared key. The workflow stays inactive until one of the two works. See T-185. | closed 2026-10-22 |
 | D-34 | Go-live owners and date | Technical owner: lead-backend-engineer. Data and credentials owner: the owner. Target date: not set yet; the owner writes it here and in `docs/runbooks/go-live.md` before go-live. | open, target date |
 | D-35 | Project forecast model with figures | No project forecast model with value or burn exists in L2; `project.forecast_updated` only reflects the stage transition. A model with figures is a future decision. | open, R3 |
+| D-36 | Retention and opt-out under row level security | Since T-082 the tenant tables are hidden without a tenant context, and the opt-out, purge and retention job carry no tenant, so they delete nothing. Options: (A) the opt-out request takes the tenant from `X-Tenant-Id` (the gateway already sends it) and the retention job iterates the tenants, setting the context for each; (B) a dedicated retention role with a policy limited to the purge statements. Recommendation: A, because it keeps one access model and needs no new role. Task: T-191. | open, owner |
+| D-37 | Scope of the signal dedupe key | `core.signal` is deduplicated by the global key `(source, source_external_id)`, so a second tenant that ingests the same external id gets an error instead of its own row. Options: (A) keep the key global (one provider record is one signal for every tenant); (B) make it `(tenant_id, source, source_external_id)` through an expand migration and a later contract. Recommendation: B before a second tenant is onboarded. No task until decided. | open, owner |
 
 ## 6. Definition of done per layer
 
@@ -1503,3 +1505,4 @@ An agent must not resolve open decisions. A task that depends on one stays `bloc
 | 2026-10-18 | v3.1: decisions D-16 to D-19 and D-13 revised; REQ-EVT-005 adds `tenant_id`; REQ-PUL-003 fixes the `mart_` naming. Tasks T-090 to T-097 added in TASKS.md v4. |
 | 2026-10-18 | v3.1: review against ADR-0001 found five gaps. Added REQ-SOC-001 (socioeconomic indices), REQ-ALR-001 (hot lead alert), REQ-OBS-002 (deferred); added the territory route to REQ-API-002; REQ-DEP-001 no longer needs a Docker CLI; D-06 no longer blocks the L2 code; defined the continuation from run 1 to the L2 tasks. |
 | 2026-10-22 | Owner decisions on the 14 open points recorded as D-20 to D-35 and D-06 and D-13 updated. New requirements REQ-EVT-008, REQ-PUL-004, and REQ-LNS-014 to REQ-LNS-016; REQ-DAT-005, REQ-SEC-005, REQ-API-002, REQ-LNS-007, REQ-LNS-009, REQ-LNS-010, and REQ-LNS-012 amended. Tasks T-082 and T-174 to T-187 added in TASKS.md. |
+| 2026-10-23 | Decisions D-36 (retention and opt-out under row level security) and D-37 (scope of the signal dedupe key) opened after the r1-n-rls report. Tasks T-191 (blocked by D-36), T-192 and T-193 added in TASKS.md. |
