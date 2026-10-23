@@ -7,6 +7,8 @@ to be driven by the session layer (T-031).
 
 # mypy: disable-error-code="import-untyped,misc,no-any-return,no-untyped-call"
 
+import logging
+
 from django.core.exceptions import ValidationError
 from django.http import HttpRequest, JsonResponse
 from rest_framework.request import Request
@@ -15,7 +17,15 @@ from rest_framework.views import APIView
 
 from services.identity.iam.keys import jwks_document
 from services.identity.iam.models import TenantMembership
-from services.identity.iam.tokens import issue_service_token, issue_user_token
+from services.identity.iam.permissions import DedicatedMintCredential
+from services.identity.iam.tokens import (
+    SOCIOECO_MINT_SERVICE,
+    issue_service_token,
+    issue_socioeco_refresh_token,
+    issue_user_token,
+)
+
+audit_log = logging.getLogger("imt.audit")
 
 
 def health(_request: HttpRequest) -> JsonResponse:
@@ -40,6 +50,23 @@ class ServiceTokenView(APIView):
         if not service.isidentifier():
             return Response({"detail": "invalid_service"}, status=400)
         return Response({"access_token": issue_service_token(service), "token_type": "Bearer"})
+
+
+class SocioecoMintView(APIView):
+    """Issue the 60 second token of ``wf_socioeco_refresh`` (D-33).
+
+    Accepts only the dedicated n8n credential. The body is ignored: the service
+    name is fixed, so no other service token can be requested here.
+    """
+
+    permission_classes: list[type] = []
+
+    def post(self, request: Request) -> Response:
+        if not DedicatedMintCredential().has_permission(request, self):
+            return Response({"detail": "invalid_credential"}, status=401)
+        token = issue_socioeco_refresh_token()
+        audit_log.info("service_token_issued service=%s route=mint_socioeco", SOCIOECO_MINT_SERVICE)
+        return Response({"access_token": token, "token_type": "Bearer"})
 
 
 class UserTokenView(APIView):

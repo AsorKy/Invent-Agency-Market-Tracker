@@ -95,7 +95,7 @@ def test_lens_wave_sections_are_present() -> None:
     for number in range(11, 16):
         assert f"\n## {number}. " in text, number
     for needle in (
-        "pulse-internal-header",
+        "socioeco-mint-credential",
         "drift-alert-header",
         "60 seconds",
         "--profile lens",

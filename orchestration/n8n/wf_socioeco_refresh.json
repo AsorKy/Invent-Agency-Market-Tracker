@@ -28,37 +28,57 @@
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
       "position": [
-        260,
+        160,
         300
       ]
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.PULSE_URL}}/internal/pulse/socioeconomic/refresh",
+        "url": "={{$env.IDENTITY_URL}}/internal/identity/mint/socioeco",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "socioeco_refresh-mint",
+      "name": "Mint pulse token",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        400,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "socioeco-mint",
+          "name": "socioeco-mint-credential"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.PULSE_URL}}/internal/pulse/socioeconomic/refresh",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={\"source\":\"dane\"}",
         "options": {
           "timeout": 30000
-        }
+        },
+        "sendHeaders": true,
+        "specifyHeaders": "json",
+        "jsonHeaders": "={{ {\"X-Service-Token\": $json.access_token} }}"
       },
       "id": "socioeco_refresh-refresh",
       "name": "Refresh socioeconomic data",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        520,
+        640,
         300
-      ],
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "pulse-internal",
-          "name": "pulse-internal-header"
-        }
-      }
+      ]
     },
     {
       "parameters": {
@@ -76,7 +96,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        780,
+        880,
         300
       ]
     },
@@ -117,7 +137,7 @@
       "main": [
         [
           {
-            "node": "Refresh socioeconomic data",
+            "node": "Mint pulse token",
             "type": "main",
             "index": 0
           }
@@ -140,6 +160,17 @@
         [
           {
             "node": "Notify refresh failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mint pulse token": {
+      "main": [
+        [
+          {
+            "node": "Refresh socioeconomic data",
             "type": "main",
             "index": 0
           }

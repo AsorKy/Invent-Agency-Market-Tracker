@@ -15,6 +15,7 @@ from typing import Any
 import jwt
 from django.conf import settings
 
+from libs.common.internal_auth import DEFAULT_TTL_SECONDS, sign_service_token
 from services.identity.iam.keys import signing_key
 from services.identity.iam.models import MembershipScope, TenantMembership
 from services.identity.iam.rbac import permissions_for
@@ -62,4 +63,19 @@ def issue_service_token(service: str) -> str:
     return _sign(
         {"sub": f"service:{service}", "role": "service", "permissions": []},
         settings.IDENTITY_SERVICE_TOKEN_TTL_SECONDS,
+    )
+
+
+SOCIOECO_MINT_SERVICE = "n8n_socioeco"
+
+
+def issue_socioeco_refresh_token() -> str:
+    """Return a 60 second signed token for the fixed socioeconomic refresh caller.
+
+    The service name is a constant: no request value reaches it (D-33).
+    """
+    return sign_service_token(
+        SOCIOECO_MINT_SERVICE,
+        settings.IDENTITY_INTERNAL_SERVICE_TOKEN,
+        ttl_seconds=DEFAULT_TTL_SECONDS,
     )
