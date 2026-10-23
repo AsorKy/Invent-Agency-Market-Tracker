@@ -18,9 +18,11 @@ pytest.importorskip("pydantic")
 from services.core.app.retention import (  # noqa: E402
     OptOutRequest,
     PersonalDataError,
+    PurgeBlindError,
     ensure_public_role,
     opt_out,
     purge_inactive_companies,
+    purge_tenants,
     reject_personal_identifiers,
     retention_cutoff,
 )
@@ -35,10 +37,18 @@ class Store:
         self.signals: list[dict[str, Any]] = []
         self.audit: list[dict[str, Any]] = []
         self.fail_on_delete = False
+        self.tenanted = False
 
-    def add(self, nit: str, last_signal_days: int | None, created_days: int = 800) -> UUID:
+    def add(
+        self,
+        nit: str,
+        last_signal_days: int | None,
+        created_days: int = 800,
+        tenant: UUID | None = None,
+    ) -> UUID:
         company_id = uuid4()
         self.companies[company_id] = {
+            "tenant": tenant,
             "nit": nit,
             "created_at": NOW - timedelta(days=created_days),
         }
@@ -50,8 +60,13 @@ class Store:
 
 
 class FakeUow:
-    def __init__(self, store: Store) -> None:
+    def __init__(self, store: Store, tenant: UUID | None = None) -> None:
         self.s = store
+        self.tenant = tenant
+
+    def _visible(self, row: dict[str, Any]) -> bool:
+        # Models row level security: no context sees nothing when tenants are in use.
+        return not self.s.tenanted or row["tenant"] == self.tenant
 
     async def __aenter__(self) -> "FakeUow":
         self.snap = (dict(self.s.companies), list(self.s.signals), list(self.s.audit))
@@ -69,6 +84,8 @@ class FakeUow:
     async def find_purge_candidates(self, cutoff: datetime, limit: int) -> list[UUID]:
         found = []
         for company_id, row in self.s.companies.items():
+            if not self._visible(row):
+                continue
             seen = [s["observed_at"] for s in self.s.signals if s["company_id"] == company_id]
             if (max(seen) if seen else row["created_at"]) < cutoff:
                 found.append(company_id)
@@ -76,13 +93,15 @@ class FakeUow:
 
     async def find_company(self, company_id: UUID | None, nit: str | None) -> UUID | None:
         for cid, row in self.s.companies.items():
-            if cid == company_id or (nit and row["nit"] == nit):
+            if self._visible(row) and (cid == company_id or (nit and row["nit"] == nit)):
                 return cid
         return None
 
     async def delete_company_data(self, company_id: UUID) -> dict[str, int]:
         if self.s.fail_on_delete:
             raise RuntimeError("boom")
+        if company_id not in self.s.companies or not self._visible(self.s.companies[company_id]):
+            return {"signal": 0, "company": 0}
         before = len(self.s.signals)
         self.s.signals = [s for s in self.s.signals if s["company_id"] != company_id]
         del self.s.companies[company_id]
@@ -216,9 +235,13 @@ def test_routes_apply_guard_and_compliance_endpoints() -> None:
     store.add("9001", last_signal_days=400)
 
     class Repo:
-        def retention_unit_of_work(self) -> FakeUow:
-            return FakeUow(store)
+        def retention_unit_of_work(self, tenant_id: UUID | None = None) -> FakeUow:
+            return FakeUow(store, tenant_id)
 
+    async def fake_tenants(*_args: Any, **_kwargs: Any) -> list[UUID]:
+        return [uuid4()]
+
+    main.list_tenant_ids = fake_tenants
     main.app.state.repository = Repo()
     client = TestClient(main.app, headers=service_headers())
     try:
@@ -240,8 +263,109 @@ def test_routes_apply_guard_and_compliance_endpoints() -> None:
         assert dry.status_code == 200 and dry.json()["dry_run"] and len(store.companies) == 1
         real = client.post("/internal/core/compliance/purge?dry_run=false")
         assert real.json()["purged"] == 1 and store.companies == {}
-        gone = client.post("/internal/core/compliance/opt-out", json={"nit": "9001"})
+        tenant = {"X-Tenant-Id": str(uuid4())}
+        gone = client.post(
+            "/internal/core/compliance/opt-out", json={"nit": "9001"}, headers=tenant
+        )
         assert gone.json()["status"] == "already_removed"
-        assert client.post("/internal/core/compliance/opt-out", json={}).status_code == 422
+        assert (
+            client.post("/internal/core/compliance/opt-out", json={}, headers=tenant).status_code
+            == 422
+        )
+        no_tenant = client.post("/internal/core/compliance/opt-out", json={"nit": "9001"})
+        assert no_tenant.status_code == 400 and no_tenant.json()["detail"] == "tenant_required"
     finally:
         main.app.dependency_overrides.clear()
+
+
+def test_tenant_opt_out_deletes_only_its_own_company_and_other_tenant_is_not_found() -> None:
+    store = Store()
+    store.tenanted = True
+    a, b = uuid4(), uuid4()
+    in_a = store.add("9001", last_signal_days=1, tenant=a)
+    in_b = store.add("9001", last_signal_days=1, tenant=b)  # same NIT, other tenant
+
+    def go(tenant: UUID | None, **kw: Any) -> dict[str, Any]:
+        return asyncio.run(opt_out(FakeUow(store, tenant), OptOutRequest(**kw)))
+
+    assert go(a, nit="9001")["status"] == "removed"
+    assert in_a not in store.companies and in_b in store.companies
+    assert go(a, company_id=in_b)["status"] == "already_removed"  # not found, never deleted
+    assert go(None, nit="9001")["status"] == "already_removed"  # no context sees nothing
+    assert in_b in store.companies
+    assert go(b, nit="9001")["status"] == "removed"
+    assert all(e["payload"].get("reference_sha256") for e in store.audit)
+
+
+def test_purge_tenants_purges_each_tenant_separately_and_one_failure_does_not_stop_others() -> None:
+    store = Store()
+    store.tenanted = True
+    a, b, c = uuid4(), uuid4(), uuid4()
+    old_a = store.add("1", last_signal_days=400, tenant=a)
+    old_b = store.add("2", last_signal_days=400, tenant=b)
+    old_c = store.add("3", last_signal_days=400, tenant=c)
+    store.add("4", last_signal_days=1, tenant=a)
+    seen: list[UUID] = []
+
+    class Failing(FakeUow):
+        async def delete_company_data(self, company_id: UUID) -> dict[str, int]:
+            if self.tenant == b:
+                raise RuntimeError("boom")
+            return await super().delete_company_data(company_id)
+
+    def factory(tenant: UUID) -> FakeUow:
+        seen.append(tenant)
+        return Failing(store, tenant)
+
+    result = asyncio.run(purge_tenants(factory, [a, b, c], now=NOW))
+    assert seen == [a, b, c]
+    assert result["failed"] == [str(b)] and result["purged"] == 2
+    assert result["per_tenant"][str(a)]["purged"] == 1
+    assert old_a not in store.companies and old_c not in store.companies
+    assert old_b in store.companies  # rolled back, not purged
+    assert asyncio.run(purge_tenants(factory, []))["tenants"] == 0
+
+
+def test_purge_that_deletes_zero_rows_for_an_existing_company_fails() -> None:
+    store = Store()
+    cid = store.add("1", last_signal_days=400)
+
+    class Blind(FakeUow):
+        async def delete_company_data(self, company_id: UUID) -> dict[str, int]:
+            return {"signal": 0, "company": 0}
+
+    with pytest.raises(PurgeBlindError):
+        asyncio.run(purge_inactive_companies(Blind(store), now=NOW))
+    assert cid in store.companies
+
+    class BlindOptOut(Blind):
+        pass
+
+    with pytest.raises(PurgeBlindError):
+        asyncio.run(opt_out(BlindOptOut(store), OptOutRequest(company_id=cid)))
+
+
+def test_identity_client_sends_a_core_token_and_reads_ids_only() -> None:
+    import httpx
+
+    from libs.common.internal_auth import verify_service_token
+    from services.core.app.identity_tenants import list_tenant_ids
+
+    ids = [uuid4(), uuid4()]
+    calls: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request)
+        return httpx.Response(200, json={"tenant_ids": [str(i) for i in ids]})
+
+    async def go(h: Any) -> list[UUID]:
+        async with httpx.AsyncClient(
+            base_url="http://identity", transport=httpx.MockTransport(h)
+        ) as client:
+            return await list_tenant_ids("http://identity", "secret", client=client)
+
+    assert asyncio.run(go(handler)) == ids
+    assert calls[0].url.path == "/internal/identity/tenants"
+    assert verify_service_token(calls[0].headers["X-Service-Token"], "secret") == "core"
+    with pytest.raises(RuntimeError):
+        asyncio.run(go(lambda r: httpx.Response(401, json={})))

@@ -2162,7 +2162,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `ruff check tests` -> All checks passed (was 14 findings); make static OK; make test 1689 passed, 2 skipped, 4 xfailed
 
 ### T-191 Compliance routes become tenant-aware
-- status: todo
+- status: done
 - spec: REQ-CMP-001, REQ-SEC-005, REQ-DAT-005
 - owner: lead-backend-engineer
 - depends: T-082, T-194
@@ -2171,7 +2171,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_retention.py` and a real Postgres case as `core_app` with two tenants where the opt-out of tenant A deletes only its rows and the retention job purges each tenant separately, plus `make static` and `make test`
 - note: decision D-36 (owner), option A. Since T-082 the opt-out, the purge route and `python -m services.core.app.retention` run without a tenant context and delete nothing. Make them tenant-aware: (1) `POST /internal/core/compliance/opt-out` requires `X-Tenant-Id` (answers 400 without it) and calls `set_tenant_context` before the first statement; a company of another tenant is `not_found`, never deleted; opt-out by NIT works only inside the tenant of the caller, the same company in two tenants needs two requests; (2) the retention job and the purge route get the tenant ids from the identity API (T-194, service token, allow list), never from `core.tenant_config` (under RLS), and set the context for each tenant before purging it; one tenant that fails does not stop the others and the exit code reports it; (3) no new role and no policy that crosses tenants (D-29, REQ-SEC-005); (4) the audit entry keeps only the hashed identifiers (`retention._fingerprint`) plus action, requested_via, counts per table, timestamp and tenant_id, never plain PII. The gateway has NO compliance route today (checked on main after PR #80): the callers are the seed and internal callers. Do not add a public gateway route here; if the owner wants one it is a separate API decision, so say it in the report. Add a test that fails when a purge deletes zero rows for a company that exists.
-- evidence: filled by the agent when done
+- evidence: `pytest -q tests/unit/test_retention.py` passed (tenant opt-out, per-tenant purge with failure isolation, zero-delete guard, identity client); real Postgres cases as core_app with two tenants added to tests/integration/test_sql_r1_flows.py (run only in CI); make static and make test green (r1-p-compliance)
 
 ### T-192 Check for rows without a tenant before migration 0014
 - status: done
