@@ -51,6 +51,7 @@ Size is a rough token cost guide: S under 1 USD, M 1 to 3 USD, L 3 to 8 USD. Tes
 | r1-k | Short wave, two parallel sessions: qualification applies the tenant of the score event T-168; core serves score features per tenant, ML backfills old score rows, runbook step T-165, T-169 | 3 tasks | about 40 USD |
 | r1-l | Short wave, two parallel sessions: loopback ports and smoke task closure T-170, T-172; e2e proof of auto qualified leads and the backfill, doctor pipeline report T-171, T-173 | 4 tasks | about 30 USD |
 | r1-m | Wave, three parallel sessions: verify-live in the Compose network and the versioned feature baseline T-186, T-178; production refusal of seed and verify_live tokens and the n8n mint credential T-184, T-185; typed chain payloads, parent ids, the ml outbox with one shared relay and the pulse stage projection T-174 to T-177 | 8 tasks | about 65 USD |
+| r1-n | Wave, two parallel sessions: row level security on signal, location and lead outcome T-082, then the pulse refresh allow list T-189 and the test lint T-190; validation inputs served end to end T-179, T-180, funnel per project T-181, and real parent ids in the production callers T-188 | 7 tasks | about 70 USD |
 | r2 | Continuation with ADR-0002: T-100 to T-112, only if budget remains after T-080; run as r1-f and r1-g | 13 tasks | about 38 USD |
 
 Total estimate for run 1 (smoke to r1-d): about 197 USD (183 USD of the v3 plan plus about 14 USD for T-090 to T-097 and about 30 USD for the v6 follow-ups), plus about 38 USD for the optional ADR-0002 continuation, to be corrected after the smoke run shows real cost per task. Blocked tasks do not consume budget. Set the session budget of each run to about 1.5 times its estimate.
@@ -2122,3 +2123,39 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - acceptance: `test -f docs/runs/RUN-golive-docker.md && ! grep -q PENDING docs/runs/RUN-golive-docker.md`
 - note: decision D-32 (owner): the integration tier and the e2e are run by the OWNER (or qa-reviewer) on a machine with Docker, with `make invent-tracker`, before go-live. This task is a record only and is NOT launched by an agent: the owner runs `make test-integration`, `make invent-tracker`, `make doctor` and `python ops/e2e_check.py`, then writes one line per command with the result in `docs/runs/RUN-golive-docker.md`, plus every item the earlier reports marked unverified for lack of Docker. It is a high priority prerequisite of go-live.
 - evidence: filled by the owner when done
+
+### T-188 Production callers send the parent event ids
+- status: todo
+- spec: REQ-LNS-012, REQ-EVT-008
+- owner: lead-backend-engineer
+- depends: T-175, T-176, T-181
+- write_scope: services/core/app/funnel.py, services/core/app/leads.py, services/core/app/imports.py, services/core/app/main.py (the lead create call only), services/ml/app/backfill.py, tests/unit/test_funnel.py, tests/unit/test_event_chain_producers.py, tests/unit/test_ml_backfill.py, docs/runbooks/event-chain-rollout.md (section 6 only)
+- context: docs/runs/RUN-r1-m-events.md, libs/domain/event_chain.py, services/core/app/funnel.py, services/ml/app/backfill.py, SPEC.md REQ-LNS-012
+- size: M
+- acceptance: `pytest -q tests/unit/test_funnel.py tests/unit/test_event_chain_producers.py tests/unit/test_ml_backfill.py tests/unit/test_event_chain.py` and `make static` and `make test`
+- note: T-175 added the optional fields (`ScoreFeatures.parent_event_id`, `LeadCreate.scored_event_id`, `LeadStatusPatch.gate_event_id`) but three production callers still do not fill them, so `trace_chain` keeps reporting gaps and falls back to `reference_parent`. Close them: (1) `funnel.py` exposes the id of the gate decision event it writes and passes it as `parent_event` to the pipeline stage producer; (2) `services/ml/app/backfill.py` sends the `parent_event_id` it knows (the id of the `signal.tagged` event for the company, read through core's internal features route, never from a shared table) and leaves it empty when none exists; (3) the lead create calls in `main.py` and `imports.py` pass `scored_event_id` when the company has a stored score event. Each field stays optional, so a missing id never fails a request. Add an offline test per caller that asserts the id reaches the payload, and update section 6 of the event chain runbook (the known gaps that are now closed). Do not change any response model beyond what T-175 added. Run after T-181 in the same session because both touch `leads.py` and `repository.py`.
+- evidence: filled by the agent when done
+
+### T-189 The pulse socioeconomic refresh accepts only its own caller
+- status: todo
+- spec: REQ-SEC-005
+- owner: lead-backend-engineer
+- depends: T-185
+- write_scope: services/pulse/app/lens.py (the dependency of the refresh route only), tests/unit/test_pulse_lens.py, tests/unit/test_internal_auth.py (one case)
+- context: docs/runs/RUN-r1-m-auth.md, libs/common/internal_auth.py, services/pulse/app/lens.py
+- size: S
+- acceptance: `pytest -q tests/unit/test_pulse_lens.py tests/unit/test_internal_auth.py` and `make static` and `make test`
+- note: T-185 mints a 60 second token for the fixed caller `n8n_socioeco`, but the pulse refresh route still uses `require_internal_token`, which accepts a validly signed token from any service name. Replace that dependency on the refresh route with `require_service_token("n8n_socioeco")` and keep the other pulse routes as they are. Tests: the `n8n_socioeco` token is accepted; the `gateway`, `seed` and `verify_live` tokens and a missing token answer 401; a token signed with another key answers 401. Do not change the mint route or the workflow, and do not activate the workflow.
+- evidence: filled by the agent when done
+
+### T-190 Bring the test lint to zero
+- status: todo
+- spec: REQ-QA-001
+- owner: coordinator
+- depends: T-172
+- write_scope: tests/unit/test_attribution.py, tests/unit/test_connectors.py, tests/unit/test_connectors_more.py, tests/unit/test_funnel.py (lint fixes only, the T-188 agent edits the same file in another session: keep your edits to the flagged lines), tests/unit/test_optional_extras.py, tests/unit/test_profiling.py, tests/unit/test_unique_indexes.py, tests/unit/test_workflows.py, tests/unit/test_event_chain_producers.py, tests/unit/test_score_event.py, docs/runs/
+- context: docs/runs/RUN-r1-l-platform.md (the list of remaining findings)
+- size: S
+- acceptance: `ruff check tests` reports no finding, and `make static` and `make test` pass
+- note: T-172 left the findings of `ruff check tests` that `make static` does not cover (B905, E501, F401, B023, I001 in the files above). Fix them without changing what a test asserts; if a fix would change behaviour, add a narrow `# noqa` with the reason instead. Then list in the report the exact command and its result. Do NOT change the Makefile or the CI workflow: whether `ruff check tests` joins `make static` is a decision for the owner, so state your recommendation in the report.
+- evidence: filled by the agent when done

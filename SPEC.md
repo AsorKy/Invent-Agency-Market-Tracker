@@ -152,7 +152,7 @@ Template entry:
 - source: AGENTS.md quality gates, ADR-IMT-0001 section 17
 - statement: `make static` passes on every commit pushed by an agent.
 - verify: `make static`
-- tasks: T-000, T-001, T-007, T-080, T-141, T-161, T-162, T-164, T-168, T-171, T-172, T-187
+- tasks: T-000, T-001, T-007, T-080, T-141, T-161, T-162, T-164, T-168, T-171, T-172, T-187, T-190
 
 ### REQ-QA-002 Unit test suite exists and runs offline
 - status: accepted
@@ -646,7 +646,7 @@ Template entry:
 - source: ADR-IMT-0002 section 2.6
 - statement: Each chain event (`signal.tagged`, `signal.scored`, `company.matched`, `signal.explained`, `project.pipeline_updated`, `project.forecast_updated`) has a typed payload in `libs/contracts/events.py` with `extra="forbid"` and a `schema_version`; the envelope stays `DomainEvent` (`version`, `source_version`). `parent_event_id` is mandatory in the payload (a UUID or null). Canonical payloads: tagged `{signal_id, company_id, tags{source, signal_type}, parent_event_id}`; scored `{signal_id, company_id, score, score_version, parent_event_id}`; matched `{company_id, lead_id, rues_matched, parent_event_id}`; explained `{lead_id, company_id, qualification_reason, parent_event_id}`; pipeline_updated `{lead_id, project_id or null, from, to, version, parent_event_id}`; forecast_updated `{lead_id, project_id or null, stage, parent_event_id}`.
 - verify: `pytest -q tests/unit/test_contracts.py`
-- tasks: T-174, T-175, T-176
+- tasks: T-174, T-175, T-176, T-188
 
 ### Pulse, Brief, and ML (L1 part)
 
@@ -833,7 +833,7 @@ Template entry:
 - source: ADR-IMT-0001 section 6.4
 - statement: Each service connects with its own `_app` role. Service-to-service calls carry a signed service token. Redis has ACL users `edge` (rate-limit keys only) and `data` (streams, cache). `/internal/*` is never routed by the gateway. Service tokens are signed with HMAC-SHA256 and one shared key (`INTERNAL_SERVICE_TOKEN`), live 60 seconds, and each route has an allow list of services. Per-service keys (one per issuer, rotatable) are planned L2 work (D-28); asymmetric tokens are rejected as not worth their cost at this team size. The caller names `seed` and `verify_live` are accepted only outside production.
 - verify: `pytest -q tests/unit/test_internal_auth.py` and `python ops/check_configuration.py`
-- tasks: T-060, T-082, T-123, T-130, T-131, T-140, T-144, T-146, T-147, T-150, T-151, T-153, T-158, T-160, T-162, T-163, T-165, T-168, T-170, T-179, T-183, T-184, T-185
+- tasks: T-060, T-082, T-123, T-130, T-131, T-140, T-144, T-146, T-147, T-150, T-151, T-153, T-158, T-160, T-162, T-163, T-165, T-168, T-170, T-179, T-183, T-184, T-185, T-189
 
 ### REQ-CMP-001 Habeas data compliance
 - status: accepted
@@ -1219,7 +1219,7 @@ All L2 requirements are `later-run`. They are specified now so that run 1 leaves
 - source: ADR-IMT-0002 section 2.6
 - statement: A `signal.created` traverses signal.tagged, signal.scored, company.matched, signal.explained, funnel.gate_decision, project.pipeline_updated, and project.forecast_updated. Every event carries `source_version` and a `parent_event_id` (REQ-EVT-008), and `signal.scored` leaves `ml` through its outbox like every other domain event, so one decision can be traced end to end: `trace_chain` closes the chain once the producers propagate the parent id (D-21). `project.pipeline_updated` and `project.forecast_updated` reflect the stage transition of the lead; Pulse projects them (REQ-PUL-004). No project forecast model with value or burn exists yet (D-35).
 - verify: `pytest -q tests/unit/test_event_chain.py`
-- tasks: T-110, T-149, T-159, T-175, T-176, T-177
+- tasks: T-110, T-149, T-159, T-175, T-176, T-177, T-188
 
 ### REQ-LNS-013 Validation page
 - status: accepted
