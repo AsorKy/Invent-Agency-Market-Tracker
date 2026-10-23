@@ -186,6 +186,7 @@
       "holdout",
       "id",
       "last_transition_at",
+      "project_id",
       "qualification_reason",
       "service_line",
       "source",

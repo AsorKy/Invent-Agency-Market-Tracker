@@ -7,9 +7,10 @@ handling at most ``--limit`` projects per tenant; a failing tenant is logged and
 
 Inputs come from ``core`` only (INV-01: no ``ml`` or ``pulse`` read): the project row, the
 optional ``metadata.validation`` object that a strategist fills (cash flows, unit economics,
-growth and portfolio figures) and ``core.lead`` and ``core.company`` for the funnel and the
-meta-ML metrics. A metric whose input is missing stays null; a card without any value is not
-written. Every tenant is handled in one transaction that calls ``set_tenant_context`` first.
+growth and portfolio figures) and ``core.lead`` (per ``project_id``, T-181) and
+``core.company`` for the funnel and the meta-ML metrics. A metric whose input is missing stays
+null; a card without any value is not written. Every tenant is handled in one transaction that
+calls ``set_tenant_context`` first.
 The formulas are the pure functions of ``libs/domain/validation.py``; the V6 row is tenant wide
 (``TENANT_WIDE_PROJECT``). Reads are in ``validation_reads.py``. O(projects + closed leads).
 """
@@ -94,7 +95,7 @@ _PROJECTS = """
     LIMIT :limit
 """
 
-_LEAD_COUNTS = """
+_SERVICE_LINE_COUNTS = """
     SELECT count(*) AS entered,
            count(*) FILTER (WHERE stage IN ('contacted', 'meeting', 'proposal', 'won'))
                AS converted,
@@ -105,12 +106,32 @@ _LEAD_COUNTS = """
       AND (CAST(:service_line AS text) IS NULL OR service_line = :service_line)
 """
 
-_WON_CYCLE_DAYS = """
+_SERVICE_LINE_CYCLE_DAYS = """
     SELECT CAST(EXTRACT(EPOCH FROM (last_transition_at - created_at)) / 86400.0
                 AS double precision) AS days
     FROM core.lead
     WHERE tenant_id = :tenant_id AND stage = 'won' AND last_transition_at IS NOT NULL
       AND (CAST(:service_line AS text) IS NULL OR service_line = :service_line)
+    ORDER BY last_transition_at DESC
+    LIMIT :limit
+"""
+
+_PROJECT_COUNTS = """
+    SELECT count(*) AS entered,
+           count(*) FILTER (WHERE stage IN ('contacted', 'meeting', 'proposal', 'won'))
+               AS converted,
+           count(*) FILTER (WHERE stage = 'won') AS won,
+           count(*) FILTER (WHERE stage = 'lost') AS lost
+    FROM core.lead
+    WHERE tenant_id = :tenant_id AND project_id = :project_id
+"""
+
+_PROJECT_CYCLE_DAYS = """
+    SELECT CAST(EXTRACT(EPOCH FROM (last_transition_at - created_at)) / 86400.0
+                AS double precision) AS days
+    FROM core.lead
+    WHERE tenant_id = :tenant_id AND stage = 'won' AND last_transition_at IS NOT NULL
+      AND project_id = :project_id
     ORDER BY last_transition_at DESC
     LIMIT :limit
 """
@@ -145,8 +166,14 @@ class ValidationStore(Protocol):
         tb: TracebackType | None,
     ) -> None: ...
     async def projects(self, tenant_id: UUID, limit: int) -> list[dict[str, Any]]: ...
-    async def lead_counts(self, tenant_id: UUID, service_line: str | None) -> dict[str, int]: ...
-    async def won_cycle_days(self, tenant_id: UUID, service_line: str | None) -> list[float]: ...
+    async def lead_counts(self, tenant_id: UUID, project_id: UUID) -> dict[str, int]: ...
+    async def won_cycle_days(self, tenant_id: UUID, project_id: UUID) -> list[float]: ...
+    async def service_line_counts(
+        self, tenant_id: UUID, service_line: str | None
+    ) -> dict[str, int]: ...
+    async def service_line_cycle_days(
+        self, tenant_id: UUID, service_line: str | None
+    ) -> list[float]: ...
     async def closed_scores(self, tenant_id: UUID) -> list[tuple[float, bool]]: ...
     async def holdout_counts(self, tenant_id: UUID) -> dict[bool, dict[str, int]]: ...
     async def insert(self, table: str, row: dict[str, Any]) -> None: ...
@@ -183,16 +210,38 @@ class SqlValidationStore:
         )
         return [dict(row) for row in result.mappings().all()]
 
-    async def lead_counts(self, tenant_id: UUID, service_line: str | None) -> dict[str, int]:
+    async def lead_counts(self, tenant_id: UUID, project_id: UUID) -> dict[str, int]:
         result = await self.connection.execute(
-            text(_LEAD_COUNTS), {"tenant_id": tenant_id, "service_line": service_line}
+            text(_PROJECT_COUNTS), {"tenant_id": tenant_id, "project_id": project_id}
         )
-        row = result.mappings().first()
-        return {k: int(row[k] or 0) for k in ("entered", "converted", "won", "lost")} if row else {}
+        return self._counts(result.mappings().first())
 
-    async def won_cycle_days(self, tenant_id: UUID, service_line: str | None) -> list[float]:
+    async def won_cycle_days(self, tenant_id: UUID, project_id: UUID) -> list[float]:
         result = await self.connection.execute(
-            text(_WON_CYCLE_DAYS),
+            text(_PROJECT_CYCLE_DAYS),
+            {"tenant_id": tenant_id, "project_id": project_id, "limit": CLOSED_LEAD_LIMIT},
+        )
+        return [float(row["days"]) for row in result.mappings().all() if row["days"] is not None]
+
+    @staticmethod
+    def _counts(row: Mapping[Any, Any] | None) -> dict[str, int]:
+        keys = ("entered", "converted", "won", "lost")
+        return {k: int(row[k] or 0) for k in keys} if row else {}
+
+    async def service_line_counts(
+        self, tenant_id: UUID, service_line: str | None
+    ) -> dict[str, int]:
+        """All leads of the line, with or without a project (tenant-wide row when None)."""
+        result = await self.connection.execute(
+            text(_SERVICE_LINE_COUNTS), {"tenant_id": tenant_id, "service_line": service_line}
+        )
+        return self._counts(result.mappings().first())
+
+    async def service_line_cycle_days(
+        self, tenant_id: UUID, service_line: str | None
+    ) -> list[float]:
+        result = await self.connection.execute(
+            text(_SERVICE_LINE_CYCLE_DAYS),
             {"tenant_id": tenant_id, "service_line": service_line, "limit": CLOSED_LEAD_LIMIT},
         )
         return [float(row["days"]) for row in result.mappings().all() if row["days"] is not None]
@@ -525,9 +574,9 @@ async def run_tenant(
     async with open_store(tenant_id) as store:
         projects = await store.projects(tenant_id, limit)
         for project in projects:
-            line = project.get("service_line")
-            counts = await store.lead_counts(tenant_id, line)
-            cycle = await store.won_cycle_days(tenant_id, line)
+            # Leads without a project are not in any per-project figure (D-26).
+            counts = await store.lead_counts(tenant_id, project["id"])
+            cycle = await store.won_cycle_days(tenant_id, project["id"])
             for table, values in compute_project(project, counts, cycle).items():
                 row = _row(table, values, tenant_id, project["id"], moment)
                 if row is None:
@@ -535,6 +584,18 @@ async def run_tenant(
                     continue
                 await store.insert(table, row)
                 written += 1
+        # Tenant-wide funnel row: every lead of the tenant, converted or not.
+        wide = _funnel(
+            {},
+            await store.service_line_counts(tenant_id, None),
+            await store.service_line_cycle_days(tenant_id, None),
+        )
+        row = _row("funnel_metric", wide, tenant_id, TENANT_WIDE_PROJECT, moment)
+        if row is None:
+            skipped += 1
+        else:
+            await store.insert("funnel_metric", row)
+            written += 1
         meta = _meta_ml(await store.closed_scores(tenant_id), await store.holdout_counts(tenant_id))
         row = _row("meta_ml_metric", meta, tenant_id, TENANT_WIDE_PROJECT, moment)
         if row is None:

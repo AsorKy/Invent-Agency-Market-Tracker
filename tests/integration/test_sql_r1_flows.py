@@ -996,3 +996,46 @@ async def test_validation_inputs_of_another_tenant_project_are_not_found_and_not
         await update_inputs(_inputs_uow(engines, TENANT), TENANT, project, inputs, if_match=0)
     assert db.one("SELECT metadata FROM core.project WHERE id = %s", project) == ({"keep": "me"},)
     assert db.one("SELECT count(*) FROM core.audit_log WHERE aggregate_id = %s", project) == (0,)
+
+
+# --- T-181: core.lead.project_id (D-26) --------------------------------------------------
+
+
+async def test_conversion_sets_lead_project_id_only_under_the_tenant_context(
+    db: Db, engines: dict[str, Any]
+) -> None:
+    from sqlalchemy import text
+
+    from libs.common.tenant import set_tenant_context
+    from services.core.app.repository import SqlActionTransaction
+
+    company = _company(db, TENANT)
+    lead = _lead(db, TENANT, company)
+    assert db.one("SELECT project_id FROM core.lead WHERE id = %s", lead) == (None,)
+    row: dict[str, Any] = {
+        "id": uuid4(),
+        "tenant_id": TENANT,
+        "lead_id": lead,
+        "name": "Pilot",
+        "service_line": "x",
+        "hypothesis": "h",
+        "status": "draft",
+        "estimated_roi": None,
+        "metadata": {},
+        "created_at": datetime.now(UTC),
+        "updated_at": datetime.now(UTC),
+    }
+    # Without the context RLS hides the lead: the project insert is refused.
+    with pytest.raises(Exception, match="row-level security"):
+        async with engines["core"].begin() as connection:
+            await SqlActionTransaction(connection).insert_project(row)
+    async with engines["core"].begin() as connection:
+        await set_tenant_context(connection, TENANT)
+        await SqlActionTransaction(connection).insert_project(row)
+    assert db.one("SELECT project_id FROM core.lead WHERE id = %s", lead) == (row["id"],)
+    query = text("SELECT count(*) FROM core.lead WHERE project_id = :p")
+    async with engines["core"].connect() as connection:
+        assert (await connection.execute(query, {"p": row["id"]})).scalar_one() == 0
+    async with engines["core"].connect() as connection:
+        await set_tenant_context(connection, TENANT)
+        assert (await connection.execute(query, {"p": row["id"]})).scalar_one() == 1

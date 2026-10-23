@@ -452,6 +452,20 @@ class SqlActionTransaction:
             ),
             {**row, "metadata": json.dumps(row["metadata"])},
         )
+        # T-181 (D-26): the conversion fills core.lead.project_id in the same transaction.
+        await self.connection.execute(
+            text(
+                """
+                UPDATE core.lead SET project_id = :project_id
+                WHERE id = :lead_id AND tenant_id = :tenant_id AND project_id IS NULL
+                """
+            ),
+            {
+                "project_id": row["id"],
+                "lead_id": row.get("lead_id"),
+                "tenant_id": row.get("tenant_id"),
+            },
+        )
 
     async def add_outbox_event(
         self,

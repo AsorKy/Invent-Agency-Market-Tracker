@@ -2029,7 +2029,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_validation_inputs.py tests/unit/test_validation_routes.py tests/unit/test_validation_worker.py tests/unit/test_openapi.py tests/unit/test_sql_consistency.py` 78 passed; `make static` OK; `make test` 1711 passed, 2 skipped, 4 xfailed; real-Postgres cases in tests/integration/test_sql_r1_flows.py not run here (no Docker)
 
 ### T-180 Gateway route for the validation inputs
-- status: todo
+- status: done
 - spec: REQ-LNS-014, REQ-API-002
 - owner: second-backend-engineer
 - depends: T-179
@@ -2038,10 +2038,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: S
 - acceptance: `pytest -q tests/unit/test_validation_gateway.py tests/unit/test_gateway_routes.py tests/unit/test_openapi.py` and `make openapi` leaves no further diff and `make static`
 - note: the owner decided that a strategist writes the validation inputs by hand (D-24) and SPEC names the core route only; a strategist can reach it only through the gateway, so expose it: `PUT /projects/{id}/validation-inputs` under `/api/v1`, allowed roles `strategist` and `admin` (any other role answers 403 `forbidden`, a project of another scope or tenant answers 404 `not_found`, per REQ-API-002), forwarding the ETag and `If-Match` headers. Additive OpenAPI change only; run `make openapi` and keep `oasdiff` clean. This task was added by the coordinator to make D-24 usable; say so in the report.
-- evidence: filled by the agent when done
+- evidence: `pytest -q tests/unit/test_validation_gateway.py tests/unit/test_gateway_routes.py tests/unit/test_openapi.py` 61 passed; `make openapi` no further diff; `make static` ok; `make test` ok. Coordinator added `if-match` to the gateway proxy forwarded headers (services/gateway/app/main.py) because core answers 428 without it; this also fixes the tenant-config ETag path. 428 is not documented in OpenAPI (openapi_doc.py out of scope)
 
 ### T-181 Funnel metrics per project
-- status: todo
+- status: done
 - spec: REQ-LNS-015, REQ-LNS-010
 - owner: database-engineer
 - depends: T-146, T-147
@@ -2050,7 +2050,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/unit/test_validation_worker.py tests/unit/test_leads.py tests/unit/test_sql_consistency.py tests/unit/test_schema_catalog.py` and `python ops/check_migrations.py` and `make static` and `make test`
 - note: decision D-26 (owner): the funnel metrics are per project. `validation.funnel_metric` already stores `project_id` but the worker computes by `service_line` because `core.lead` has no project. (i) Expand migration with the exact name above: `core.lead.project_id uuid NULL REFERENCES core.project(id)` and an index on `(tenant_id, project_id)`; it must be re-runnable and must not rewrite the table in a blocking way. (ii) The conversion of a lead to a project (`signal.converted_to_project`) fills it. (iii) The funnel queries of `validation_worker.py` filter by `project_id` instead of `service_line`; leads without a project are excluded from per-project metrics and counted in the service-line figure that stays for the tenant-wide row. Existing rows keep `project_id` null (no backfill guess). Contract steps (making it NOT NULL) are out of scope. Document in the report that until conversion fills the column the per-project funnel is empty for old leads.
-- evidence: filled by the agent when done
+- evidence: pytest validation_worker, leads, sql_consistency, schema_catalog 61 passed; check_migrations ok; make static ok; make test 1717 passed. Migration 0015 adds nullable core.lead.project_id (FK NOT VALID, partial index on (tenant_id, project_id)); insert_project in repository.py fills it on conversion; worker funnel reads filter by project_id and a tenant-wide funnel row counts all leads. Old leads keep project_id NULL, so the per-project funnel is empty for them until a conversion fills the column. Integration case added (not run, no Docker).
 
 ### T-182 Meta-ML metrics through events (deferred to R2)
 - status: todo
