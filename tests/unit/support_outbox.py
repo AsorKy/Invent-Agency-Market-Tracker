@@ -96,7 +96,6 @@ class FakeDb:
         self.published: list[int] = []
         self.processed: dict[str, set[UUID]] = {"ml": set(), "analytics": set()}
         self.stale_updates: list[UUID] = []
-        self.fact_signals: dict[UUID, dict[str, Any]] = {}
         self.fail_statements: dict[str, int] = {}
         self.disposed = False
 
@@ -135,8 +134,5 @@ class FakeDb:
                 return _Result(scalar=event_id)
         if "UPDATE ml.lead_score" in sql:
             staged.append(lambda: self.stale_updates.append(params["company_id"]))
-            return _Result()
-        if "INSERT INTO analytics.fact_signal" in sql:
-            staged.append(lambda: self.fact_signals.setdefault(params["signal_id"], params))
             return _Result()
         raise AssertionError(f"unexpected SQL: {sql}")

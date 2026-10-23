@@ -111,6 +111,14 @@ def test_postgres_preloads_pg_cron_on_the_application_database(services: dict[st
     assert "cron.database_name=${POSTGRES_DB:-invent_market_tracker}" in command
 
 
+def test_postgres_and_redis_ports_have_an_explicit_bind(services: dict[str, Any]) -> None:
+    for name in ("postgres", "redis"):
+        ports = services[name]["ports"]
+        assert ports
+        for port in ports:
+            assert port.startswith(("127.0.0.1:", f"${{{name.upper()}_BIND:-127.0.0.1}}:")), port
+
+
 def test_pgadmin_is_an_optional_loopback_ui(services: dict[str, Any]) -> None:
     pgadmin = services["pgadmin"]
     assert pgadmin["profiles"] == ["ui"]

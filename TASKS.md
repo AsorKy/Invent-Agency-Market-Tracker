@@ -106,7 +106,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 ## Tasks
 
 ### T-000 Smoke test
-- status: todo
+- status: done
 - spec: REQ-QA-001
 - owner: coordinator
 - depends: none
@@ -115,7 +115,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: S
 - acceptance: `make static`
 - note: create `docs/runs/RUN-smoke.md` with one line per check performed (git branch, commit, push, `make static` result). If `make static` cannot run because tools are missing, record exactly which ones. Also record the Python version and whether `pip install .[dev]` works.
-- evidence:
+- evidence: docs/runs/RUN-smoke.md written; make static OK, make test 1607 passed, Python 3.12.3, pip install of the extras works.
 
 ### T-001 Test tooling and make targets
 - status: done
@@ -1895,7 +1895,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: section 16 added to docs/runbooks/go-live.md; test_backfill_section_matches_the_cli_and_cites_real_files added; pytest tests/unit/test_runbook.py 10 passed, check_language OK, make static OK, make test 1603 passed
 
 ### T-170 Publish the Postgres and Redis ports on the loopback only
-- status: todo
+- status: done
 - spec: REQ-SEC-005, REQ-RUN-001
 - owner: devops-engineer
 - depends: T-154
@@ -1904,7 +1904,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: S
 - acceptance: `pytest -q tests/unit/test_compose.py && python ops/check_configuration.py`
 - note: `docker-compose.yml` publishes `5432:5432` and `6379:6379` on every interface, so a developer machine on a shared network exposes the database and the Redis data user. Publish them as `${POSTGRES_BIND:-127.0.0.1}:5432:5432` and `${REDIS_BIND:-127.0.0.1}:6379:6379` (host tools, `make invent-tracker`, `psql` from the host and the CI jobs keep working through `127.0.0.1`; containers use the Compose network and are not affected). Add a test that no `ports:` entry of postgres or redis lacks an explicit bind address, and document the two variables in `.env.example` as commented overrides. Do not touch the other services' ports.
-- evidence: filled by the agent when done
+- evidence: `pytest -q tests/unit/test_compose.py` 56 passed; `python ops/check_configuration.py` OK (106 variables); make static and make test green. Bind variables are listed uncommented in .env.example (value equals the default) because the configuration guard ignores commented lines.
 
 ### T-171 The e2e check proves that scored companies become leads and that the backfill runs
 - status: done
@@ -1919,7 +1919,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_e2e_check.py tests/unit/test_demo_pipeline.py tests/unit/test_sql_consistency.py` 61 passed; `make static` ok. Offline only; CI e2e is the real check.
 
 ### T-172 Close the smoke task and fix the lint the gate does not cover
-- status: todo
+- status: done
 - spec: REQ-QA-001
 - owner: coordinator
 - depends: none
@@ -1928,7 +1928,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: S
 - acceptance: `make static`
 - note: `T-000` is the only L1 task still `todo` (F-r1e-12). Do what its note asks, now that the repository is mature: write `docs/runs/RUN-smoke.md` with one line per check performed (git branch, commit, `make static` result, `make test` result, Python version, whether `pip install '.[dev,streamlit,identity,sqltest]'` works) and set `T-000` to `done` with that evidence. Do not push from the smoke check; the wave branch push is the push. Also fix the ruff line length finding at about line 133 of `tests/unit/test_runbook.py`, which `make static` does not cover; if a lint command outside `make static` finds more in `tests/`, list them in the report and fix only the ones in files this wave created, then say what else exists.
-- evidence: filled by the agent when done
+- evidence: `make static` OK; docs/runs/RUN-smoke.md written, T-000 done, E501 in tests/unit/test_runbook.py fixed; other `ruff check tests` findings listed in docs/runs/RUN-r1-l-platform.md.
 
 ### T-173 The doctor can report the pipeline health
 - status: done
@@ -1941,3 +1941,183 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - acceptance: `pytest -q tests/unit/test_doctor.py tests/unit/test_runbook.py && python ops/check_language.py`
 - note: `make doctor` checks configuration and service health, but an operator has no one command for the state of the data pipeline. Add `ops/doctor.py --pipeline`, read only, through the same superuser psql path as `ops/e2e_check.py`: outbox backlog (unpublished events and the age of the oldest), dead letter count, companies without a score, score rows without stored features, leads created by auto qualification. It prints counts only, never rows, tokens or tenant data, and exits 1 when the dead letter count is above zero or the oldest unpublished event is older than a threshold given by `--max-backlog-seconds` (default 300). Reuse the SQL constants of `e2e_check.py` by importing them instead of copying them where that does not create a cycle. Add one line to the go-live runbook that names the command, with the matching assertion in `tests/unit/test_runbook.py` if that file already checks the runbook for commands.
 - evidence: `ops/doctor.py --pipeline [--max-backlog-seconds N]` added (injectable query, exit 1 on dead letters or stale backlog); go-live runbook line and test_runbook needle added; test_doctor, test_runbook, test_sql_consistency, check_language and make static pass
+
+### T-082 Row level security on core.signal, core.location and core.lead_outcome
+- status: todo
+- spec: REQ-DAT-005, REQ-SEC-005
+- owner: database-engineer
+- depends: T-162, T-168
+- write_scope: migrations/20261023_0014_core_rls_signal_location_outcome.sql (new), tests/integration/test_sql_postgres.py (the RLS_EXEMPT block and its assertions), tests/integration/test_sql_r1_flows.py (new cases only), services/core/app/repository.py (only to set the tenant context on the writers that lack it), tests/unit/snapshots/table_catalog.json (only if the catalog test requires it), docs/runs/
+- context: migrations/20261018_0004_run1_schema_additions.sql, tests/integration/test_sql_postgres.py, libs/common/tenant.py, docs/runs/RUN-r1-j-sql.md, docs/runs/RUN-r1-e.md
+- size: L
+- acceptance: `pytest -q tests/integration/test_sql_postgres.py tests/integration/test_sql_r1_flows.py tests/unit/test_sql_consistency.py tests/unit/test_schema_catalog.py` and `python ops/check_migrations.py` and `make static` and `make test`
+- note: decision D-29 (owner, closed 2026-10-22), the former F-r1e-11. `core.signal`, `core.location` and `core.lead_outcome` carry business data per tenant and must not stay exempt: one expand migration that does ENABLE and FORCE row level security and creates the policy `<table>_tenant_isolation` on `tenant_id = current_setting('app.tenant_id')::uuid`, following the pattern of `20261018_0004`. If any of the three has a nullable `tenant_id`, backfill and set it `NOT NULL` in the same expand file (the statement must be re-runnable). Then every writer and reader of those tables must run under `set_tenant_context`: find them all (signal create, the import and location writers, the outcome route and the readers behind brief facts and lead reads) and prove each one with a real Postgres test as `core_app` (a write and a read with the context succeed, without it they see or write nothing). The final exempt registry has five tables, each with its real reason and no wording like "guess": `core.outbox_event`, `core.outbox_dead_letter`, `core.processed_event`, `ml.processed_event` (messaging and idempotency infrastructure read and written only by the owning service role, never exposed by a public API; isolation comes from INV-01 and the role, and `tenant_id` is routing metadata) and `core.audit_log` (append-only, read only by an admin route of the same tenant with an explicit filter). Remove the "UNVERIFIED" comment, add the assertion that the three new tables DO have RLS, and check that no live migration or test still names `analytics.processed_event` (the historical expand files may keep it, the contract migration drops it). Name the migration exactly as above. Do not weaken any existing policy.
+- evidence: filled by the agent when done
+
+### T-174 Typed payloads for the six chain events
+- status: todo
+- spec: REQ-EVT-008, REQ-EVT-005
+- owner: lead-backend-engineer
+- depends: T-159
+- write_scope: libs/contracts/events.py, tests/unit/test_contracts.py, tests/unit/snapshots/model_schemas.json, docs/api/openapi.json (only if the snapshot test requires it)
+- context: libs/contracts/events.py, libs/domain/event_chain.py, docs/runs/RUN-r1-i-events.md, SPEC.md REQ-EVT-008
+- size: M
+- acceptance: `pytest -q tests/unit/test_contracts.py tests/unit/test_event_chain.py tests/unit/test_event_chain_producers.py tests/unit/test_event_chain_consumers.py tests/unit/test_openapi.py` and `make static` and `make test`
+- note: decision D-20. Promote the six names of `ReservedEventType` that are chain events (`signal.tagged`, `signal.scored`, `company.matched`, `signal.explained`, `project.pipeline_updated`, `project.forecast_updated`) to typed pydantic payloads with `extra="forbid"` and a `schema_version` per type, carried by the existing `DomainEvent` envelope (`version`, `source_version`). The canonical payloads are in REQ-EVT-008 and each one has a mandatory `parent_event_id` (UUID or null). Do not change the producers' behavior in this task beyond making their payloads validate against the new models; the flag `EVENT_CHAIN_EMIT` keeps its default. Add a test per type (valid, missing field, extra field) and one that every producer payload of T-159 validates. Keep `funnel.*` and the other reserved names untouched.
+- evidence: filled by the agent when done
+
+### T-175 Producers propagate parent_event_id through the chain
+- status: todo
+- spec: REQ-LNS-012, REQ-EVT-008
+- owner: lead-backend-engineer
+- depends: T-174
+- write_scope: services/core/app/leads.py, services/core/app/repository.py (the chain producers only), libs/domain/event_chain.py, libs/contracts/api.py (ScoreFeatures: the optional parent field), tests/unit/test_event_chain.py, tests/unit/test_event_chain_producers.py
+- context: libs/domain/event_chain.py, docs/runs/RUN-r1-i-events.md, docs/runbooks/event-chain-rollout.md, SPEC.md REQ-LNS-012
+- size: L
+- acceptance: `pytest -q tests/unit/test_event_chain.py tests/unit/test_event_chain_producers.py tests/unit/test_event_chain_contracts.py tests/unit/test_openapi.py` and `make static` and `make test`
+- note: decision D-21 (owner). The three joins that `trace_chain` reports as gaps (`signal.tagged` to `signal.scored`, `signal.scored` to `company.matched`, `funnel.gate_decision` to `project.pipeline_updated`) must close with real event ids, not with the deterministic references of `reference_parent`. Carry the id of the parent event in `ScoreFeatures` (an optional field, additive for the OpenAPI diff) and in the payload of the lead write, fill `parent_event_id` in every producer, and make `trace_chain` pass on a full chain built by the producers (an offline test that runs the chain with the flag on and asserts `complete` is true and `gap` is empty). `reference_parent` may stay for events written before this change. Cross-service ids travel in the request or the event, never through a shared table (INV-01). The `signal.scored` side is T-176; here ML only receives and echoes the parent id.
+- evidence: filled by the agent when done
+
+### T-176 ML publishes signal.scored through an outbox
+- status: todo
+- spec: REQ-LNS-012, REQ-EVT-001, REQ-EVT-008
+- owner: second-backend-engineer
+- depends: T-174, T-175
+- write_scope: libs/messaging/__init__.py (new), libs/messaging/relay.py (new, the shared relay), services/core/app/dead_letter.py (becomes a thin wrapper that keeps its public names), services/core/app/outbox_relay.py, services/core/app/republish.py (only the shared `stream_fields` import), migrations/20261023_0016_ml_outbox.sql (new), services/ml/app/scoring_service.py, services/ml/app/consumer.py, services/ml/app/repository.py (the outbox write and the ml unit of work), services/ml/app/outbox_relay.py (new, the ml instance), docker-compose.yml (a `ml-relay` service like `core-relay`), ops/check_configuration.py (the service list), tests/unit/test_ml_outbox.py, tests/unit/test_dead_letter.py, tests/unit/test_outbox_relay.py, tests/unit/test_ml_singleflight.py, tests/unit/test_compose.py (the relay mapping only), tests/unit/test_sql_consistency.py, tests/unit/snapshots/table_catalog.json, tests/integration/test_sql_postgres.py (RLS_EXEMPT entries for the ml outbox tables only), tests/integration/test_sql_r1_flows.py (new cases only)
+- context: services/core/app/dead_letter.py, services/core/app/outbox_relay.py, services/core/app/republish.py, services/ml/app/scoring_service.py, libs/domain/event_chain.py, docs/runs/RUN-r1-i-events.md, SPEC.md D-17, D-21 and D-29
+- size: L
+- acceptance: `pytest -q tests/unit/test_ml_outbox.py tests/unit/test_dead_letter.py tests/unit/test_outbox_relay.py tests/unit/test_ml_singleflight.py tests/unit/test_event_chain_producers.py tests/unit/test_sql_consistency.py tests/unit/test_schema_catalog.py tests/unit/test_compose.py tests/integration/test_sql_r1_flows.py tests/integration/test_sql_postgres.py` and `python ops/check_migrations.py` and `python ops/check_configuration.py` and `make static` and `make test`
+- note: decisions D-21 and D-17 (owner, clarified 2026-10-22): a domain event outside the outbox breaks the outbox rule, so `signal.scored` leaves `ml` through a transactional outbox written in the same transaction as the score. This does NOT conflict with D-17: there is ONE relay implementation and one INSTANCE per schema with an outbox. So: (1) move the generic part of the relay (retry schedule, dead letter, `relay_due_events`, `stream_fields`) from `services/core/app/dead_letter.py` to the shared module `libs/messaging/relay.py`; core and ml pass their own unit of work (`core.outbox_event` and `ml.outbox_event`); it is one algorithm in two processes, not a second implementation, and core behavior and its public names stay unchanged. (2) Expand migration with the exact name above: `ml.outbox_event` (and `ml.outbox_dead_letter` if the relay needs it) owned by `ml_app`, same columns as `core.outbox_event`, no row level security (infrastructure, D-29); add both tables to the `RLS_EXEMPT` registry with the real reason. (3) The `ml` relay instance (`services/ml/app/outbox_relay.py`, compose service `ml-relay`) reads and writes only `ml.*` (INV-01). `lead.score_updated` keeps its current path unless moving it is the only way to keep the two events ordered; if so, say so in the report instead of changing it silently. Add a real Postgres test as `ml_app`: the score and its outbox row commit together and roll back together, and the ml relay publishes the row with its tenant. The task is no longer blocked by D-17.
+- evidence: filled by the agent when done
+
+### T-177 Pulse projects the project stage events
+- status: todo
+- spec: REQ-PUL-004, REQ-LNS-012
+- owner: second-backend-engineer
+- depends: T-152, T-174
+- write_scope: services/pulse/app/consumer.py, services/pulse/app/project_projection.py, services/pulse/app/repository.py, tests/unit/test_project_projection.py, tests/unit/test_pulse_consumer.py
+- context: services/pulse/app/project_projection.py, migrations/20261021_0010_pulse_lens_tables.sql, libs/contracts/events.py, docs/runs/RUN-r1-h-events.md
+- size: M
+- acceptance: `pytest -q tests/unit/test_project_projection.py tests/unit/test_pulse_consumer.py tests/unit/test_event_chain_consumers.py tests/unit/test_sql_consistency.py` and `make static` and `make test`
+- note: decision D-22 (owner): a lead stage change equals `project.pipeline_updated` plus `project.forecast_updated`, with no figures; the consumer is Pulse. Add the two dispatch branches. The tables already exist: update `pulse.project_snapshot` (stage) and close the open `pulse.project_stage_visit` row by setting `exited_at` (the SPEC and the owner text say project_snapshot for both; the column `exited_at` lives in `project_stage_visit`, use the real tables and say so in the report). The writes are idempotent by `event_id` (inbox pattern), tenant scoped under `set_tenant_context`, and a replay of the same event changes nothing. `forecast_updated` carries no figure and must not invent any. Add a test per event plus a replay case.
+- evidence: filled by the agent when done
+
+### T-178 Scoring feature baseline gets a versioned source and a pinned output
+- status: todo
+- spec: REQ-LNS-007
+- owner: second-backend-engineer
+- depends: T-165
+- write_scope: libs/domain/score_features.py, tests/unit/test_score_features.py, tests/unit/test_demo_pipeline.py, docs/experiments/ (one note only)
+- context: libs/domain/score_features.py, ops/seed/enrich.py, docs/runs/RUN-r1-k-features.md, SPEC.md D-23
+- size: S
+- acceptance: `pytest -q tests/unit/test_score_features.py tests/unit/test_demo_pipeline.py tests/unit/test_ml_backfill.py` and `make static`
+- note: decision D-23 (owner). The derivation of `icp_fit`, `signal_strength` and `territory_opportunity` stays as the permanent audited baseline (`source_version` `demo-1`, INV-18); do not delete it or switch it off. Make the version scheme explicit: a constant `BASELINE_SOURCE_VERSION = "demo-1"` and a documented rule that any change of the formula bumps the version as `features-<major>.<minor>` in the same pull request. Add a test that pins the exact output of the seed for a fixed profile set (the full rows, so a formula change fails it) and a test that a changed formula without a new version string cannot pass (compare a hash of the formula inputs and constants to the version, or pin the rows per version). Write one short note in `docs/experiments/` stating that the production definition is L3 work with an experiment sheet (INV-19), kept in shadow next to this baseline; do not start that work.
+- evidence: filled by the agent when done
+
+### T-179 Core route for the validation inputs
+- status: todo
+- spec: REQ-LNS-014, REQ-SEC-005, REQ-IDN-001
+- owner: lead-backend-engineer
+- depends: T-147
+- write_scope: services/core/app/validation_inputs.py (new), services/core/app/main.py (the new route only), services/core/app/repository.py (one read and one write), tests/unit/test_validation_inputs.py, tests/unit/test_openapi.py (NOT_PUBLIC entry only), tests/integration/test_sql_r1_flows.py (new cases only)
+- context: services/core/app/validation_reads.py, services/core/app/validation_worker.py, services/core/app/main.py (tenant-config route and ETag), docs/runs/RUN-r1-i-validation.md, SPEC.md REQ-LNS-014
+- size: M
+- acceptance: `pytest -q tests/unit/test_validation_inputs.py tests/unit/test_validation_routes.py tests/unit/test_validation_worker.py tests/unit/test_openapi.py tests/unit/test_sql_consistency.py` and `make static` and `make test`
+- note: decision D-24 (owner). Add `PUT /internal/core/projects/{id}/validation-inputs`, gateway-only service token, tenant scoped, with the ETag and `If-Match` behavior of `tenant_config` (a stale ETag answers 412). It validates a typed object (pydantic, `extra="forbid"`, the fields V1, V2, V4 and V5 already read from `core.project.metadata->'validation'`; read `validation_worker.py` for the exact keys and ranges) and stores it under that key without touching the rest of `metadata`. The role check (`strategist` or `admin`) is done by the gateway (T-180); the core route rejects a request without the gateway identity. Write an audit row. Until an input exists, the validation cards answer empty with the reason `needs_strategist_input` (change the current empty reason of V1, V2, V4 and V5 to this value and update its tests). A real Postgres test as `core_app` proves the write is tenant scoped (another tenant's project answers 404 and nothing is written).
+- evidence: filled by the agent when done
+
+### T-180 Gateway route for the validation inputs
+- status: todo
+- spec: REQ-LNS-014, REQ-API-002
+- owner: second-backend-engineer
+- depends: T-179
+- write_scope: services/gateway/app/registry.py, services/gateway/app/routes.py, docs/api/openapi.json, tests/unit/snapshots/, tests/unit/test_validation_gateway.py, tests/unit/test_openapi.py
+- context: services/gateway/app/registry.py, services/gateway/app/routes.py, docs/runs/RUN-r1-i-validation.md, SPEC.md REQ-LNS-014 and REQ-API-002
+- size: S
+- acceptance: `pytest -q tests/unit/test_validation_gateway.py tests/unit/test_gateway_routes.py tests/unit/test_openapi.py` and `make openapi` leaves no further diff and `make static`
+- note: the owner decided that a strategist writes the validation inputs by hand (D-24) and SPEC names the core route only; a strategist can reach it only through the gateway, so expose it: `PUT /projects/{id}/validation-inputs` under `/api/v1`, allowed roles `strategist` and `admin` (any other role answers 403 `forbidden`, a project of another scope or tenant answers 404 `not_found`, per REQ-API-002), forwarding the ETag and `If-Match` headers. Additive OpenAPI change only; run `make openapi` and keep `oasdiff` clean. This task was added by the coordinator to make D-24 usable; say so in the report.
+- evidence: filled by the agent when done
+
+### T-181 Funnel metrics per project
+- status: todo
+- spec: REQ-LNS-015, REQ-LNS-010
+- owner: database-engineer
+- depends: T-146, T-147
+- write_scope: migrations/20261023_0015_core_lead_project_id.sql (new), services/core/app/leads.py (set the project on conversion), services/core/app/validation_worker.py (filters by project_id), services/core/app/repository.py (conversion write and the funnel reads), tests/unit/test_validation_worker.py, tests/unit/test_leads.py, tests/unit/test_sql_consistency.py, tests/unit/snapshots/table_catalog.json, tests/integration/test_sql_r1_flows.py (new cases only)
+- context: services/core/app/validation_worker.py, services/core/app/leads.py, migrations/20261020_0009_validation_schema.sql, docs/runs/RUN-r1-i-validation.md, SPEC.md REQ-LNS-015
+- size: L
+- acceptance: `pytest -q tests/unit/test_validation_worker.py tests/unit/test_leads.py tests/unit/test_sql_consistency.py tests/unit/test_schema_catalog.py` and `python ops/check_migrations.py` and `make static` and `make test`
+- note: decision D-26 (owner): the funnel metrics are per project. `validation.funnel_metric` already stores `project_id` but the worker computes by `service_line` because `core.lead` has no project. (i) Expand migration with the exact name above: `core.lead.project_id uuid NULL REFERENCES core.project(id)` and an index on `(tenant_id, project_id)`; it must be re-runnable and must not rewrite the table in a blocking way. (ii) The conversion of a lead to a project (`signal.converted_to_project`) fills it. (iii) The funnel queries of `validation_worker.py` filter by `project_id` instead of `service_line`; leads without a project are excluded from per-project metrics and counted in the service-line figure that stays for the tenant-wide row. Existing rows keep `project_id` null (no backfill guess). Contract steps (making it NOT NULL) are out of scope. Document in the report that until conversion fills the column the per-project funnel is empty for old leads.
+- evidence: filled by the agent when done
+
+### T-182 Meta-ML metrics through events (deferred to R2)
+- status: todo
+- spec: REQ-LNS-016
+- owner: lead-backend-engineer
+- depends: T-147, T-174
+- write_scope: services/ml/app/ (an emitter), services/pulse/app/ (an emitter), services/core/app/validation_worker.py (the aggregation), libs/contracts/events.py, migrations/ (one expand file with the next free number if a table is needed), tests
+- context: services/core/app/validation_reads.py, services/ml/app/drift_worker.py, SPEC.md REQ-LNS-016 and D-25
+- size: L
+- acceptance: `pytest -q tests/unit/test_meta_ml_events.py` and `make static` and `make test`
+- note: decision D-25 (owner), DEFERRED to R2: do not put this task in a wave until the owner opens R2. `psi`, `model_utility` and `decision_latency_days` cannot be read across schemas (INV-01). `ml` and `pulse` emit `drift_score`, `model_utility_run` and `decision_latency_event` through their outbox, and a `core` worker aggregates them into `validation.meta_ml_metric`. Until then those fields stay null with their current reason, which is correct. The event payloads need typed models like REQ-EVT-008 and an owner review of their fields before the work starts.
+- evidence: filled by the agent when done
+
+### T-183 Per-service token keys (planned L2)
+- status: todo
+- spec: REQ-SEC-005
+- owner: lead-backend-engineer
+- depends: T-184
+- write_scope: libs/common/internal_auth.py, libs/common/settings.py, docker-compose.yml, .env.example, ops/check_configuration.py, tests/unit/test_internal_auth.py, tests/unit/test_compose.py, docs/runbooks/go-live.md (one section)
+- context: libs/common/internal_auth.py, services/core/app/main.py, docs/runs/RUN-r1-e.md (F-r1e-04), SPEC.md REQ-SEC-005 and D-28
+- size: L
+- acceptance: `pytest -q tests/unit/test_internal_auth.py tests/unit/test_compose.py tests/unit/test_gateway_routes.py` and `python ops/check_configuration.py` and `make static` and `make test`
+- note: decision D-28 (owner): the shared HMAC key is accepted for now; per-service keys are planned L2 work, DEFERRED: do not put this task in a wave until the owner schedules it. One key per issuing service, rotatable (two keys valid during a rotation), the verifier picks the key by the service name in the token, and the shared key keeps working during the migration. Asymmetric tokens are rejected by the decision, do not propose them. Never print or log a key; the configuration check reports names only.
+- evidence: filled by the agent when done
+
+### T-184 Refuse the seed and verify_live callers in production
+- status: todo
+- spec: REQ-SEC-005
+- owner: lead-backend-engineer
+- depends: T-123
+- write_scope: libs/common/internal_auth.py, libs/common/settings.py, tests/unit/test_internal_auth.py, ops/check_configuration.py, tests/unit/test_check_configuration.py
+- context: libs/common/internal_auth.py, services/core/app/main.py (INGEST_WRITE, GATEWAY_OR_SEED, GATEWAY_OR_VERIFY), ops/bootstrap_roles.py (non production profile names), SPEC.md REQ-SEC-005 and D-28
+- size: S
+- acceptance: `pytest -q tests/unit/test_internal_auth.py tests/unit/test_check_configuration.py` and `python ops/check_configuration.py` and `make static`
+- note: decision D-28 (owner) says the caller names `seed` and `verify_live` exist only outside production, but today the allow lists of core (`INGEST_WRITE`, `GATEWAY_OR_SEED`, `GATEWAY_OR_VERIFY`) accept them in any environment. Make `require_service_token` ignore those two names (answer 401 as for any unknown caller) when the environment is production, using the environment or profile setting that already exists (the non production names are local, test, ci and dev in `ops/bootstrap_roles.py`); do not add a new variable if one exists. Add a configuration check that fails when production is configured with the seed or verify credentials, and tests for both environments. The CI e2e and `make invent-tracker` run in a non production profile and must keep working.
+- evidence: filled by the agent when done
+
+### T-185 The socioeconomic refresh workflow authenticates with a minted token
+- status: todo
+- spec: REQ-SOC-001, REQ-SEC-005, REQ-DOC-001
+- owner: second-backend-engineer
+- depends: T-184
+- write_scope: services/identity/iam/views.py, services/identity/iam/permissions.py, services/identity/iam/tokens.py, services/identity/project/urls.py, orchestration/n8n/wf_socioeco_refresh.json, orchestration/n8n/README.md, docs/runbooks/go-live.md (section 12 only), .env.example (names only), docker-compose.yml (the identity environment only), ops/check_configuration.py, tests/unit/test_identity_mint.py (new), tests/unit/test_n8n_workflows.py, tests/unit/test_runbook.py
+- context: orchestration/n8n/wf_socioeco_refresh.json, libs/common/internal_auth.py, services/identity/iam/views.py, services/identity/iam/permissions.py, services/identity/iam/tokens.py, services/pulse/app/lens.py, docs/runbooks/go-live.md section 12, SPEC.md D-33
+- size: M
+- acceptance: `pytest -q tests/unit/test_identity_mint.py tests/unit/test_identity_rbac.py tests/unit/test_internal_auth.py tests/unit/test_n8n_workflows.py tests/unit/test_runbook.py && python ops/check_configuration.py && python ops/check_language.py`
+- note: decision D-33 (owner, 2026-10-22), option B1. The problem is real: `POST /internal/identity/service-token` requires `IsInternalService` (a token already signed with the shared key), so n8n cannot obtain a first token. Resolution: (1) add a SEPARATE mint route in identity that accepts ONLY a dedicated, single-purpose credential, with its own secret distinct from `INTERNAL_SERVICE_TOKEN` (choose a variable name, add the NAME to `.env.example` with an empty value, compare in constant time, never log or print it). (2) That route can issue ONLY a token for the service and scope that `wf_socioeco_refresh` needs on the pulse refresh route (the service name is fixed on the server; the request body cannot choose it), with the normal 60 second TTL; it must not be able to mint a token for any other service, and a token minted by the shared key route must not be obtainable with it. Write an audit row per issue. (3) n8n holds only the dedicated credential; the first node of the workflow requests a token with it, the second calls `POST /internal/pulse/socioeconomic/refresh` with that token. (4) `INTERNAL_SERVICE_TOKEN` NEVER enters n8n, a workflow file or a credential, in any case (option B3 is forbidden). (5) Replace the credential list of section 12 of the go-live runbook (the coordinator already wrote the decision paragraph) and document the rotation of the dedicated credential. Tests required: the dedicated credential mints only the allowed token; a wrong or missing credential answers 401; it cannot mint another service; no response or log contains the secret. FALLBACK B2, only if the credential cannot be bounded without exposing the shared key: revert to a rotated static header accepted by pulse (`pulse-internal-header`) with a written rotation policy, REOPEN D-33 in SPEC.md with the note "reverted to a rotated static header because identity cannot issue a bounded mint credential without the shared key", and say so in the report. The workflow stays inactive (`active: false`) until one of the two works. Never write a credential value anywhere.
+- evidence: filled by the agent when done
+
+### T-186 Run verify-live inside the Compose network
+- status: todo
+- spec: REQ-RUN-005, REQ-DOC-001
+- owner: devops-engineer
+- depends: T-076
+- write_scope: docker-compose.yml (one new `verify-live` service under the profile `tools`, no `ports:`), Makefile (the `verify-live` target), ops/verify_live.py (only an in-network default mode if needed), .env.example (a comment on the overrides), docs/runbooks/go-live.md (section 7), tests/unit/test_compose.py, tests/unit/test_verify_live.py
+- context: docs/runbooks/go-live.md, ops/verify_live.py, docs/runs/RUN-r1-d2-launch.md, docker-compose.yml, Makefile
+- size: S
+- acceptance: `pytest -q tests/unit/test_compose.py tests/unit/test_verify_live.py tests/unit/test_runbook.py && python ops/check_configuration.py`
+- note: decision C1 of the owner (2026-10-22). `make verify-live` runs on the host and its defaults `http://localhost:8001` and `http://localhost:8002` do not answer because Compose does not publish the ingest and core ports. Do NOT publish them: `/internal` is not exposed, not even on the loopback. Instead run verify-live INSIDE the Compose network: add a service `verify-live` under the profile `tools` (same image and `.env` as the other Python services, `restart: "no"`) and make the Makefile target call `docker compose --profile tools run --rm verify-live python ops/verify_live.py ...`, reaching ingest and core by service name and container port (read the real ports from the `command:` lines of the ingest and core services in `docker-compose.yml`). Keep `VERIFY_LIVE_INGEST_URL` and `VERIFY_LIVE_CORE_URL` as overrides for whoever runs verify-live outside the network. Test that no `ports:` entry exists for ingest or core, that the new service has none, and that the target uses the profile. Remove the caveat paragraph of section 7 of the go-live runbook ONLY when the in-network run works (it cannot be proven without Docker: say so in the report and keep the paragraph if you cannot prove it, adding the new command next to it; T-187 confirms it on a machine with Docker). The earlier draft of this task (publish the ports on the loopback) is withdrawn.
+- evidence: filled by the agent when done
+
+### T-187 Record the Docker integration and e2e run
+- status: todo
+- spec: REQ-QA-001, REQ-RUN-001
+- owner: qa-reviewer
+- depends: T-171
+- write_scope: docs/runs/RUN-golive-docker.md (the coordinator created the skeleton marked PENDING)
+- context: docs/runbooks/go-live.md, docs/runs/RUN-r1-e.md (F-r1e-10), Makefile
+- size: S
+- acceptance: `test -f docs/runs/RUN-golive-docker.md && ! grep -q PENDING docs/runs/RUN-golive-docker.md`
+- note: decision D-32 (owner): the integration tier and the e2e are run by the OWNER (or qa-reviewer) on a machine with Docker, with `make invent-tracker`, before go-live. This task is a record only and is NOT launched by an agent: the owner runs `make test-integration`, `make invent-tracker`, `make doctor` and `python ops/e2e_check.py`, then writes one line per command with the result in `docs/runs/RUN-golive-docker.md`, plus every item the earlier reports marked unverified for lack of Docker. It is a high priority prerequisite of go-live.
+- evidence: filled by the owner when done

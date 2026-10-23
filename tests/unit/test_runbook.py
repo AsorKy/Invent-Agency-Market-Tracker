@@ -131,7 +131,8 @@ def test_event_chain_runbook_covers_procedure_and_cites_real_files() -> None:
         "chain_events_after",
     ):
         assert needle.lower() in text.lower(), needle
-    for path in sorted(set(re.findall(r"`((?:services|libs|ops|docs|tests)/[\w./-]+\.\w+)`", text))):
+    pattern = r"`((?:services|libs|ops|docs|tests)/[\w./-]+\.\w+)`"
+    for path in sorted(set(re.findall(pattern, text))):
         assert (ROOT / path).is_file(), path
 
 

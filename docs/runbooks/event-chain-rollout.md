@@ -41,8 +41,10 @@ Run them with `docker compose exec postgres psql` as in `ops/e2e_check.py`, and 
 2. Chain events already written stay valid. The relay publishes them and the consumers record and ignore the types they do not use (`tests/unit/test_event_chain_consumers.py`), so old consumers need no change and no replay.
 3. Do not delete the rows. If a dead letter appeared, use `services/core/app/dead_letter.py` and the replay command in `services/core/app/republish.py` only after the cause is fixed.
 
-## 6. Known limit: trace_chain gaps by design
+## 6. Known limit: trace_chain gaps until the parent id is propagated
 
-The steps run in different services and transactions, so only three segments are linked by real event ids: `signal.created` to `signal.tagged`, `company.matched` to `signal.explained`, and `project.pipeline_updated` to `project.forecast_updated`. The three joins (`signal.tagged` to `signal.scored`, `signal.scored` to `company.matched`, `funnel.gate_decision` to `project.pipeline_updated`) use deterministic reference ids made by `reference_parent` in `libs/domain/event_chain.py`. No event carries those ids, so `trace_chain` reports a gap at each join and `complete` stays false. This is expected until the event contract carries the parent event id (see `docs/runs/RUN-r1-i-events.md`). Do not treat these gaps as a failed rollout.
+Decision D-21 (owner, 2026-10-22) no longer accepts the gaps as a design. The chain closes when the producers propagate `parent_event_id` and `signal.scored` leaves `ml` through its outbox (tasks T-174, T-175 and T-176, contract REQ-EVT-008). Until those tasks are merged the limit below still holds, and `trace_chain` reports it.
 
-Also note that `signal.scored` goes straight to the Redis stream, not through the outbox, so it is absent from the outbox queries above.
+The steps run in different services and transactions, so only three segments are linked by real event ids: `signal.created` to `signal.tagged`, `company.matched` to `signal.explained`, and `project.pipeline_updated` to `project.forecast_updated`. The three joins (`signal.tagged` to `signal.scored`, `signal.scored` to `company.matched`, `funnel.gate_decision` to `project.pipeline_updated`) use deterministic reference ids made by `reference_parent` in `libs/domain/event_chain.py`. No event carries those ids yet, so `trace_chain` reports a gap at each join and `complete` stays false. Do not treat these gaps as a failed rollout before T-175 and T-176 are merged; after they are merged a gap is a defect. See `docs/runs/RUN-r1-i-events.md` for the origin of the limit.
+
+Until T-176 is merged `signal.scored` goes straight to the Redis stream, not through the outbox, so it is absent from the outbox queries above.
