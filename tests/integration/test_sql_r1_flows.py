@@ -1132,7 +1132,8 @@ async def test_retention_purge_runs_each_tenant_separately_as_core_app(db: Db) -
     assert db.one("SELECT count(*) FROM core.signal WHERE company_id = %s", old_a) == (0,)
     assert (
         db.one(
-            "SELECT count(*) FROM core.audit_log WHERE action = 'retention.purge' AND tenant_id = %s",
+            "SELECT count(*) FROM core.audit_log"
+            " WHERE action = 'retention.purge' AND tenant_id = %s",
             OTHER,
         )[0]
         >= 1
