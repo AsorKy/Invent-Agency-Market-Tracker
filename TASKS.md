@@ -2160,16 +2160,16 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - note: T-172 left the findings of `ruff check tests` that `make static` does not cover (B905, E501, F401, B023, I001 in the files above). Fix them without changing what a test asserts; if a fix would change behaviour, add a narrow `# noqa` with the reason instead. Then list in the report the exact command and its result. Do NOT change the Makefile or the CI workflow: whether `ruff check tests` joins `make static` is a decision for the owner, so state your recommendation in the report.
 - evidence: `ruff check tests` -> All checks passed (was 14 findings); make static OK; make test 1689 passed, 2 skipped, 4 xfailed
 
-### T-191 Retention and opt-out work under row level security
-- status: blocked
-- spec: REQ-CMP-001, REQ-DAT-005
+### T-191 Compliance routes become tenant-aware
+- status: todo
+- spec: REQ-CMP-001, REQ-SEC-005, REQ-DAT-005
 - owner: lead-backend-engineer
-- depends: T-082
-- write_scope: decided when D-36 closes (expected: services/core/app/retention.py, services/core/app/main.py (the two compliance routes), services/core/app/repository.py (the retention unit of work), tests/unit/test_retention.py, tests/integration/test_sql_r1_flows.py (new cases only), docs/runbooks/go-live.md (one line))
-- context: SPEC.md decision D-36, docs/runs/RUN-r1-n-rls.md (risks), services/core/app/retention.py, services/core/app/repository.py
+- depends: T-082, T-194
+- write_scope: services/core/app/main.py (the two compliance routes: opt-out requires `X-Tenant-Id`, purge runs per tenant), services/core/app/retention.py (opt_out and purge set the tenant context; the CLI iterates the tenants), services/core/app/repository.py (the retention unit of work applies the context), services/core/app/identity_tenants.py (new: the client that lists tenants from identity), tests/unit/test_retention.py, tests/integration/test_sql_r1_flows.py (new cases only), docs/compliance/processing-activities.md, docs/runbooks/go-live.md (one line)
+- context: SPEC.md decision D-36 and REQ-CMP-001, docs/runs/RUN-r1-n-rls.md (risks), services/core/app/retention.py, services/core/app/repository.py
 - size: M
-- acceptance: `pytest -q tests/unit/test_retention.py` and a real Postgres case that deletes the three tables of a tenant under the tenant context and leaves another tenant untouched, plus `make static` and `make test`
-- note: blocked by decision D-36 (owner). Since T-082, `core.company`, `core.signal`, `core.location` and `core.lead_outcome` are all under row level security, and `POST /compliance/opt-out`, `POST /compliance/purge` and the `python -m services.core.app.retention` job carry no tenant, so as `core_app` without a context they see no row and delete nothing, silently. This is a habeas data obligation (REQ-CMP-001), so treat it as a go-live prerequisite. Whatever D-36 chooses, the task must add a test that fails when a purge deletes zero rows for a company that exists.
+- acceptance: `pytest -q tests/unit/test_retention.py` and a real Postgres case as `core_app` with two tenants where the opt-out of tenant A deletes only its rows and the retention job purges each tenant separately, plus `make static` and `make test`
+- note: decision D-36 (owner), option A. Since T-082 the opt-out, the purge route and `python -m services.core.app.retention` run without a tenant context and delete nothing. Make them tenant-aware: (1) `POST /internal/core/compliance/opt-out` requires `X-Tenant-Id` (answers 400 without it) and calls `set_tenant_context` before the first statement; a company of another tenant is `not_found`, never deleted; opt-out by NIT works only inside the tenant of the caller, the same company in two tenants needs two requests; (2) the retention job and the purge route get the tenant ids from the identity API (T-194, service token, allow list), never from `core.tenant_config` (under RLS), and set the context for each tenant before purging it; one tenant that fails does not stop the others and the exit code reports it; (3) no new role and no policy that crosses tenants (D-29, REQ-SEC-005); (4) the audit entry keeps only the hashed identifiers (`retention._fingerprint`) plus action, requested_via, counts per table, timestamp and tenant_id, never plain PII. The gateway has NO compliance route today (checked on main after PR #80): the callers are the seed and internal callers. Do not add a public gateway route here; if the owner wants one it is a separate API decision, so say it in the report. Add a test that fails when a purge deletes zero rows for a company that exists.
 - evidence: filled by the agent when done
 
 ### T-192 Check for rows without a tenant before migration 0014
@@ -2194,4 +2194,52 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: S
 - acceptance: `pytest -q tests/unit/test_verify_live.py tests/unit/test_compose.py tests/unit/test_runbook.py`
 - note: `ops/verify_live.py` counts `core.signal` directly (an operator tool, INV-01 does not apply). With T-082 that table is under forced row level security, so a connection as `core_app` would count 0 and the signal hop would fail with a misleading message. Today the default URL and the Compose service use `POSTGRES_USER` (the owner), which is correct. Pin it: a test that the compose `verify-live` URL never uses an `_app` role, a refusal in `ops/verify_live.py` (exit 2 with a clear message, no value printed) when `VERIFY_LIVE_DATABASE_URL` names a role ending in `_app`, and one sentence in section 7 of the go-live runbook.
+- evidence: filled by the agent when done
+
+### T-194 Identity lists the tenants for service callers
+- status: todo
+- spec: REQ-SEC-005
+- owner: lead-backend-engineer
+- depends: T-185
+- write_scope: services/identity/iam/views.py, services/identity/iam/permissions.py, services/identity/project/urls.py, tests/unit/test_identity_tenants.py (new), tests/unit/test_openapi.py (NOT_PUBLIC entry only), docs/runs/
+- context: SPEC.md decision D-36, services/identity/iam/models.py (Tenant), services/identity/iam/permissions.py (InternalServiceToken), docs/runs/RUN-r1-m-auth.md
+- size: S
+- acceptance: `pytest -q tests/unit/test_identity_tenants.py tests/unit/test_openapi.py` and `make static` and `make test`
+- note: the retention job needs the list of tenants and must not read `core.tenant_config` (row level security) nor another schema (INV-01). Add `GET /internal/identity/tenants`, read only, protected by a signed service token with an allow list that contains only `core`; it returns the tenant ids and nothing else (no names, no members, no secrets) and only active tenants. Tests: accepted for `core`; 401 for gateway, seed, verify_live and a missing token; the body has only ids. Not public (NOT_PUBLIC in `test_openapi.py`).
+- evidence: filled by the agent when done
+
+### T-195 Per-tenant unique key on core.signal (expand)
+- status: todo
+- spec: REQ-DAT-005, REQ-SEC-005, REQ-ING-009
+- owner: database-engineer
+- depends: T-082
+- write_scope: migrations/20261024_0017_core_signal_tenant_unique.sql (new), services/core/app/repository.py (create_signal only), services/ingest/app/ (only if it builds `source_external_id` or has its own upsert), tests/unit/test_sql_consistency.py, tests/unit/snapshots/table_catalog.json (only if the catalog test requires it), tests/integration/test_sql_r1_flows.py (new cases only), docs/runs/
+- context: SPEC.md decision D-37, migrations/20261017_0001_expand_initial_schemas.sql (the global UNIQUE), services/core/app/repository.py (create_signal), docs/runs/RUN-r1-n-rls.md
+- size: M
+- acceptance: the integration case with two tenants and the SAME `(source, source_external_id)` passes (each tenant gets its own row, neither sees the other's, `create_signal` does not raise), `python ops/check_migrations.py`, `pytest -q tests/unit/test_sql_consistency.py`, `make static` and `make test`
+- note: decision D-37 (owner), option B, priority: do it before a second tenant is onboarded. Today the global `UNIQUE (source, source_external_id)` makes `ON CONFLICT DO NOTHING` hit the row of another tenant, the fallback `SELECT ... scalar_one()` is hidden by row level security and raises, so `create_signal` fails. Expand only (INV-06), in ONE pull request: (1) the migration creates `UNIQUE (tenant_id, source, source_external_id)` (a unique index, `IF NOT EXISTS`, re-runnable) and FIRST verifies that no row violates it, failing with an explicit message and never deduplicating by deleting; the global unique stays until T-196; (2) `create_signal` uses `ON CONFLICT (tenant_id, source, source_external_id)` and the fallback SELECT filters by `tenant_id`; (3) the integration test above. The migration number is pinned to 0017 (0014 is T-082, 0015 is T-181, 0016 is the ml outbox).
+- evidence: filled by the agent when done
+
+### T-196 Drop the global unique key on core.signal (contract)
+- status: todo
+- spec: REQ-DAT-005, REQ-ING-009
+- owner: database-engineer
+- depends: T-195
+- write_scope: migrations/contract_20261024_0018_drop_signal_global_unique.sql (new), tests/integration/test_sql_postgres.py (only if an assertion lists the old key), docs/runs/
+- context: SPEC.md decision D-37, docs/runs/ (the T-195 report), ops/check_migrations.py
+- size: S
+- acceptance: `python ops/check_migrations.py --base origin/main` and `pytest -q tests/unit/test_sql_consistency.py` and `make static` and `make test`
+- note: INV-06: a contract file goes in its own pull request and only after the code of T-195 is on main and no statement depends on the old key. Drop the global `UNIQUE (source, source_external_id)` of `core.signal` (look up the real constraint name in the migrations; do not guess it). Do not launch this task in the same wave as T-195, and not before T-195 is merged AND its migration is applied in the target environment (the code must already use the per-tenant key before the global one is dropped); when in doubt that it is applied, wait.
+- evidence: filled by the agent when done
+
+### T-197 Gateway route for operator-initiated opt-out (admin role)
+- status: todo
+- spec: REQ-CMP-001, REQ-SEC-005
+- owner: lead-backend-engineer
+- depends: T-191
+- write_scope: services/gateway/app/registry.py, services/gateway/app/routes.py, docs/api/openapi.json, tests/unit/snapshots/, tests/unit/test_gateway_routes.py, tests/unit/test_openapi.py, docs/compliance/processing-activities.md (one line), docs/runbooks/go-live.md (one line)
+- context: SPEC.md decision D-36 and REQ-CMP-001, services/gateway/app/auth.py (the tenant is derived from the JWT), services/gateway/app/registry.py, docs/runs/RUN-r1-decisions-d36-d37.md
+- size: S
+- acceptance: `pytest -q tests/unit/test_gateway_routes.py tests/unit/test_openapi.py tests/unit/test_contract_snapshot.py` and `make static` and `make test`
+- note: tracked by decision D-36 (owner). For the go-live of run 1 the internal path of T-191 is enough: the retention job covers the age based purge and the operator runs a one-off opt-out through the seed. This task is the way a data subject's deletion request is processed from the app by an admin or legal user, and it is required BEFORE go-live if legal requests are processed by users. Do not launch it before T-191. Map `POST /api/v1/compliance/opt-out` in the gateway for the admin role only; the gateway injects `X-Tenant-Id` from the JWT as it does on the other routes (never from the request body) and forwards to `POST /internal/core/compliance/opt-out`. Purge stays internal. The change must be additive for the OpenAPI diff; regenerate `docs/api/openapi.json` and the snapshots. Tests: admin allowed; every other role 403; a body that names another tenant does not change the tenant sent to core.
 - evidence: filled by the agent when done
