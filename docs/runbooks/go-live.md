@@ -89,7 +89,7 @@ Treat any mapping still marked `unverified: true` as not proven against live dat
 - the health of each service as seen through the gateway readiness check;
 - whether the configured webhook URLs answer.
 
-Values and URLs are never printed. Exit code 1 means a required variable is missing. Fix every item before continuing.
+Values and URLs are never printed. Exit code 1 means a required variable is missing. Fix every item before continuing. After data has flowed, `python ops/doctor.py --pipeline` (read only, counts only, `--max-backlog-seconds` default 300) reports the outbox backlog, dead letters, unscored companies and auto qualified leads, and exits 1 on dead letters or a stale backlog.
 
 ## 7. Run `make verify-live`
 

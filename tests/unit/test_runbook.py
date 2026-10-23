@@ -55,6 +55,7 @@ def test_runbook_covers_required_topics() -> None:
         "INGEST_POLL_ENABLED",
         "unverified",
         "make doctor",
+        "ops/doctor.py --pipeline",
         "make verify-live",
         "make invent-tracker",
         "VERIFY_LIVE_INGEST_URL",

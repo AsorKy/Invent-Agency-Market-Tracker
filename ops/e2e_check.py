@@ -8,8 +8,12 @@ must have no unpublished event, and the dead letter table must stay empty;
 every ``core.company`` row must carry a non-null ``score`` (stored by core from
 ``lead.score_updated``) and every ``ml.lead_score`` row the three stored features; the other
 tables are printed as information (``--strict`` requires them too). Exit code 1 means a
-requirement failed after ``--timeout`` seconds. ``--chain`` (T-164) adds a second step for a stack
-started with ``EVENT_CHAIN_EMIT=true``: it runs ``--drive-chain`` inside the gateway container
+requirement failed after ``--timeout`` seconds. Then (T-171) every demo company at or above the
+tenant's ``min_score_for_qualified`` (read from ``core.tenant_config``) must have a ``core.lead``
+with ``source = 'auto_qualification'``, and ``services.ml.app.backfill`` runs inside the ml
+container for the demo tenant, after which no ml.lead_score row may lack features. ``--chain``
+(T-164) adds a second step for a stack started with ``EVENT_CHAIN_EMIT=true``: it runs
+``--drive-chain`` inside the gateway container
 (which holds the service token), creating one signal and moving one lead status through core's
 internal API, then requires every chain event type in the outbox published and zero dead
 letters. It relates to the Makefile, ``docker-compose.yml``,
@@ -24,9 +28,14 @@ import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from pathlib import Path
 from uuid import uuid4
 
 import httpx
+
+# CI runs this file as ``python ops/e2e_check.py``: the repository root is not on the path then,
+# and the leads step imports ``ops.seed`` and ``services.core`` lazily.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 PSQL = 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tA -v ON_ERROR_STOP=1 -c "$0"'
 PENDING_OUTBOX = "SELECT count(*) FROM core.outbox_event WHERE published_at IS NULL"
@@ -63,6 +72,16 @@ CHAIN_UNPUBLISHED = (
     "SELECT count(*) FROM core.outbox_event "
     f"WHERE event_type IN ({_CHAIN_LIST}) AND published_at IS NULL"
 )
+BACKFILL_COMMAND = [
+    "docker",
+    "compose",
+    "exec",
+    "-T",
+    "ml",
+    "python",
+    "-m",
+    "services.ml.app.backfill",
+]
 DRIVE_COMMAND = ["docker", "compose", "exec", "-T", "gateway", "python", "-m", "ops.e2e_check"]
 
 
@@ -87,7 +106,40 @@ TABLES = (
 )
 
 Query = Callable[[str], int]
+Backfill = Callable[[str, int], None]
 DeadLetterErrors = Callable[[], list[str]]
+
+
+def qualified_sql(tenant_id: str, *, missing_lead: bool) -> str:
+    """SQL counting demo companies at the qualified threshold (all, or those without a lead).
+
+    The threshold is the tenant config value ``brief_rules.alert_rules.min_score_for_qualified``
+    read from ``core.tenant_config``, the same value ``services/core/app/qualification.py`` uses;
+    when the tenant has no value the core model default applies, read from the model, not copied.
+    """
+    from services.core.app.tenant_config import AlertRules
+
+    default = AlertRules().min_score_for_qualified
+    sql = (
+        "SELECT count(*) FROM core.company c "
+        f"WHERE c.tenant_id = '{tenant_id}' AND c.score >= COALESCE(("
+        "SELECT (t.brief_rules->'alert_rules'->>'min_score_for_qualified')::int "
+        f"FROM core.tenant_config t WHERE t.tenant_id = c.tenant_id), {int(default)})"
+    )
+    if missing_lead:
+        sql += (
+            " AND NOT EXISTS (SELECT 1 FROM core.lead l WHERE l.company_id = c.id "
+            "AND l.source = 'auto_qualification')"
+        )
+    return sql
+
+
+def auto_leads_sql(tenant_id: str) -> str:
+    """SQL counting the auto qualification leads of one tenant."""
+    return (
+        "SELECT count(*) FROM core.lead "
+        f"WHERE tenant_id = '{tenant_id}' AND source = 'auto_qualification'"
+    )
 
 
 def compose_text(sql: str) -> str:
@@ -111,6 +163,19 @@ def compose_query(sql: str) -> int:
 def dead_letter_errors() -> list[str]:
     """The most common dead letter errors with their counts (error texts hold no credentials)."""
     return [line for line in compose_text(DEAD_LETTER_ERRORS).splitlines() if line]
+
+
+def backfill_in_ml(tenant_id: str, limit: int) -> None:
+    """Run the feature backfill inside the ml container; raises when it exits non-zero."""
+    result = subprocess.run(
+        [*BACKFILL_COMMAND, "--tenant", tenant_id, "--limit", str(limit)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    print(result.stdout.strip())
+    if result.returncode != 0:
+        raise RuntimeError(f"backfill failed: {result.stderr.strip()[-300:]}")
 
 
 async def drive_chain(client: httpx.AsyncClient, secret: str) -> dict[str, str]:
@@ -240,6 +305,51 @@ def check_chain(
     return 1 if problems else 0
 
 
+def check_leads_and_backfill(
+    args: argparse.Namespace,
+    query: Query,
+    sleep: Callable[[float], None],
+    backfill: Backfill,
+) -> int:
+    """Require auto qualification leads for qualified companies, then run the feature backfill.
+
+    Polls (bounded by ``--timeout``) because the core worker creates leads after the scores land.
+    Then runs the backfill for the demo tenant and requires no ml.lead_score row without features.
+    """
+    from ops.seed.loader import DEMO_TENANT_ID
+
+    tenant = str(DEMO_TENANT_ID)
+    all_sql = qualified_sql(tenant, missing_lead=False)
+    missing_sql = qualified_sql(tenant, missing_lead=True)
+    leads_sql = auto_leads_sql(tenant)
+    deadline = time.monotonic() + args.timeout
+    while True:
+        qualified, missing, leads = query(all_sql), query(missing_sql), query(leads_sql)
+        if not missing or time.monotonic() >= deadline:
+            break
+        sleep(args.interval)
+    print(f"demo companies at the qualified threshold: {qualified}")
+    print(f"core.lead rows from auto_qualification: {leads}")
+    print(f"qualified companies without an auto_qualification lead: {missing}")
+    problems = []
+    if missing:
+        problems.append(f"{missing} qualified companies have no auto_qualification lead")
+    if not problems:
+        try:
+            backfill(tenant, args.backfill_limit)
+        except (RuntimeError, OSError) as error:
+            problems.append(str(error))
+    if not problems:
+        left = query(SCORES_WITHOUT_FEATURES)
+        print(f"ml.lead_score without features after backfill: {left}")
+        if left:
+            problems.append(f"{left} ml.lead_score rows have no features after the backfill")
+    for problem in problems:
+        print(f"FAIL: {problem}", file=sys.stderr)
+    print("e2e leads and backfill check: " + ("FAILED" if problems else "OK"))
+    return 1 if problems else 0
+
+
 def collect(query: Query, tables: Sequence[Table]) -> dict[str, int]:
     """Row counts per table plus the two outbox counters."""
     counts = {table.name: query(f"SELECT count(*) FROM {table.name}") for table in tables}
@@ -279,6 +389,7 @@ def run(
     sleep: Callable[[float], None] = time.sleep,
     errors: DeadLetterErrors = dead_letter_errors,
     drive: Callable[[], None] = drive_in_gateway,
+    backfill: Backfill | None = None,
 ) -> int:
     """Poll until the requirements hold or the timeout passes; print the final counts."""
     parser = argparse.ArgumentParser(description="Check demo data in the running stack.")
@@ -287,6 +398,9 @@ def run(
     parser.add_argument("--strict", action="store_true", help="require every table, not only core")
     parser.add_argument(
         "--chain", action="store_true", help="then drive and check the event chain (flag on)"
+    )
+    parser.add_argument(
+        "--backfill-limit", type=int, default=5, help="companies the backfill step rescores"
     )
     parser.add_argument("--drive-chain", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
@@ -316,6 +430,9 @@ def run(
         print(f"FAIL: {problem}", file=sys.stderr)
     print("e2e data check: " + ("FAILED" if problems else "OK"))
     if problems:
+        return 1
+    run_backfill = backfill if backfill is not None else backfill_in_ml
+    if check_leads_and_backfill(args, query, sleep, run_backfill):
         return 1
     return check_chain(args, query, sleep, drive) if args.chain else 0
 

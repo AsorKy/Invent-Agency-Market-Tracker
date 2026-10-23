@@ -1,6 +1,7 @@
 """Unit tests for ops/doctor.py: names only, never a value (REQ-RUN-005)."""
 
 import json
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -87,3 +88,68 @@ def test_webhook_reachability() -> None:
     assert "  HOT_LEAD_WEBHOOK_URL: reachable" in up
     assert "  HOT_LEAD_WEBHOOK_URL: UNREACHABLE" in down
     assert "  PUBLIC_WEBHOOK_BASE_URL: not configured" in up
+
+
+def _query(values: dict[str, int]) -> Callable[[str], int]:
+    return lambda sql: values[sql]
+
+
+def _counts(**over: int) -> dict[str, int]:
+    counts = {
+        doctor.PENDING_OUTBOX: 2,
+        doctor.OLDEST_UNPUBLISHED_SECONDS: 10,
+        doctor.DEAD_LETTERS: 0,
+        doctor.COMPANIES_UNSCORED: 3,
+        doctor.SCORES_WITHOUT_FEATURES: 1,
+        doctor.AUTO_QUALIFIED_LEADS: 4,
+    }
+    counts.update(over)
+    return counts
+
+
+def test_pipeline_healthy_prints_counts() -> None:
+    lines, ok = doctor.pipeline_report(_query(_counts()))
+    assert ok
+    assert "  outbox unpublished: 2" in lines
+    assert "  leads from auto qualification: 4" in lines
+
+
+def test_pipeline_dead_letters_unhealthy() -> None:
+    lines, ok = doctor.pipeline_report(_query(_counts(**{doctor.DEAD_LETTERS: 1})))
+    assert not ok
+    assert any("dead letters above zero" in line for line in lines)
+
+
+def test_pipeline_threshold_is_configurable() -> None:
+    query = _query(_counts(**{doctor.OLDEST_UNPUBLISHED_SECONDS: 301}))
+    assert not doctor.pipeline_report(query)[1]
+    assert doctor.pipeline_report(query, 600)[1]
+
+
+def test_main_pipeline_exit_code(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    monkeypatch.setattr(doctor, "ROOT", tmp_path)
+    monkeypatch.setattr(doctor, "fetch", lambda _u, timeout=3.0: (0, ""))
+    for name in doctor.REQUIRED:
+        monkeypatch.setenv(name, SENTINEL)
+    assert doctor.main(["--pipeline"], _query(_counts())) == 0
+    assert "Pipeline (counts only)" in capsys.readouterr().out
+    assert doctor.main(["--pipeline"], _query(_counts(**{doctor.DEAD_LETTERS: 2}))) == 1
+    bad = _counts(**{doctor.OLDEST_UNPUBLISHED_SECONDS: 50})
+    assert doctor.main(["--pipeline", "--max-backlog-seconds", "10"], _query(bad)) == 1
+    assert SENTINEL not in capsys.readouterr().out
+
+
+def test_main_pipeline_query_failure_exits_1(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(doctor, "ROOT", tmp_path)
+    monkeypatch.setattr(doctor, "fetch", lambda _u, timeout=3.0: (0, ""))
+    for name in doctor.REQUIRED:
+        monkeypatch.setenv(name, SENTINEL)
+
+    def boom(_sql: str) -> int:
+        raise RuntimeError("psql failed")
+
+    assert doctor.main(["--pipeline"], boom) == 1

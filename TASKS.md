@@ -1908,7 +1908,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_compose.py` 56 passed; `python ops/check_configuration.py` OK (106 variables); make static and make test green. Bind variables are listed uncommented in .env.example (value equals the default) because the configuration guard ignores commented lines.
 
 ### T-171 The e2e check proves that scored companies become leads and that the backfill runs
-- status: todo
+- status: done
 - spec: REQ-RUN-001, REQ-QA-001, REQ-COR-008
 - owner: qa-reviewer
 - depends: T-168, T-165, T-161
@@ -1917,7 +1917,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_e2e_check.py tests/unit/test_demo_pipeline.py`
 - note: T-168 made qualification see the companies of a tenant, and T-165 added the feature backfill, but the CI e2e still only checks scores and features. Add two checks to `ops/e2e_check.py`: (1) after the seed enrichment, the demo tenant has `core.lead` rows with `source = 'auto_qualification'` for the scored companies (count them, and require at least one lead per scored company that reached the qualified threshold; read the threshold from the tenant config, do not hard code it); (2) the backfill command runs inside the ml container (`docker compose exec`, as the T-164 driver does for the gateway) for the demo tenant with a small `--limit`, exits 0 and reports zero rows left without features, which also proves ml reaches the new core route with its service token. The queries use the existing superuser psql path, so INV-01 is unchanged. There is no Docker in your sandbox: the CI e2e stage is the real check, so state in the report which assertion it will exercise first.
-- evidence: filled by the agent when done
+- evidence: `pytest -q tests/unit/test_e2e_check.py tests/unit/test_demo_pipeline.py tests/unit/test_sql_consistency.py` 61 passed; `make static` ok. Offline only; CI e2e is the real check.
 
 ### T-172 Close the smoke task and fix the lint the gate does not cover
 - status: done
@@ -1932,7 +1932,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `make static` OK; docs/runs/RUN-smoke.md written, T-000 done, E501 in tests/unit/test_runbook.py fixed; other `ruff check tests` findings listed in docs/runs/RUN-r1-l-platform.md.
 
 ### T-173 The doctor can report the pipeline health
-- status: todo
+- status: done
 - spec: REQ-RUN-001, REQ-DOC-001
 - owner: second-backend-engineer
 - depends: T-161
@@ -1941,7 +1941,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_doctor.py tests/unit/test_runbook.py && python ops/check_language.py`
 - note: `make doctor` checks configuration and service health, but an operator has no one command for the state of the data pipeline. Add `ops/doctor.py --pipeline`, read only, through the same superuser psql path as `ops/e2e_check.py`: outbox backlog (unpublished events and the age of the oldest), dead letter count, companies without a score, score rows without stored features, leads created by auto qualification. It prints counts only, never rows, tokens or tenant data, and exits 1 when the dead letter count is above zero or the oldest unpublished event is older than a threshold given by `--max-backlog-seconds` (default 300). Reuse the SQL constants of `e2e_check.py` by importing them instead of copying them where that does not create a cycle. Add one line to the go-live runbook that names the command, with the matching assertion in `tests/unit/test_runbook.py` if that file already checks the runbook for commands.
-- evidence: filled by the agent when done
+- evidence: `ops/doctor.py --pipeline [--max-backlog-seconds N]` added (injectable query, exit 1 on dead letters or stale backlog); go-live runbook line and test_runbook needle added; test_doctor, test_runbook, test_sql_consistency, check_language and make static pass
 
 ### T-082 Row level security on core.signal, core.location and core.lead_outcome
 - status: todo
