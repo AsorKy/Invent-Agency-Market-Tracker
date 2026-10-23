@@ -577,6 +577,19 @@
             "title": "Qualification Reason",
             "type": "object"
           },
+          "scored_event_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Scored Event Id"
+          },
           "service_line": {
             "maxLength": 120,
             "minLength": 1,
@@ -612,6 +625,19 @@
             "minimum": 1,
             "title": "Expected Version",
             "type": "integer"
+          },
+          "gate_event_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Gate Event Id"
           },
           "stage": {
             "$ref": "#/components/schemas/PipelineStage"
@@ -988,6 +1014,19 @@
             "minimum": 0,
             "title": "Icp Fit",
             "type": "number"
+          },
+          "parent_event_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Parent Event Id"
           },
           "signal_strength": {
             "maximum": 1,

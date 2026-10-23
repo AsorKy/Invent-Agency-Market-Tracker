@@ -55,6 +55,7 @@ REDIS_DATA_SERVICES = (
     "pulse-consumer",
     "ml",
     "ml-consumer",
+    "ml-relay",
     "brief",
 )
 NON_PRODUCTION_PREFIXES = ("SEED_", "VERIFY_LIVE_")

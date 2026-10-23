@@ -51,6 +51,7 @@ class ScoreFeatures(BaseModel):
     signal_strength: float = Field(ge=0, le=1)
     territory_opportunity: float = Field(ge=0, le=1)
     source_version: str = "draft"
+    parent_event_id: UUID | None = None
 
 
 class ScoreResponse(BaseModel):

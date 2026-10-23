@@ -20,10 +20,16 @@ pytest.importorskip("redis.asyncio")
 pytest.importorskip("fakeredis")
 
 from support_relay import FakeCoreEngine, FakePulseDb, Result  # noqa: E402
+from test_ml_outbox import FakeMlOutbox  # noqa: E402
 
 from libs.common.settings import get_settings  # noqa: E402
 from libs.contracts.api import ScoreFeatures, SignalCreate  # noqa: E402
-from libs.domain.event_chain import CHAIN, reference_parent, trace_chain  # noqa: E402
+from libs.domain.event_chain import (  # noqa: E402
+    CHAIN,
+    chain_events_after,
+    reference_parent,
+    trace_chain,
+)  # noqa: E402
 from libs.domain.pipeline import PipelineStage  # noqa: E402
 from services.core.app import leads as leads_module  # noqa: E402
 from services.core.app import repository as repository_module  # noqa: E402
@@ -59,8 +65,21 @@ class Engine(FakeCoreEngine):
 
 
 class Store:
-    async def upsert_score(self, **_kw: Any) -> None:
-        return None
+    """Score store that keeps the ml outbox rows written with the score (T-176)."""
+
+    def __init__(self) -> None:
+        self.outbox = FakeMlOutbox()
+
+    async def upsert_score(self, **kw: Any) -> None:
+        self.outbox.add(kw.get("outbox_events") or [])
+
+    async def relay(self, redis: Any) -> dict[str, int]:
+        """Run the ml relay instance over the rows; publish them to the stream."""
+
+        async def publish(row: dict[str, Any]) -> None:
+            await redis.xadd(STREAM_NAME, stream_fields(row))
+
+        return await relay_due_events(self.outbox.unit_of_work(), publish)
 
     async def latest_score(self, _company_id: UUID) -> None:
         return None
@@ -100,11 +119,13 @@ class Flow:
             LeadStatusPatch(stage=PipelineStage.QUALIFIED, expected_version=1),
             tenant_id=TENANT,
         )
-        service = ScoringService(Store(), FakeRedisWrapper(self.redis), lock_ttl_seconds=5)  # type: ignore[arg-type]
+        self.store = Store()
+        service = ScoringService(self.store, FakeRedisWrapper(self.redis), lock_ttl_seconds=5)  # type: ignore[arg-type]
         features = ScoreFeatures(
             company_id=self.company, icp_fit=0.9, signal_strength=0.8, territory_opportunity=0.7
         )
         await service.regenerate(features, None, TENANT)
+        await self.store.relay(self.redis)
 
     def types(self) -> list[str]:
         return [row["event_type"] for row in self.engine.outbox]
@@ -196,3 +217,72 @@ async def test_chain_segments_link_through_parents(
         rows["company.matched"]["payload"]["parent"]["event_id"]
         == (reference_parent("signal.scored", str(flow.company))["event_id"])
     )
+
+
+async def test_full_chain_closes_with_real_event_ids(
+    monkeypatch: pytest.MonkeyPatch, fake_redis: Any
+) -> None:
+    set_flag(monkeypatch, True)
+    flow = Flow(fake_redis)
+    signal = SignalCreate(
+        company_id=flow.company,
+        source="rues",
+        signal_type="new_company",
+        observed_at=OBSERVED,
+        source_external_id="sig-full",
+    )
+    await flow.repo.create_signal(signal, request_id=None)
+    tagged = next(r for r in flow.engine.outbox if r["event_type"] == "signal.tagged")
+    store = Store()
+    service = ScoringService(store, FakeRedisWrapper(fake_redis), lock_ttl_seconds=5)  # type: ignore[arg-type]
+    features = ScoreFeatures(
+        company_id=flow.company,
+        icp_fit=0.9,
+        signal_strength=0.8,
+        territory_opportunity=0.7,
+        parent_event_id=tagged["event_id"],
+    )
+    await service.regenerate(features, None, TENANT)
+    await store.relay(fake_redis)
+    scored = next(e for e in await stream_entries(fake_redis) if e["event_type"] == "signal.scored")
+    scored_payload = json.loads(scored["payload"])
+    assert scored_payload["parent_event_id"] == str(tagged["event_id"])
+    body = LeadCreate(
+        company_id=flow.company, service_line="web", scored_event_id=UUID(scored["event_id"])
+    )
+    created, _ = await create_lead(
+        flow.repo.lead_unit_of_work(), body, tenant_id=TENANT, idempotency_key="k-full"
+    )
+    explained = next(r for r in flow.engine.outbox if r["event_type"] == "signal.explained")
+    gate = chain_events_after(
+        {
+            "event_id": str(explained["event_id"]),
+            "event_type": "signal.explained",
+            "source_version": explained["payload"]["source_version"],
+        },
+        [("funnel.gate_decision", {"verdict": "go"}, "funnel-v1")],
+        enabled=True,
+    )[0]
+    await change_status(
+        flow.repo.lead_unit_of_work(),
+        UUID(created["lead_id"]),
+        LeadStatusPatch(
+            stage=PipelineStage.QUALIFIED,
+            expected_version=1,
+            gate_event_id=UUID(gate["event_id"]),
+        ),
+        tenant_id=TENANT,
+    )
+    events = [
+        {"event_id": str(r["event_id"]), "event_type": r["event_type"], "payload": r["payload"]}
+        for r in flow.engine.outbox
+    ]
+    events.append(
+        {"event_id": scored["event_id"], "event_type": "signal.scored", "payload": scored_payload}
+    )
+    events.append(gate)
+    for event in events:
+        if event["event_type"] in CHAIN:
+            assert "parent_event_id" in event["payload"]
+    trace = trace_chain(events)
+    assert trace.complete is True and trace.gap is None, trace

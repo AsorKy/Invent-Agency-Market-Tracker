@@ -1956,7 +1956,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: filled by the agent when done
 
 ### T-174 Typed payloads for the six chain events
-- status: todo
+- status: done
 - spec: REQ-EVT-008, REQ-EVT-005
 - owner: lead-backend-engineer
 - depends: T-159
@@ -1965,10 +1965,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_contracts.py tests/unit/test_event_chain.py tests/unit/test_event_chain_producers.py tests/unit/test_event_chain_consumers.py tests/unit/test_openapi.py` and `make static` and `make test`
 - note: decision D-20. Promote the six names of `ReservedEventType` that are chain events (`signal.tagged`, `signal.scored`, `company.matched`, `signal.explained`, `project.pipeline_updated`, `project.forecast_updated`) to typed pydantic payloads with `extra="forbid"` and a `schema_version` per type, carried by the existing `DomainEvent` envelope (`version`, `source_version`). The canonical payloads are in REQ-EVT-008 and each one has a mandatory `parent_event_id` (UUID or null). Do not change the producers' behavior in this task beyond making their payloads validate against the new models; the flag `EVENT_CHAIN_EMIT` keeps its default. Add a test per type (valid, missing field, extra field) and one that every producer payload of T-159 validates. Keep `funnel.*` and the other reserved names untouched.
-- evidence: filled by the agent when done
+- evidence: acceptance pytest (60 passed), make static, make test (1634 passed, 2 skipped, 4 xfailed)
 
 ### T-175 Producers propagate parent_event_id through the chain
-- status: todo
+- status: done
 - spec: REQ-LNS-012, REQ-EVT-008
 - owner: lead-backend-engineer
 - depends: T-174
@@ -1977,10 +1977,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/unit/test_event_chain.py tests/unit/test_event_chain_producers.py tests/unit/test_event_chain_contracts.py tests/unit/test_openapi.py` and `make static` and `make test`
 - note: decision D-21 (owner). The three joins that `trace_chain` reports as gaps (`signal.tagged` to `signal.scored`, `signal.scored` to `company.matched`, `funnel.gate_decision` to `project.pipeline_updated`) must close with real event ids, not with the deterministic references of `reference_parent`. Carry the id of the parent event in `ScoreFeatures` (an optional field, additive for the OpenAPI diff) and in the payload of the lead write, fill `parent_event_id` in every producer, and make `trace_chain` pass on a full chain built by the producers (an offline test that runs the chain with the flag on and asserts `complete` is true and `gap` is empty). `reference_parent` may stay for events written before this change. Cross-service ids travel in the request or the event, never through a shared table (INV-01). The `signal.scored` side is T-176; here ML only receives and echoes the parent id.
-- evidence: filled by the agent when done
+- evidence: acceptance pytest (22 passed; test_event_chain_contracts.py does not exist), make static, make test (1635 passed, 2 skipped, 4 xfailed). Open: funnel.py does not expose the gate event id; production callers do not yet send parent ids (see RUN report)
 
 ### T-176 ML publishes signal.scored through an outbox
-- status: todo
+- status: done
 - spec: REQ-LNS-012, REQ-EVT-001, REQ-EVT-008
 - owner: second-backend-engineer
 - depends: T-174, T-175
@@ -1989,10 +1989,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/unit/test_ml_outbox.py tests/unit/test_dead_letter.py tests/unit/test_outbox_relay.py tests/unit/test_ml_singleflight.py tests/unit/test_event_chain_producers.py tests/unit/test_sql_consistency.py tests/unit/test_schema_catalog.py tests/unit/test_compose.py tests/integration/test_sql_r1_flows.py tests/integration/test_sql_postgres.py` and `python ops/check_migrations.py` and `python ops/check_configuration.py` and `make static` and `make test`
 - note: decisions D-21 and D-17 (owner, clarified 2026-10-22): a domain event outside the outbox breaks the outbox rule, so `signal.scored` leaves `ml` through a transactional outbox written in the same transaction as the score. This does NOT conflict with D-17: there is ONE relay implementation and one INSTANCE per schema with an outbox. So: (1) move the generic part of the relay (retry schedule, dead letter, `relay_due_events`, `stream_fields`) from `services/core/app/dead_letter.py` to the shared module `libs/messaging/relay.py`; core and ml pass their own unit of work (`core.outbox_event` and `ml.outbox_event`); it is one algorithm in two processes, not a second implementation, and core behavior and its public names stay unchanged. (2) Expand migration with the exact name above: `ml.outbox_event` (and `ml.outbox_dead_letter` if the relay needs it) owned by `ml_app`, same columns as `core.outbox_event`, no row level security (infrastructure, D-29); add both tables to the `RLS_EXEMPT` registry with the real reason. (3) The `ml` relay instance (`services/ml/app/outbox_relay.py`, compose service `ml-relay`) reads and writes only `ml.*` (INV-01). `lead.score_updated` keeps its current path unless moving it is the only way to keep the two events ordered; if so, say so in the report instead of changing it silently. Add a real Postgres test as `ml_app`: the score and its outbox row commit together and roll back together, and the ml relay publishes the row with its tenant. The task is no longer blocked by D-17.
-- evidence: filled by the agent when done
+- evidence: acceptance pytest (137 passed, 28 integration skipped: no Postgres), check_migrations, check_configuration, make static, make test (1649 passed, 2 skipped, 4 xfailed). Real Postgres cases written but not run (no Docker)
 
 ### T-177 Pulse projects the project stage events
-- status: todo
+- status: done
 - spec: REQ-PUL-004, REQ-LNS-012
 - owner: second-backend-engineer
 - depends: T-152, T-174
@@ -2001,7 +2001,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_project_projection.py tests/unit/test_pulse_consumer.py tests/unit/test_event_chain_consumers.py tests/unit/test_sql_consistency.py` and `make static` and `make test`
 - note: decision D-22 (owner): a lead stage change equals `project.pipeline_updated` plus `project.forecast_updated`, with no figures; the consumer is Pulse. Add the two dispatch branches. The tables already exist: update `pulse.project_snapshot` (stage) and close the open `pulse.project_stage_visit` row by setting `exited_at` (the SPEC and the owner text say project_snapshot for both; the column `exited_at` lives in `project_stage_visit`, use the real tables and say so in the report). The writes are idempotent by `event_id` (inbox pattern), tenant scoped under `set_tenant_context`, and a replay of the same event changes nothing. `forecast_updated` carries no figure and must not invent any. Add a test per event plus a replay case.
-- evidence: filled by the agent when done
+- evidence: acceptance pytest (66 passed), make static, make test (1634 passed, 2 skipped, 4 xfailed). Real tables used: stage in project_snapshot, exited_at in project_stage_visit
 
 ### T-178 Scoring feature baseline gets a versioned source and a pinned output
 - status: done

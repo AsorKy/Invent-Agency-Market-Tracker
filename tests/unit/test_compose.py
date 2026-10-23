@@ -21,6 +21,7 @@ WORKERS = {
     "ingest-processor": ("ingest", "services.ingest.app.processor"),
     "pulse-consumer": ("pulse", "services.pulse.app.consumer"),
     "ml-consumer": ("ml", "services.ml.app.consumer"),
+    "ml-relay": ("ml", "services.ml.app.outbox_relay"),
 }
 DB_APIS = {"ingest": "ingest", "core": "core", "pulse": "pulse", "brief": "brief", "ml": "ml"}
 # Profile-gated helpers, outside the SPEC section 3.1 catalog.

@@ -61,6 +61,7 @@ class FakePulseDb:
         self.processed: dict[UUID, dict[str, Any]] = {}
         self.fact_signals: dict[UUID, dict[str, Any]] = {}
         self.tenant_contexts: list[str] = []
+        self.stage_updates: list[dict[str, Any]] = []
         self.fail_marker: str | None = None
         self.fail_times = 0
 
@@ -90,6 +91,9 @@ class FakePulseDb:
             return _Result(scalar=event_id)
         if "INSERT INTO pulse.fact_signal" in sql:
             staged.append(lambda: self.fact_signals.setdefault(params["signal_id"], params))
+            return _Result()
+        if "UPDATE pulse.project_snapshot" in sql:
+            self.stage_updates.append(params)
             return _Result()
         raise AssertionError(f"unexpected SQL: {sql}")
 
@@ -169,6 +173,27 @@ async def test_other_event_types_are_recorded_but_not_projected() -> None:
         await pulse_consumer.process_event(connection, message)  # type: ignore[arg-type]
     assert set(db.processed) == {UUID(message["event_id"])}
     assert db.fact_signals == {}
+
+
+@pytest.mark.parametrize(
+    ("event_type", "payload"),
+    [
+        ("project.pipeline_updated", {"from": "warm", "to": "hot", "version": 2}),
+        ("project.forecast_updated", {"stage": "hot"}),
+    ],
+)
+async def test_stage_events_dispatch_once_under_tenant_context(
+    event_type: str, payload: dict[str, Any]
+) -> None:
+    db = FakePulseDb()
+    message = stream_message(event_type)
+    body = {"lead_id": str(uuid4()), "project_id": str(uuid4()), **payload}
+    message["payload"] = json.dumps(body)
+    for _ in range(2):
+        async with db.begin() as connection:
+            await pulse_consumer.process_event(connection, message)  # type: ignore[arg-type]
+    assert [u["stage"] for u in db.stage_updates] == ["hot"]
+    assert set(db.tenant_contexts) == {str(TENANT_ID)}
 
 
 async def test_tenant_id_falls_back_to_payload() -> None:

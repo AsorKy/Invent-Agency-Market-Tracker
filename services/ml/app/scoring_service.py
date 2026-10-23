@@ -2,10 +2,11 @@
 
 ``ScoringService`` takes the lock ``lock:score:<company_id>``, computes the
 pure rule from ``libs/domain/scoring.py``, stores the score through the
-repository, and publishes ``lead.score_updated`` to the event stream. A caller
-that loses the lock receives the previous score marked stale. It relates to
-``services/ml/app/main.py`` and ``repository.py`` and keeps a burst of signals
-from triggering concurrent regenerations of one score (REQ-ML-001).
+repository, and publishes ``lead.score_updated`` to the event stream. With the event chain
+flag on, ``signal.scored`` is written to ``ml.outbox_event`` in the score transaction and the ml
+relay publishes it (D-21). A caller that loses the lock receives the previous score marked stale.
+It relates to ``services/ml/app/main.py`` and ``repository.py`` and keeps a burst of signals from
+triggering concurrent regenerations of one score (REQ-ML-001).
 """
 
 import json
@@ -48,6 +49,7 @@ class ScoreStore(Protocol):
         score_version: str,
         features: tuple[float, float, float] | None = None,
         weights: tuple[float, float, float] | None = None,
+        outbox_events: list[dict[str, Any]] | None = None,
     ) -> None: ...
 
     async def mark_stale(self, company_id: UUID) -> None: ...
@@ -98,14 +100,26 @@ ML_CHAIN_VERSION = "ml-chain-v1"
 
 
 def chain_event_entries(
-    *, company_id: UUID, tenant_id: UUID | None, score: int, source_version: str
+    *,
+    company_id: UUID,
+    tenant_id: UUID | None,
+    score: int,
+    source_version: str,
+    parent_event_id: UUID | None = None,
 ) -> list[dict[str, str]]:
     """Build the ``signal.scored`` stream entry that follows the tagged signal (flag on).
 
     The tagged parent was written by core, so the entry names it by reference. Same envelope as
     ``score_event_fields``. Returns entries ready for ``xadd``.
     """
-    parent = reference_parent("signal.tagged", f"{company_id}:{source_version}", source_version)
+    if parent_event_id is not None:
+        parent = {
+            "event_id": str(parent_event_id),
+            "event_type": "signal.tagged",
+            "source_version": source_version,
+        }
+    else:
+        parent = reference_parent("signal.tagged", f"{company_id}:{source_version}", source_version)
     events = chain_events_after(
         parent,
         [
@@ -131,6 +145,44 @@ def chain_event_entries(
             fields["tenant_id"] = str(tenant_id)
         entries.append(fields)
     return entries
+
+
+def chain_outbox_events(
+    *,
+    company_id: UUID,
+    tenant_id: UUID | None,
+    score: int,
+    source_version: str,
+    parent_event_id: UUID | None = None,
+) -> list[dict[str, Any]]:
+    """Build the ``signal.scored`` outbox rows written in the score transaction (flag on).
+
+    Same events as ``chain_event_entries``, as rows for ``ml.outbox_event``; the relay turns them
+    into the identical stream entry. A row needs a tenant to be published, so without one nothing
+    is written (the relay would only dead-letter it).
+    """
+    if tenant_id is None:
+        return []
+    rows = []
+    for entry in chain_event_entries(
+        company_id=company_id,
+        tenant_id=tenant_id,
+        score=score,
+        source_version=source_version,
+        parent_event_id=parent_event_id,
+    ):
+        rows.append(
+            {
+                "event_id": entry["event_id"],
+                "tenant_id": tenant_id,
+                "aggregate_type": entry["aggregate_type"],
+                "aggregate_id": company_id,
+                "event_type": entry["event_type"],
+                "version": int(entry["version"]),
+                "payload": json.loads(entry["payload"]),
+            }
+        )
+    return rows
 
 
 class ScoringService:
@@ -174,6 +226,19 @@ class ScoringService:
             used = weights or ScoreWeights()
             rules_source: RulesSource = "default" if weights is None else "tenant"
             score_version = f"{rule_version(rules_source)}:{features.source_version}"
+            outbox_events = (
+                chain_outbox_events(
+                    company_id=features.company_id,
+                    tenant_id=tenant_id,
+                    score=breakdown.score,
+                    source_version=features.source_version,
+                    parent_event_id=features.parent_event_id,
+                )
+                if get_settings().event_chain_emit
+                else []
+            )
+            # Flag off: the call is exactly what it was, with no outbox argument.
+            extra = {"outbox_events": outbox_events} if outbox_events else {}
             await self._store.upsert_score(
                 company_id=features.company_id,
                 score=breakdown.score,
@@ -186,6 +251,7 @@ class ScoringService:
                     features.territory_opportunity,
                 ),
                 weights=(used.icp_fit, used.signal_strength, used.territory),
+                **extra,
             )
             if tenant_id is None:
                 _log.warning("score event for company %s has no tenant", features.company_id)
@@ -199,14 +265,6 @@ class ScoringService:
                     source_version=features.source_version,
                 ),
             )
-            if get_settings().event_chain_emit:
-                for entry in chain_event_entries(
-                    company_id=features.company_id,
-                    tenant_id=tenant_id,
-                    score=breakdown.score,
-                    source_version=features.source_version,
-                ):
-                    await self._redis.xadd(STREAM_NAME, entry)
             return ScoreResponse(
                 company_id=features.company_id,
                 score=breakdown.score,

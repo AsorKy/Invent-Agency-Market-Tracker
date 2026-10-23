@@ -519,6 +519,19 @@
         "title": "Icp Fit",
         "type": "number"
       },
+      "parent_event_id": {
+        "anyOf": [
+          {
+            "format": "uuid",
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Parent Event Id"
+      },
       "signal_strength": {
         "maximum": 1,
         "minimum": 0,
@@ -1119,6 +1132,141 @@
     "title": "UnprocessedSignalsResponse",
     "type": "object"
   },
+  "events.ChainPayload": {
+    "additionalProperties": false,
+    "description": "Base of the typed chain payloads (REQ-EVT-008, D-20).\n\n``parent_event_id`` is a mandatory key (a UUID or null). ``source_version`` and ``parent``\nare the optional stamps that ``libs/domain/event_chain.py`` writes today; they stay\ndeclared so ``extra=\"forbid\"`` rejects every other key.",
+    "properties": {
+      "parent": {
+        "anyOf": [
+          {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Parent"
+      },
+      "parent_event_id": {
+        "anyOf": [
+          {
+            "format": "uuid",
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Parent Event Id"
+      },
+      "schema_version": {
+        "default": 1,
+        "minimum": 1,
+        "title": "Schema Version",
+        "type": "integer"
+      },
+      "source_version": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Source Version"
+      }
+    },
+    "required": [
+      "parent_event_id"
+    ],
+    "title": "ChainPayload",
+    "type": "object"
+  },
+  "events.CompanyMatchedPayload": {
+    "additionalProperties": false,
+    "properties": {
+      "company_id": {
+        "format": "uuid",
+        "title": "Company Id",
+        "type": "string"
+      },
+      "lead_id": {
+        "format": "uuid",
+        "title": "Lead Id",
+        "type": "string"
+      },
+      "parent": {
+        "anyOf": [
+          {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Parent"
+      },
+      "parent_event_id": {
+        "anyOf": [
+          {
+            "format": "uuid",
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Parent Event Id"
+      },
+      "rues_matched": {
+        "anyOf": [
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Rues Matched"
+      },
+      "schema_version": {
+        "default": 1,
+        "minimum": 1,
+        "title": "Schema Version",
+        "type": "integer"
+      },
+      "source_version": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Source Version"
+      }
+    },
+    "required": [
+      "parent_event_id",
+      "company_id",
+      "lead_id"
+    ],
+    "title": "CompanyMatchedPayload",
+    "type": "object"
+  },
   "events.DomainEvent": {
     "$defs": {
       "EventType": {
@@ -1247,6 +1395,174 @@
     "signal.created",
     "tenant.config_updated"
   ],
+  "events.ProjectForecastUpdatedPayload": {
+    "additionalProperties": false,
+    "properties": {
+      "lead_id": {
+        "format": "uuid",
+        "title": "Lead Id",
+        "type": "string"
+      },
+      "parent": {
+        "anyOf": [
+          {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Parent"
+      },
+      "parent_event_id": {
+        "anyOf": [
+          {
+            "format": "uuid",
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Parent Event Id"
+      },
+      "project_id": {
+        "anyOf": [
+          {
+            "format": "uuid",
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Project Id"
+      },
+      "schema_version": {
+        "default": 1,
+        "minimum": 1,
+        "title": "Schema Version",
+        "type": "integer"
+      },
+      "source_version": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Source Version"
+      },
+      "stage": {
+        "title": "Stage",
+        "type": "string"
+      }
+    },
+    "required": [
+      "parent_event_id",
+      "lead_id",
+      "stage"
+    ],
+    "title": "ProjectForecastUpdatedPayload",
+    "type": "object"
+  },
+  "events.ProjectPipelineUpdatedPayload": {
+    "additionalProperties": false,
+    "properties": {
+      "from": {
+        "title": "From",
+        "type": "string"
+      },
+      "lead_id": {
+        "format": "uuid",
+        "title": "Lead Id",
+        "type": "string"
+      },
+      "parent": {
+        "anyOf": [
+          {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Parent"
+      },
+      "parent_event_id": {
+        "anyOf": [
+          {
+            "format": "uuid",
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Parent Event Id"
+      },
+      "project_id": {
+        "anyOf": [
+          {
+            "format": "uuid",
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Project Id"
+      },
+      "schema_version": {
+        "default": 1,
+        "minimum": 1,
+        "title": "Schema Version",
+        "type": "integer"
+      },
+      "source_version": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Source Version"
+      },
+      "to": {
+        "title": "To",
+        "type": "string"
+      },
+      "version": {
+        "title": "Version",
+        "type": "integer"
+      }
+    },
+    "required": [
+      "parent_event_id",
+      "lead_id",
+      "from",
+      "to",
+      "version"
+    ],
+    "title": "ProjectPipelineUpdatedPayload",
+    "type": "object"
+  },
   "events.ReservedEventType.values": [
     "company.matched",
     "component.evaluated",
@@ -1260,5 +1576,251 @@
     "signal.explained",
     "signal.scored",
     "signal.tagged"
-  ]
+  ],
+  "events.SignalExplainedPayload": {
+    "additionalProperties": false,
+    "properties": {
+      "company_id": {
+        "format": "uuid",
+        "title": "Company Id",
+        "type": "string"
+      },
+      "lead_id": {
+        "format": "uuid",
+        "title": "Lead Id",
+        "type": "string"
+      },
+      "parent": {
+        "anyOf": [
+          {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Parent"
+      },
+      "parent_event_id": {
+        "anyOf": [
+          {
+            "format": "uuid",
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Parent Event Id"
+      },
+      "qualification_reason": {
+        "anyOf": [
+          {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Qualification Reason"
+      },
+      "schema_version": {
+        "default": 1,
+        "minimum": 1,
+        "title": "Schema Version",
+        "type": "integer"
+      },
+      "source_version": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Source Version"
+      }
+    },
+    "required": [
+      "parent_event_id",
+      "lead_id",
+      "company_id"
+    ],
+    "title": "SignalExplainedPayload",
+    "type": "object"
+  },
+  "events.SignalScoredPayload": {
+    "additionalProperties": false,
+    "properties": {
+      "company_id": {
+        "format": "uuid",
+        "title": "Company Id",
+        "type": "string"
+      },
+      "parent": {
+        "anyOf": [
+          {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Parent"
+      },
+      "parent_event_id": {
+        "anyOf": [
+          {
+            "format": "uuid",
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Parent Event Id"
+      },
+      "schema_version": {
+        "default": 1,
+        "minimum": 1,
+        "title": "Schema Version",
+        "type": "integer"
+      },
+      "score": {
+        "title": "Score",
+        "type": "integer"
+      },
+      "score_version": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Score Version"
+      },
+      "signal_id": {
+        "anyOf": [
+          {
+            "format": "uuid",
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Signal Id"
+      },
+      "source_version": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Source Version"
+      }
+    },
+    "required": [
+      "parent_event_id",
+      "company_id",
+      "score"
+    ],
+    "title": "SignalScoredPayload",
+    "type": "object"
+  },
+  "events.SignalTaggedPayload": {
+    "additionalProperties": false,
+    "properties": {
+      "company_id": {
+        "format": "uuid",
+        "title": "Company Id",
+        "type": "string"
+      },
+      "parent": {
+        "anyOf": [
+          {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Parent"
+      },
+      "parent_event_id": {
+        "anyOf": [
+          {
+            "format": "uuid",
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "Parent Event Id"
+      },
+      "schema_version": {
+        "default": 1,
+        "minimum": 1,
+        "title": "Schema Version",
+        "type": "integer"
+      },
+      "signal_id": {
+        "format": "uuid",
+        "title": "Signal Id",
+        "type": "string"
+      },
+      "source_version": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Source Version"
+      },
+      "tags": {
+        "additionalProperties": {
+          "type": "string"
+        },
+        "title": "Tags",
+        "type": "object"
+      }
+    },
+    "required": [
+      "parent_event_id",
+      "signal_id",
+      "company_id",
+      "tags"
+    ],
+    "title": "SignalTaggedPayload",
+    "type": "object"
+  }
 }
