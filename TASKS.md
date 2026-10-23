@@ -2004,7 +2004,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: filled by the agent when done
 
 ### T-178 Scoring feature baseline gets a versioned source and a pinned output
-- status: todo
+- status: done
 - spec: REQ-LNS-007
 - owner: second-backend-engineer
 - depends: T-165
@@ -2013,7 +2013,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: S
 - acceptance: `pytest -q tests/unit/test_score_features.py tests/unit/test_demo_pipeline.py tests/unit/test_ml_backfill.py` and `make static`
 - note: decision D-23 (owner). The derivation of `icp_fit`, `signal_strength` and `territory_opportunity` stays as the permanent audited baseline (`source_version` `demo-1`, INV-18); do not delete it or switch it off. Make the version scheme explicit: a constant `BASELINE_SOURCE_VERSION = "demo-1"` and a documented rule that any change of the formula bumps the version as `features-<major>.<minor>` in the same pull request. Add a test that pins the exact output of the seed for a fixed profile set (the full rows, so a formula change fails it) and a test that a changed formula without a new version string cannot pass (compare a hash of the formula inputs and constants to the version, or pin the rows per version). Write one short note in `docs/experiments/` stating that the production definition is L3 work with an experiment sheet (INV-19), kept in shadow next to this baseline; do not start that work.
-- evidence: filled by the agent when done
+- evidence: `pytest -q tests/unit/test_score_features.py tests/unit/test_demo_pipeline.py tests/unit/test_ml_backfill.py` 29 passed; `make static` ok
 
 ### T-179 Core route for the validation inputs
 - status: todo
@@ -2100,7 +2100,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: filled by the agent when done
 
 ### T-186 Run verify-live inside the Compose network
-- status: todo
+- status: done
 - spec: REQ-RUN-005, REQ-DOC-001
 - owner: devops-engineer
 - depends: T-076
@@ -2109,7 +2109,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: S
 - acceptance: `pytest -q tests/unit/test_compose.py tests/unit/test_verify_live.py tests/unit/test_runbook.py && python ops/check_configuration.py`
 - note: decision C1 of the owner (2026-10-22). `make verify-live` runs on the host and its defaults `http://localhost:8001` and `http://localhost:8002` do not answer because Compose does not publish the ingest and core ports. Do NOT publish them: `/internal` is not exposed, not even on the loopback. Instead run verify-live INSIDE the Compose network: add a service `verify-live` under the profile `tools` (same image and `.env` as the other Python services, `restart: "no"`) and make the Makefile target call `docker compose --profile tools run --rm verify-live python ops/verify_live.py ...`, reaching ingest and core by service name and container port (read the real ports from the `command:` lines of the ingest and core services in `docker-compose.yml`). Keep `VERIFY_LIVE_INGEST_URL` and `VERIFY_LIVE_CORE_URL` as overrides for whoever runs verify-live outside the network. Test that no `ports:` entry exists for ingest or core, that the new service has none, and that the target uses the profile. Remove the caveat paragraph of section 7 of the go-live runbook ONLY when the in-network run works (it cannot be proven without Docker: say so in the report and keep the paragraph if you cannot prove it, adding the new command next to it; T-187 confirms it on a machine with Docker). The earlier draft of this task (publish the ports on the loopback) is withdrawn.
-- evidence: filled by the agent when done
+- evidence: `pytest -q tests/unit/test_compose.py tests/unit/test_verify_live.py tests/unit/test_runbook.py` 78 passed; `python ops/check_configuration.py` OK; in-network run NOT proven (no Docker), runbook caveat kept, T-187 confirms
 
 ### T-187 Record the Docker integration and e2e run
 - status: todo
