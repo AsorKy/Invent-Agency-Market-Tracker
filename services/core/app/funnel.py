@@ -14,6 +14,7 @@ the checklist state of a project live at the end of this file; ``main.py`` serve
 """
 
 import json
+from collections.abc import Callable
 from datetime import UTC, datetime
 from types import TracebackType
 from typing import Any, Protocol
@@ -99,10 +100,15 @@ async def evaluate_project_gate(
     parent_event: dict[str, Any] | None = None,
     apply_kill: bool = False,
     expected_version: int | None = None,
+    on_gate_event: Callable[[dict[str, Any]], None] | None = None,
 ) -> GateDecision:
     """Return the decision after auditing it and queueing its events.
 
     ``apply_kill`` needs a transaction with ``mark_killed`` (see ``SqlFunnelStatusTransaction``).
+    ``on_gate_event`` receives the written ``funnel.gate_decision`` event as a parent mapping
+    (``event_id``, ``event_type``, ``source_version``) once it is queued; a caller passes its
+    ``event_id`` as ``LeadStatusPatch.gate_event_id`` (T-188).
+    The decision and the response do not change.
     """
     loaded = checklist or load_checklist(gate)
     decision = evaluate_gate(loaded, inputs)
@@ -148,8 +154,17 @@ async def evaluate_project_gate(
         elif decision.verdict is Verdict.KILL:
             kinds += [EventType.FUNNEL_PROJECT_KILLED, EventType.FUNNEL_KILL_TRIGGER_EVENT]
         for kind in kinds:
+            event_id = uuid4()
+            if kind is EventType.FUNNEL_GATE_DECISION and on_gate_event is not None:
+                on_gate_event(
+                    {
+                        "event_id": str(event_id),
+                        "event_type": kind.value,
+                        "source_version": str(body["source_version"]),
+                    }
+                )
             await tx.add_outbox_event(
-                event_id=uuid4(),
+                event_id=event_id,
                 tenant_id=row_tenant,
                 aggregate_type="project",
                 aggregate_id=project_id,

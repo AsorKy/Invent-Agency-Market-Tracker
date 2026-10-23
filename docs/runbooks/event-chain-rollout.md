@@ -43,8 +43,15 @@ Run them with `docker compose exec postgres psql` as in `ops/e2e_check.py`, and 
 
 ## 6. Known limit: trace_chain gaps until the parent id is propagated
 
-Decision D-21 (owner, 2026-10-22) no longer accepts the gaps as a design. The chain closes when the producers propagate `parent_event_id` and `signal.scored` leaves `ml` through its outbox (tasks T-174, T-175 and T-176, contract REQ-EVT-008). Until those tasks are merged the limit below still holds, and `trace_chain` reports it.
+Decision D-21 (owner, 2026-10-22) no longer accepts the gaps as a design. The contract carries `parent_event_id` (T-174, T-175) and `signal.scored` leaves `ml` through its outbox (T-176). T-188 closes the production callers only in part; `trace_chain` still reports a gap at the joins listed as open.
 
-The steps run in different services and transactions, so only three segments are linked by real event ids: `signal.created` to `signal.tagged`, `company.matched` to `signal.explained`, and `project.pipeline_updated` to `project.forecast_updated`. The three joins (`signal.tagged` to `signal.scored`, `signal.scored` to `company.matched`, `funnel.gate_decision` to `project.pipeline_updated`) use deterministic reference ids made by `reference_parent` in `libs/domain/event_chain.py`. No event carries those ids yet, so `trace_chain` reports a gap at each join and `complete` stays false. Do not treat these gaps as a failed rollout before T-175 and T-176 are merged; after they are merged a gap is a defect. See `docs/runs/RUN-r1-i-events.md` for the origin of the limit.
+Closed by T-188 (callers in code, each id optional so a missing id never fails a request):
+- `funnel.py`: `evaluate_project_gate` takes an optional `on_gate_event` hook and hands the written `funnel.gate_decision` event (`event_id`, `event_type`, `source_version`) to the caller, who passes its id as `LeadStatusPatch.gate_event_id`. The route response is unchanged. No route links a gate decision to a lead stage change yet, so the hook is not wired to a route.
+- `services/ml/app/backfill.py`: forwards `parent_event_id` to `ScoreFeatures` when the features payload from core carries one, and leaves it empty otherwise.
 
-Until T-176 is merged `signal.scored` goes straight to the Redis stream, not through the outbox, so it is absent from the outbox queries above.
+Still open (follow-up task needed, outside the T-188 scope):
+- core to ml `signal.tagged` id: the internal features route (`services/core/app/score_features.py`, `services/ml/app/core_features.py`) does not return the id of the company's `signal.tagged` event, so the backfill always sends an empty parent and `signal.tagged` to `signal.scored` still uses `reference_parent`.
+- core storage of the `signal.scored` id: core cannot read `ml.outbox_event` (INV-01) and stores no score event id, so lead creation (`main.py`, `imports.py`) cannot fill `LeadCreate.scored_event_id` and `signal.scored` to `company.matched` still uses `reference_parent`. It needs an additive column, a core worker handler for `signal.scored` and a read in the lead create call.
+- `funnel.gate_decision` to `project.pipeline_updated` stays on `reference_parent` until a route passes the hook's id to the stage change.
+
+Until those are done, a gap at the open joins is the known limit, not a failed rollout. See `docs/runs/RUN-r1-i-events.md` for the origin of the limit.

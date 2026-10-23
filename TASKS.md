@@ -2125,7 +2125,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: filled by the owner when done
 
 ### T-188 Production callers send the parent event ids
-- status: todo
+- status: blocked (partially done)
 - spec: REQ-LNS-012, REQ-EVT-008
 - owner: lead-backend-engineer
 - depends: T-175, T-176, T-181
@@ -2134,7 +2134,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_funnel.py tests/unit/test_event_chain_producers.py tests/unit/test_ml_backfill.py tests/unit/test_event_chain.py` and `make static` and `make test`
 - note: T-175 added the optional fields (`ScoreFeatures.parent_event_id`, `LeadCreate.scored_event_id`, `LeadStatusPatch.gate_event_id`) but three production callers still do not fill them, so `trace_chain` keeps reporting gaps and falls back to `reference_parent`. Close them: (1) `funnel.py` exposes the id of the gate decision event it writes and passes it as `parent_event` to the pipeline stage producer; (2) `services/ml/app/backfill.py` sends the `parent_event_id` it knows (the id of the `signal.tagged` event for the company, read through core's internal features route, never from a shared table) and leaves it empty when none exists; (3) the lead create calls in `main.py` and `imports.py` pass `scored_event_id` when the company has a stored score event. Each field stays optional, so a missing id never fails a request. Add an offline test per caller that asserts the id reaches the payload, and update section 6 of the event chain runbook (the known gaps that are now closed). Do not change any response model beyond what T-175 added. Run after T-181 in the same session because both touch `leads.py` and `repository.py`.
-- evidence: filled by the agent when done
+- evidence: done in scope: funnel.py on_gate_event hook (gate event id exposed, response unchanged), backfill.py forwards parent_event_id when the features payload carries one, offline tests in test_funnel.py and test_ml_backfill.py, runbook section 6 updated. Blocked: (a) core features route and ml core_features.py do not carry the signal.tagged id (files outside scope); (b) core stores no signal.scored id (needs migration, worker handler, repository read), so main.py and imports.py lead create cannot pass scored_event_id; (c) no route links a gate decision to a stage change. Follow-up task needed for (a) and (b).
 
 ### T-189 The pulse socioeconomic refresh accepts only its own caller
 - status: done
