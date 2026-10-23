@@ -20,3 +20,5 @@ Date: 2026-10-23. No code changed; SPEC.md, TASKS.md and this report only.
 - T-191 and T-195 both edit `services/core/app/repository.py`, as do T-181 and T-188 in the open session r1-n-validation. Launch them after that session merges.
 - T-195 and T-196 must not share a wave (INV-06).
 - Priority: T-195 before a second tenant is onboarded; T-191 is a go-live prerequisite.
+- Gateway route: the owner decided that the seed and internal path of T-191 covers run 1 and that the app route for an admin (`POST /api/v1/compliance/opt-out`) is T-197, linked to D-36 and required before go-live if users process legal requests. T-197 is not launched before T-191.
+- Order: T-196 runs only after T-195 is merged and its migration is applied in the target environment (INV-06). Wave 1: T-195, T-194, T-192. Wave 2: T-191, T-196. Both waves wait for `r1-n-validation` to be merged (it is still open at the time of this report).

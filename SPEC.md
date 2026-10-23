@@ -833,7 +833,7 @@ Template entry:
 - source: ADR-IMT-0001 section 6.4
 - statement: Each service connects with its own `_app` role. Service-to-service calls carry a signed service token. Redis has ACL users `edge` (rate-limit keys only) and `data` (streams, cache). `/internal/*` is never routed by the gateway. Service tokens are signed with HMAC-SHA256 and one shared key (`INTERNAL_SERVICE_TOKEN`), live 60 seconds, and each route has an allow list of services. Per-service keys (one per issuer, rotatable) are planned L2 work (D-28); asymmetric tokens are rejected as not worth their cost at this team size. The caller names `seed` and `verify_live` are accepted only outside production.
 - verify: `pytest -q tests/unit/test_internal_auth.py` and `python ops/check_configuration.py`
-- tasks: T-060, T-082, T-123, T-130, T-131, T-140, T-144, T-146, T-147, T-150, T-151, T-153, T-158, T-160, T-162, T-163, T-165, T-168, T-170, T-179, T-183, T-184, T-185, T-189, T-191, T-193, T-194, T-195
+- tasks: T-060, T-082, T-123, T-130, T-131, T-140, T-144, T-146, T-147, T-150, T-151, T-153, T-158, T-160, T-162, T-163, T-165, T-168, T-170, T-179, T-183, T-184, T-185, T-189, T-191, T-193, T-194, T-195, T-197
 
 ### REQ-CMP-001 Habeas data compliance
 - status: accepted
@@ -843,7 +843,7 @@ Template entry:
 - source: ADR-IMT-0001 section 13.4 (formal ADR pending: ADR-IMT-0006-HABEAS)
 - statement: Records are purged 12 months after the last signal. An opt-out request executes an idempotent delete in `core`, inside the tenant of the caller only: the same company in two tenants needs two requests (D-36). Stored persons are limited to public business roles. A processing-activities record exists in `docs/`.
 - verify: `pytest -q tests/unit/test_retention.py`
-- tasks: T-027, T-191
+- tasks: T-027, T-191, T-197
 
 ### Resilience, CI/CD, backups, operations
 
@@ -1466,7 +1466,7 @@ An agent must not resolve open decisions. A task that depends on one stays `bloc
 | D-33 | Authentication of `wf_socioeco_refresh` | The workflow authenticates with a short-lived service token (scope `pulse` only) minted before each run, not with a static header credential. The mint step uses a dedicated, single-purpose credential held by n8n, distinct from `INTERNAL_SERVICE_TOKEN` (its own secret, minimal scope: it can mint tokens only for `pulse` and reach nothing else). `INTERNAL_SERVICE_TOKEN` never enters n8n, in any case. Fallback, only if the credential cannot be bounded without exposing the shared key: a rotated static header accepted by pulse (`pulse-internal-header`) with a documented rotation policy, and D-33 is reopened with the note that identity cannot issue a bounded mint credential without the shared key. The workflow stays inactive until one of the two works. See T-185. | closed 2026-10-22 |
 | D-34 | Go-live owners and date | Technical owner: lead-backend-engineer. Data and credentials owner: the owner. Target date: not set yet; the owner writes it here and in `docs/runbooks/go-live.md` before go-live. | open, target date |
 | D-35 | Project forecast model with figures | No project forecast model with value or burn exists in L2; `project.forecast_updated` only reflects the stage transition. A model with figures is a future decision. | open, R3 |
-| D-36 | Retention and opt-out under RLS | Option A: the compliance routes become tenant-aware. The caller sends `X-Tenant-Id` on opt-out; the retention job lists tenants from identity (not `core.tenant_config`, which is under RLS) and sets the tenant context for each before purging. No cross-tenant role or RLS-bypass policy is added (D-29, REQ-SEC-005). Opt-out by NIT deletes only within the caller's tenant; the same company in two tenants needs two requests. Audit keeps only hashed identifiers plus action, counts, requested_via, timestamp and tenant_id. See REQ-CMP-001, T-191, and T-194. | closed 2026-10-23 |
+| D-36 | Retention and opt-out under RLS | Option A: the compliance routes become tenant-aware. The caller sends `X-Tenant-Id` on opt-out; the retention job lists tenants from identity (not `core.tenant_config`, which is under RLS) and sets the tenant context for each before purging. No cross-tenant role or RLS-bypass policy is added (D-29, REQ-SEC-005). Opt-out by NIT deletes only within the caller's tenant; the same company in two tenants needs two requests. Audit keeps only hashed identifiers plus action, counts, requested_via, timestamp and tenant_id. A gateway route for operator-initiated opt-out (admin role) is tracked as T-197; the seed and internal path covers run 1. See REQ-CMP-001, T-191, T-194, and T-197. | closed 2026-10-23 |
 | D-37 | Scope of the core.signal unique key | Option B: the key becomes `(tenant_id, source, source_external_id)` through an expand migration, with a later contract migration that drops the global unique (INV-06). The global key leaks the existence of another tenant's data and, under RLS, makes `create_signal` raise on a cross-tenant `source_external_id` collision (REQ-DAT-005, REQ-SEC-005). Two tenants never share a signal row; no cross-tenant dedupe is needed while only one tenant exists, but the expand verifies that no row violates the new key and never deduplicates by deleting. See T-195 and T-196. | closed 2026-10-23 |
 
 ## 6. Definition of done per layer

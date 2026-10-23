@@ -2229,5 +2229,17 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - context: SPEC.md decision D-37, docs/runs/ (the T-195 report), ops/check_migrations.py
 - size: S
 - acceptance: `python ops/check_migrations.py --base origin/main` and `pytest -q tests/unit/test_sql_consistency.py` and `make static` and `make test`
-- note: INV-06: a contract file goes in its own pull request and only after the code of T-195 is on main and no statement depends on the old key. Drop the global `UNIQUE (source, source_external_id)` of `core.signal` (look up the real constraint name in the migrations; do not guess it). Do not launch this task in the same wave as T-195.
+- note: INV-06: a contract file goes in its own pull request and only after the code of T-195 is on main and no statement depends on the old key. Drop the global `UNIQUE (source, source_external_id)` of `core.signal` (look up the real constraint name in the migrations; do not guess it). Do not launch this task in the same wave as T-195, and not before T-195 is merged AND its migration is applied in the target environment (the code must already use the per-tenant key before the global one is dropped); when in doubt that it is applied, wait.
+- evidence: filled by the agent when done
+
+### T-197 Gateway route for operator-initiated opt-out (admin role)
+- status: todo
+- spec: REQ-CMP-001, REQ-SEC-005
+- owner: lead-backend-engineer
+- depends: T-191
+- write_scope: services/gateway/app/registry.py, services/gateway/app/routes.py, docs/api/openapi.json, tests/unit/snapshots/, tests/unit/test_gateway_routes.py, tests/unit/test_openapi.py, docs/compliance/processing-activities.md (one line), docs/runbooks/go-live.md (one line)
+- context: SPEC.md decision D-36 and REQ-CMP-001, services/gateway/app/auth.py (the tenant is derived from the JWT), services/gateway/app/registry.py, docs/runs/RUN-r1-decisions-d36-d37.md
+- size: S
+- acceptance: `pytest -q tests/unit/test_gateway_routes.py tests/unit/test_openapi.py tests/unit/test_contract_snapshot.py` and `make static` and `make test`
+- note: tracked by decision D-36 (owner). For the go-live of run 1 the internal path of T-191 is enough: the retention job covers the age based purge and the operator runs a one-off opt-out through the seed. This task is the way a data subject's deletion request is processed from the app by an admin or legal user, and it is required BEFORE go-live if legal requests are processed by users. Do not launch it before T-191. Map `POST /api/v1/compliance/opt-out` in the gateway for the admin role only; the gateway injects `X-Tenant-Id` from the JWT as it does on the other routes (never from the request body) and forwards to `POST /internal/core/compliance/opt-out`. Purge stays internal. The change must be additive for the OpenAPI diff; regenerate `docs/api/openapi.json` and the snapshots. Tests: admin allowed; every other role 403; a body that names another tenant does not change the tenant sent to core.
 - evidence: filled by the agent when done
