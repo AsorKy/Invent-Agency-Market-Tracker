@@ -98,14 +98,26 @@ ML_CHAIN_VERSION = "ml-chain-v1"
 
 
 def chain_event_entries(
-    *, company_id: UUID, tenant_id: UUID | None, score: int, source_version: str
+    *,
+    company_id: UUID,
+    tenant_id: UUID | None,
+    score: int,
+    source_version: str,
+    parent_event_id: UUID | None = None,
 ) -> list[dict[str, str]]:
     """Build the ``signal.scored`` stream entry that follows the tagged signal (flag on).
 
     The tagged parent was written by core, so the entry names it by reference. Same envelope as
     ``score_event_fields``. Returns entries ready for ``xadd``.
     """
-    parent = reference_parent("signal.tagged", f"{company_id}:{source_version}", source_version)
+    if parent_event_id is not None:
+        parent = {
+            "event_id": str(parent_event_id),
+            "event_type": "signal.tagged",
+            "source_version": source_version,
+        }
+    else:
+        parent = reference_parent("signal.tagged", f"{company_id}:{source_version}", source_version)
     events = chain_events_after(
         parent,
         [
@@ -205,6 +217,7 @@ class ScoringService:
                     tenant_id=tenant_id,
                     score=breakdown.score,
                     source_version=features.source_version,
+                    parent_event_id=features.parent_event_id,
                 ):
                     await self._redis.xadd(STREAM_NAME, entry)
             return ScoreResponse(

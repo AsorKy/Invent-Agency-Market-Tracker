@@ -61,9 +61,11 @@ def stamp_payload(
         if event_type != CHAIN[0]:
             raise ValueError(f"{event_type} needs a parent event")
         stamped["source_version"] = build_source_version(producer_version)
+        stamped["parent_event_id"] = None
         return stamped
     parent_version = _source_version_of(parent)
     stamped["source_version"] = build_source_version(producer_version, parent_version)
+    stamped["parent_event_id"] = str(parent["event_id"])
     stamped["parent"] = {
         "event_id": str(parent["event_id"]),
         "event_type": str(parent["event_type"]),

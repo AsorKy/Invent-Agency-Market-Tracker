@@ -519,6 +519,19 @@
         "title": "Icp Fit",
         "type": "number"
       },
+      "parent_event_id": {
+        "anyOf": [
+          {
+            "format": "uuid",
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Parent Event Id"
+      },
       "signal_strength": {
         "maximum": 1,
         "minimum": 0,

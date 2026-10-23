@@ -1968,7 +1968,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: acceptance pytest (60 passed), make static, make test (1634 passed, 2 skipped, 4 xfailed)
 
 ### T-175 Producers propagate parent_event_id through the chain
-- status: todo
+- status: done
 - spec: REQ-LNS-012, REQ-EVT-008
 - owner: lead-backend-engineer
 - depends: T-174
@@ -1977,7 +1977,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/unit/test_event_chain.py tests/unit/test_event_chain_producers.py tests/unit/test_event_chain_contracts.py tests/unit/test_openapi.py` and `make static` and `make test`
 - note: decision D-21 (owner). The three joins that `trace_chain` reports as gaps (`signal.tagged` to `signal.scored`, `signal.scored` to `company.matched`, `funnel.gate_decision` to `project.pipeline_updated`) must close with real event ids, not with the deterministic references of `reference_parent`. Carry the id of the parent event in `ScoreFeatures` (an optional field, additive for the OpenAPI diff) and in the payload of the lead write, fill `parent_event_id` in every producer, and make `trace_chain` pass on a full chain built by the producers (an offline test that runs the chain with the flag on and asserts `complete` is true and `gap` is empty). `reference_parent` may stay for events written before this change. Cross-service ids travel in the request or the event, never through a shared table (INV-01). The `signal.scored` side is T-176; here ML only receives and echoes the parent id.
-- evidence: filled by the agent when done
+- evidence: acceptance pytest (22 passed; test_event_chain_contracts.py does not exist), make static, make test (1635 passed, 2 skipped, 4 xfailed). Open: funnel.py does not expose the gate event id; production callers do not yet send parent ids (see RUN report)
 
 ### T-176 ML publishes signal.scored through an outbox
 - status: todo

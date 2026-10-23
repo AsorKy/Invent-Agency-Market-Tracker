@@ -44,6 +44,7 @@ class LeadCreate(BaseModel):
     city: str | None = Field(default=None, max_length=120)
     source: str | None = Field(default=None, max_length=120)
     qualification_reason: dict[str, Any] = Field(default_factory=dict)
+    scored_event_id: UUID | None = None
 
 
 class LeadStatusPatch(BaseModel):
@@ -53,6 +54,7 @@ class LeadStatusPatch(BaseModel):
 
     stage: PipelineStage
     expected_version: int = Field(ge=1)
+    gate_event_id: UUID | None = None
 
 
 class IdempotencyKeyReuseError(Exception):
@@ -119,7 +121,10 @@ class LeadUnitOfWork(Protocol):
 
 
 def request_hash(payload: LeadCreate) -> str:
-    body = json.dumps(payload.model_dump(mode="json"), sort_keys=True).encode()
+    dump = payload.model_dump(mode="json")
+    if dump.get("scored_event_id") is None:
+        dump.pop("scored_event_id", None)  # keeps the hash of keys stored before the field
+    body = json.dumps(dump, sort_keys=True).encode()
     return hashlib.sha256(body).hexdigest()
 
 
@@ -183,7 +188,14 @@ async def create_lead(
         )
         if get_settings().event_chain_emit:
             # company.matched -> signal.explained; the scored parent lives in the ML service.
-            parent = reference_parent("signal.scored", str(payload.company_id))
+            if payload.scored_event_id is not None:
+                parent = {
+                    "event_id": str(payload.scored_event_id),
+                    "event_type": "signal.scored",
+                    "source_version": "",
+                }
+            else:
+                parent = reference_parent("signal.scored", str(payload.company_id))
             matched = chain_events_after(
                 parent,
                 [
@@ -265,7 +277,14 @@ async def change_status(
         view = lead_view(updated)
         if get_settings().event_chain_emit:
             # project.pipeline_updated -> project.forecast_updated; the gate parent lives in funnel.
-            parent = reference_parent("funnel.gate_decision", str(lead_id))
+            if patch.gate_event_id is not None:
+                parent = {
+                    "event_id": str(patch.gate_event_id),
+                    "event_type": "funnel.gate_decision",
+                    "source_version": "",
+                }
+            else:
+                parent = reference_parent("funnel.gate_decision", str(lead_id))
             moved = chain_events_after(
                 parent,
                 [
