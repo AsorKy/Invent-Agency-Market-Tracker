@@ -1,6 +1,7 @@
 """Tests for the versioned n8n source workflows (REQ-ORC-001).
 
-Checks that every versioned workflow is valid and secret free, that the source workflows keep the trigger, budget check,
+Checks that every versioned workflow is valid and secret free, that the source workflows keep
+the trigger, budget check,
 Bright Data trigger with the ingest notify URL, and notification chain, and that
 the guard in ``ops/check_workflows.py`` accepts them and rejects code nodes.
 """
@@ -11,8 +12,8 @@ from pathlib import Path
 
 import pytest
 
-from ops.check_workflows import check_directory, check_workflow
 from libs.common.settings import Settings
+from ops.check_workflows import check_directory, check_workflow
 
 DIRECTORY = Path(__file__).resolve().parents[2] / "orchestration/n8n"
 SOURCES = {
@@ -22,7 +23,13 @@ SOURCES = {
     "wf_linkedin_jobs": "linkedin_jobs",
     "wf_instagram_horeca": "instagram",
 }
-OTHERS = ["wf_rues_delta", "wf_socioeco_refresh", "wf_ops_health", "wf_hot_lead_alert", "wf_drift_alert"]
+OTHERS = [
+    "wf_rues_delta",
+    "wf_socioeco_refresh",
+    "wf_ops_health",
+    "wf_hot_lead_alert",
+    "wf_drift_alert",
+]
 EXPECTED = sorted([*SOURCES, *OTHERS])
 TRIGGERS = {
     "n8n-nodes-base.scheduleTrigger",

@@ -51,7 +51,11 @@ def _heavy_modules(path: Path) -> set[str]:
             func = node.func
             fname = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", "")
             arg = node.args[0]
-            if fname in HEAVY_FUNCS and isinstance(arg, ast.Constant) and isinstance(arg.value, str):
+            if (
+                fname in HEAVY_FUNCS
+                and isinstance(arg, ast.Constant)
+                and isinstance(arg.value, str)
+            ):
                 names = [arg.value]
         for name in names:
             top = name.split(".")[0]

@@ -90,7 +90,9 @@ def unique_keys() -> set[Key]:
             for item in split_top(table_body(sql, match.end())):
                 item = norm(item)
                 column = re.match(r"(\w+) ", item)
-                table_level = re.match(r"(?:constraint \w+ )?(?:unique|primary key) ?\((.*)\)", item)
+                table_level = re.match(
+                    r"(?:constraint \w+ )?(?:unique|primary key) ?\((.*)\)", item
+                )
                 if table_level:
                     keys.add((table, columns(table_level.group(1)), ""))
                 elif column and re.search(r"\b(unique|primary key)\b", item):

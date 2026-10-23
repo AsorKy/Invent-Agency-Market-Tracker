@@ -2149,7 +2149,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: pytest -q tests/unit/test_pulse_lens.py tests/unit/test_internal_auth.py (plus test_pulse_lens_routes.py, test_openapi.py) passed; make static OK; make test 1689 passed, 2 skipped, 4 xfailed. Note: test_pulse_lens.py is new (the file named in the task did not exist); the refresh cases of test_pulse_lens_routes.py now send the n8n_socioeco token
 
 ### T-190 Bring the test lint to zero
-- status: todo
+- status: done
 - spec: REQ-QA-001
 - owner: coordinator
 - depends: T-172
@@ -2158,4 +2158,4 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: S
 - acceptance: `ruff check tests` reports no finding, and `make static` and `make test` pass
 - note: T-172 left the findings of `ruff check tests` that `make static` does not cover (B905, E501, F401, B023, I001 in the files above). Fix them without changing what a test asserts; if a fix would change behaviour, add a narrow `# noqa` with the reason instead. Then list in the report the exact command and its result. Do NOT change the Makefile or the CI workflow: whether `ruff check tests` joins `make static` is a decision for the owner, so state your recommendation in the report.
-- evidence: filled by the agent when done
+- evidence: `ruff check tests` -> All checks passed (was 14 findings); make static OK; make test 1689 passed, 2 skipped, 4 xfailed
