@@ -48,7 +48,21 @@ class FakeConnection:
             key = (params["tenant_id"], params["project_id"])
             if key not in self.snapshots:
                 self.snapshots[key] = params
-                self.visits.append(params)
+                self.visits.append(dict(params))
+            return _Result()
+        if "UPDATE pulse.project_snapshot" in sql:
+            row = self.snapshots.get((params["tenant_id"], params["project_id"]))
+            if row is None or row["stage"] == params["stage"]:
+                return _Result()
+            row["stage"] = params["stage"]
+            return _Result(params["project_id"])
+        if "UPDATE pulse.project_stage_visit" in sql:
+            for visit in self.visits:
+                if visit["project_id"] == params["project_id"] and not visit.get("exited"):
+                    visit["exited"] = True
+            return _Result()
+        if "INSERT INTO pulse.project_stage_visit" in sql:
+            self.visits.append(dict(params))
             return _Result()
         raise AssertionError(f"unexpected SQL: {sql}")
 
@@ -97,3 +111,63 @@ async def test_event_without_tenant_writes_nothing() -> None:
     db = FakeConnection()
     await consumer.process_event(db, message(uuid4(), None))  # type: ignore[arg-type]
     assert db.snapshots == {} and db.contexts == []
+
+
+def stage_message(event_type: str, project_id: UUID | None, **payload: Any) -> dict[str, str]:
+    body = {"lead_id": str(uuid4()), "project_id": str(project_id) if project_id else None}
+    return {
+        "event_id": str(uuid4()),
+        "event_type": event_type,
+        "tenant_id": str(TENANT),
+        "payload": json.dumps({**body, **payload, "parent_event_id": str(uuid4())}),
+    }
+
+
+async def converted(db: FakeConnection, project: UUID) -> None:
+    await consumer.process_event(db, message(project))  # type: ignore[arg-type]
+
+
+def open_stages(db: FakeConnection) -> list[str]:
+    return [v["stage"] for v in db.visits if not v.get("exited")]
+
+
+async def test_pipeline_updated_moves_stage_and_closes_visit() -> None:
+    db, project = FakeConnection(), uuid4()
+    await converted(db, project)
+    event = stage_message(
+        "project.pipeline_updated", project, **{"from": "draft", "to": "hot", "version": 2}
+    )
+    await consumer.process_event(db, event)  # type: ignore[arg-type]
+    assert db.snapshots[(TENANT, project)]["stage"] == "hot"
+    assert db.visits[0]["exited"] is True
+    assert open_stages(db) == ["hot"]
+
+
+async def test_forecast_updated_alone_moves_stage_without_figures() -> None:
+    db, project = FakeConnection(), uuid4()
+    await converted(db, project)
+    event = stage_message("project.forecast_updated", project, stage="won")
+    await consumer.process_event(db, event)  # type: ignore[arg-type]
+    row = db.snapshots[(TENANT, project)]
+    assert row["stage"] == "won" and open_stages(db) == ["won"]
+    assert not {"score", "pipeline_value"} & set(row)
+
+
+async def test_pipeline_then_forecast_adds_one_visit_and_replay_changes_nothing() -> None:
+    db, project = FakeConnection(), uuid4()
+    await converted(db, project)
+    first = stage_message("project.pipeline_updated", project, **{"to": "hot"})
+    second = stage_message("project.forecast_updated", project, stage="hot")
+    for event in (first, second, first, second):
+        await consumer.process_event(db, event)  # type: ignore[arg-type]
+    assert len(db.visits) == 2 and open_stages(db) == ["hot"]
+
+
+async def test_stage_event_without_project_or_snapshot_changes_nothing() -> None:
+    db = FakeConnection()
+    await consumer.process_event(db, stage_message("project.forecast_updated", None, stage="hot"))  # type: ignore[arg-type]
+    await consumer.process_event(
+        db,  # type: ignore[arg-type]
+        stage_message("project.forecast_updated", uuid4(), stage="hot"),
+    )
+    assert db.snapshots == {} and db.visits == []

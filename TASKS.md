@@ -1992,7 +1992,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: filled by the agent when done
 
 ### T-177 Pulse projects the project stage events
-- status: todo
+- status: done
 - spec: REQ-PUL-004, REQ-LNS-012
 - owner: second-backend-engineer
 - depends: T-152, T-174
@@ -2001,7 +2001,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: `pytest -q tests/unit/test_project_projection.py tests/unit/test_pulse_consumer.py tests/unit/test_event_chain_consumers.py tests/unit/test_sql_consistency.py` and `make static` and `make test`
 - note: decision D-22 (owner): a lead stage change equals `project.pipeline_updated` plus `project.forecast_updated`, with no figures; the consumer is Pulse. Add the two dispatch branches. The tables already exist: update `pulse.project_snapshot` (stage) and close the open `pulse.project_stage_visit` row by setting `exited_at` (the SPEC and the owner text say project_snapshot for both; the column `exited_at` lives in `project_stage_visit`, use the real tables and say so in the report). The writes are idempotent by `event_id` (inbox pattern), tenant scoped under `set_tenant_context`, and a replay of the same event changes nothing. `forecast_updated` carries no figure and must not invent any. Add a test per event plus a replay case.
-- evidence: filled by the agent when done
+- evidence: acceptance pytest (66 passed), make static, make test (1634 passed, 2 skipped, 4 xfailed). Real tables used: stage in project_snapshot, exited_at in project_stage_visit
 
 ### T-178 Scoring feature baseline gets a versioned source and a pinned output
 - status: todo
