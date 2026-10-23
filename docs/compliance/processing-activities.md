@@ -35,16 +35,21 @@ roles (`ensure_public_role`) in `services/core/app/retention.py`.
   activities, signals, locations, roles, and company history.
 - The purge is `POST /internal/core/compliance/purge?dry_run=false` or
   `python -m services.core.app.retention`; both support a dry run (the default for the endpoint).
-  A scheduler runs it; each run writes a `retention.purge` audit entry with counts only.
+  A scheduler runs it. Both ask the identity service for the active tenant ids and purge each
+  tenant in its own transaction under its own tenant context; a tenant that fails does not stop
+  the others and the job exit code reports it. Each tenant writes a `retention.purge` audit entry
+  with its `tenant_id` and counts only.
 - The outbox event log keeps events for 90 days (see ADR-IMT-0001, section E1.4).
 
 ## Data subject requests (opt-out)
 
 1. The request arrives through the public form or the legal inbox.
-2. An operator calls `POST /internal/core/compliance/opt-out` with the company id or NIT.
+2. An operator calls `POST /internal/core/compliance/opt-out` with the company id or NIT and the
+   `X-Tenant-Id` header (400 without it). The request only reaches companies of that tenant; the
+   same company in two tenants needs two requests.
 3. Core deletes the company and its dependants in one transaction. Repeating the call is safe and
    returns `already_removed`.
-4. The audit log keeps only a SHA-256 of the identifier, the channel, and row counts.
+4. The audit log keeps only a SHA-256 of the identifier, the channel, row counts, and the tenant id.
 
 ## Registration
 

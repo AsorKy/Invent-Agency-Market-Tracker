@@ -2,8 +2,10 @@
 
 ``purge_inactive_companies`` deletes companies whose last signal (or creation, when they never had
 one) is older than 12 months, with a dry-run mode, and is safe to call from a scheduler or from
-``python -m services.core.app.retention``. ``opt_out`` deletes one company by id or NIT and is
-idempotent: repeating it reports ``already_removed``. ``reject_personal_identifiers`` refuses
+``python -m services.core.app.retention``. ``purge_tenants`` runs it once per tenant listed by
+identity, each under its own tenant context (D-36). ``opt_out`` deletes one company by id or NIT
+inside one tenant and is idempotent: repeating it reports ``already_removed``.
+``reject_personal_identifiers`` refuses
 document numbers, private phones, and residential addresses, and ``ensure_public_role`` limits
 stored persons to public business roles (Ley 1581/2012, REQ-CMP-001). Audit entries keep only
 hashed identifiers. It relates to ``main.py``, ``repository.py``, and
@@ -17,7 +19,7 @@ import hashlib
 import json
 import re
 import sys
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from datetime import UTC, datetime, timedelta
 from types import TracebackType
 from typing import Any, Protocol
@@ -73,6 +75,10 @@ PUBLIC_ROLES = (
 
 class PersonalDataError(ValueError):
     """The payload carries data this platform never stores."""
+
+
+class PurgeBlindError(RuntimeError):
+    """A company that exists lost no row: the tenant context is missing or wrong."""
 
 
 class RetentionTransaction(Protocol):
@@ -157,7 +163,10 @@ async def purge_inactive_companies(
         candidates = await tx.find_purge_candidates(cutoff, limit)
         if not dry_run:
             for company_id in candidates:
-                for table, count in (await tx.delete_company_data(company_id)).items():
+                counts = await tx.delete_company_data(company_id)
+                if counts.get("company", 0) < 1:
+                    raise PurgeBlindError("purge deleted nothing for an existing company")
+                for table, count in counts.items():
                     deleted[table] = deleted.get(table, 0) + count
             if candidates:
                 await tx.add_audit(
@@ -186,6 +195,8 @@ async def opt_out(unit_of_work: RetentionUnitOfWork, request: OptOutRequest) -> 
         if company_id is None:
             return {"status": "already_removed", "deleted": {}}
         deleted = await tx.delete_company_data(company_id)
+        if deleted.get("company", 0) < 1:
+            raise PurgeBlindError("opt-out deleted nothing for an existing company")
         await tx.add_audit(
             action="company.opt_out",
             payload={
@@ -195,6 +206,38 @@ async def opt_out(unit_of_work: RetentionUnitOfWork, request: OptOutRequest) -> 
             },
         )
     return {"status": "removed", "deleted": deleted}
+
+
+async def purge_tenants(
+    unit_of_work_for: Callable[[UUID], RetentionUnitOfWork],
+    tenant_ids: Sequence[UUID],
+    *,
+    now: datetime | None = None,
+    dry_run: bool = False,
+    limit: int = DEFAULT_PURGE_LIMIT,
+) -> dict[str, Any]:
+    """Purge each tenant in its own transaction with its own context (D-36).
+
+    A tenant that fails does not stop the others; its id is listed under ``failed``.
+    """
+    moment = now or datetime.now(UTC)
+    results: dict[str, dict[str, Any]] = {}
+    failed: list[str] = []
+    for tenant_id in tenant_ids:
+        try:
+            results[str(tenant_id)] = await purge_inactive_companies(
+                unit_of_work_for(tenant_id), now=moment, dry_run=dry_run, limit=limit
+            )
+        except Exception:  # noqa: BLE001 - isolate tenants; the exit code reports it
+            failed.append(str(tenant_id))
+    return {
+        "dry_run": dry_run,
+        "tenants": len(tenant_ids),
+        "candidates": sum(r["candidates"] for r in results.values()),
+        "purged": sum(r["purged"] for r in results.values()),
+        "per_tenant": results,
+        "failed": failed,
+    }
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -209,10 +252,17 @@ async def run(argv: Sequence[str] | None = None) -> int:
     from services.core.app.repository import CoreRepository
 
     args = build_parser().parse_args(argv)
-    repository = CoreRepository(get_settings().database_url)
+    from services.core.app.identity_tenants import list_tenant_ids
+
+    settings = get_settings()
+    repository = CoreRepository(settings.database_url)
     try:
-        result = await purge_inactive_companies(
-            repository.retention_unit_of_work(), dry_run=args.dry_run, limit=args.limit
+        tenant_ids = await list_tenant_ids(settings.identity_url, settings.internal_service_token)
+        result = await purge_tenants(
+            repository.retention_unit_of_work,
+            tenant_ids,
+            dry_run=args.dry_run,
+            limit=args.limit,
         )
     except RuntimeError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -220,7 +270,7 @@ async def run(argv: Sequence[str] | None = None) -> int:
     finally:
         await repository.close()
     print(json.dumps(result))
-    return 0
+    return 1 if result["failed"] else 0
 
 
 if __name__ == "__main__":

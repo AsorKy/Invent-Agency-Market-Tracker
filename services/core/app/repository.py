@@ -1108,8 +1108,9 @@ class SqlImportUnitOfWork(SqlCompanyUnitOfWork):
 class SqlRetentionTransaction:
     """Retention queries and cascading company deletion on one connection."""
 
-    def __init__(self, connection: AsyncConnection) -> None:
+    def __init__(self, connection: AsyncConnection, tenant_id: UUID | None = None) -> None:
         self.connection = connection
+        self.tenant_id = tenant_id
 
     async def find_purge_candidates(self, cutoff: datetime, limit: int) -> list[UUID]:
         result = await self.connection.execute(
@@ -1179,11 +1180,15 @@ class SqlRetentionTransaction:
         await self.connection.execute(
             text(
                 """
-                INSERT INTO core.audit_log (actor, action, aggregate_type, payload)
-                VALUES ('core', :action, 'compliance', CAST(:payload AS jsonb))
+                INSERT INTO core.audit_log (actor, action, aggregate_type, payload, tenant_id)
+                VALUES ('core', :action, 'compliance', CAST(:payload AS jsonb), :tenant_id)
                 """
             ),
-            {"action": action, "payload": json.dumps(payload, default=str)},
+            {
+                "action": action,
+                "payload": json.dumps(payload, default=str),
+                "tenant_id": self.tenant_id,
+            },
         )
 
 
@@ -1191,7 +1196,8 @@ class SqlRetentionUnitOfWork(SqlCompanyUnitOfWork):
     """Same commit-or-rollback boundary, yielding retention operations."""
 
     async def __aenter__(self) -> SqlRetentionTransaction:  # type: ignore[override]
-        return SqlRetentionTransaction((await super().__aenter__()).connection)
+        # The parent applies the tenant context before the first statement (D-36).
+        return SqlRetentionTransaction((await super().__aenter__()).connection, self._tenant_id)
 
 
 class SqlLeadUnitOfWork(SqlCompanyUnitOfWork):
@@ -1276,10 +1282,10 @@ class CoreRepository:
             raise RuntimeError("DATABASE_URL is required for core writes")
         return SqlImportUnitOfWork(self.engine)
 
-    def retention_unit_of_work(self) -> SqlRetentionUnitOfWork:
+    def retention_unit_of_work(self, tenant_id: UUID | None = None) -> SqlRetentionUnitOfWork:
         if self.engine is None:
             raise RuntimeError("DATABASE_URL is required for core writes")
-        return SqlRetentionUnitOfWork(self.engine)
+        return SqlRetentionUnitOfWork(self.engine, tenant_id)
 
     async def close(self) -> None:
         if self.engine:

@@ -962,7 +962,8 @@ async def test_validation_inputs_write_one_key_audit_and_etag_as_core_app(
     )
     assert body["version"] == 1
     keep, funnel_version, growth, version = db.one(
-        "SELECT metadata->>'keep', metadata->>'version', (metadata->'validation'->'growth'->>'new')::float,"
+        "SELECT metadata->>'keep', metadata->>'version',"
+        " (metadata->'validation'->'growth'->>'new')::float,"
         " metadata->'validation'->>'version' FROM core.project WHERE id = %s",
         project,
     )
@@ -1039,6 +1040,105 @@ async def test_conversion_sets_lead_project_id_only_under_the_tenant_context(
     async with engines["core"].connect() as connection:
         await set_tenant_context(connection, TENANT)
         assert (await connection.execute(query, {"p": row["id"]})).scalar_one() == 1
+
+
+# --- T-191: opt-out and retention purge are tenant-aware (D-36), proven as core_app -----------
+
+
+def _aged_company(db: Db, tenant: UUID, nit: str, days: int) -> UUID:
+    company = _company(db, tenant)
+    db.rows(
+        "UPDATE core.company SET nit = %s, created_at = now() - make_interval(days => %s)"
+        " WHERE id = %s",
+        nit,
+        days,
+        company,
+    )
+    return company
+
+
+def _company_rows(db: Db, company: UUID) -> int:
+    return int(db.one("SELECT count(*) FROM core.company WHERE id = %s", company)[0])
+
+
+async def test_opt_out_of_tenant_a_deletes_only_its_rows_as_core_app(db: Db) -> None:
+    from services.core.app.retention import OptOutRequest, opt_out
+
+    in_a = _aged_company(db, TENANT, "9001", 1)
+    in_b = _aged_company(db, OTHER, "9001", 1)  # same NIT, other tenant
+    lead_a, lead_b = _lead(db, TENANT, in_a), _lead(db, OTHER, in_b)
+    for tenant, company, lead in ((TENANT, in_a, lead_a), (OTHER, in_b, lead_b)):
+        _fixture_signal(db, tenant, company)
+        _fixture_location(db, tenant, company)
+        _fixture_outcome(db, tenant, lead)
+    repository = _core_repository(db)
+    try:
+        # No context: every row is hidden, so an existing company is simply not found.
+        blind = await opt_out(repository.retention_unit_of_work(), OptOutRequest(company_id=in_a))
+        assert blind["status"] == "already_removed" and _company_rows(db, in_a) == 1
+        # Tenant B cannot delete the company of tenant A, by id or by NIT.
+        cross = await opt_out(
+            repository.retention_unit_of_work(OTHER), OptOutRequest(company_id=in_a)
+        )
+        assert cross["status"] == "already_removed" and _company_rows(db, in_a) == 1
+        done = await opt_out(repository.retention_unit_of_work(TENANT), OptOutRequest(nit="9001"))
+        assert done["status"] == "removed" and done["deleted"]["company"] == 1
+        assert done["deleted"]["signal"] == done["deleted"]["location"] == 1
+        # A blind delete of a company that exists must fail loudly, never report success.
+        async with repository.retention_unit_of_work() as tx:
+            assert (await tx.delete_company_data(in_b))["company"] == 0
+    finally:
+        await repository.close()
+    assert _company_rows(db, in_a) == 0
+    assert db.one("SELECT count(*) FROM core.signal WHERE company_id = %s", in_a) == (0,)
+    assert _company_rows(db, in_b) == 1
+    assert db.one("SELECT count(*) FROM core.signal WHERE company_id = %s", in_b) == (1,)
+    assert db.one("SELECT count(*) FROM core.location WHERE company_id = %s", in_b) == (1,)
+    assert db.one("SELECT count(*) FROM core.lead_outcome WHERE lead_id = %s", lead_b) == (1,)
+    tenant, payload = db.one(
+        "SELECT tenant_id, payload::text FROM core.audit_log WHERE action = 'company.opt_out'"
+        " AND tenant_id = %s",
+        TENANT,
+    )
+    assert tenant == TENANT and "9001" not in payload and str(in_a) not in payload
+
+
+async def test_retention_purge_runs_each_tenant_separately_as_core_app(db: Db) -> None:
+    from services.core.app.retention import purge_inactive_companies, purge_tenants
+
+    old_a = _aged_company(db, TENANT, "1", 500)
+    new_a = _aged_company(db, TENANT, "2", 5)
+    old_b = _aged_company(db, OTHER, "3", 500)
+    _fixture_signal(db, TENANT, old_a)
+    db.rows(
+        "UPDATE core.signal SET observed_at = now() - interval '500 days' WHERE company_id = %s",
+        old_a,
+    )
+    repository = _core_repository(db)
+    try:
+        # Without a context nothing is a candidate: the job would silently purge nothing.
+        blind = await purge_inactive_companies(repository.retention_unit_of_work())
+        assert blind["candidates"] == 0 and _company_rows(db, old_a) == 1
+        dry = await purge_tenants(repository.retention_unit_of_work, [TENANT, OTHER], dry_run=True)
+        assert dry["per_tenant"][str(TENANT)]["candidates"] >= 1 and dry["purged"] == 0
+        assert _company_rows(db, old_a) == _company_rows(db, old_b) == 1
+        only_a = await purge_tenants(repository.retention_unit_of_work, [TENANT])
+        assert only_a["failed"] == [] and _company_rows(db, old_a) == 0
+        assert _company_rows(db, old_b) == 1  # tenant B untouched while only A ran
+        both = await purge_tenants(repository.retention_unit_of_work, [TENANT, OTHER])
+        assert both["failed"] == [] and both["per_tenant"][str(OTHER)]["purged"] >= 1
+    finally:
+        await repository.close()
+    assert _company_rows(db, old_b) == 0 and _company_rows(db, new_a) == 1
+    assert db.one("SELECT count(*) FROM core.signal WHERE company_id = %s", old_a) == (0,)
+    assert (
+        db.one(
+            "SELECT count(*) FROM core.audit_log"
+            " WHERE action = 'retention.purge' AND tenant_id = %s",
+            OTHER,
+        )[0]
+        >= 1
+    )
 
 
 # --- T-195: per-tenant unique key on core.signal ----------------------------------------

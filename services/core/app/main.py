@@ -48,6 +48,7 @@ from services.core.app.funnel import (
     read_funnel_state,
 )
 from services.core.app.hot_alert import HotAlertNotifier
+from services.core.app.identity_tenants import list_tenant_ids
 from services.core.app.imports import (
     MAX_BYTES,
     ImportEntity,
@@ -71,7 +72,7 @@ from services.core.app.retention import (
     OptOutRequest,
     PersonalDataError,
     opt_out,
-    purge_inactive_companies,
+    purge_tenants,
     reject_personal_identifiers,
 )
 from services.core.app.score_features import DEFAULT_LIMIT, ScoreFeaturesPage
@@ -727,10 +728,17 @@ async def get_job_route(
 
 
 @app.post("/internal/core/compliance/opt-out", dependencies=[GATEWAY_OR_SEED])
-async def opt_out_route(payload: OptOutRequest, request: Request) -> dict[str, object]:
+async def opt_out_route(
+    payload: OptOutRequest,
+    request: Request,
+    x_tenant_id: Annotated[UUID | None, Header()] = None,
+) -> dict[str, object]:
+    """Delete one company of the caller's tenant; another tenant's company is never touched."""
+    if x_tenant_id is None:
+        raise HTTPException(status_code=400, detail="tenant_required")
     try:
         repository: CoreRepository = request.app.state.repository
-        return await opt_out(repository.retention_unit_of_work(), payload)
+        return await opt_out(repository.retention_unit_of_work(x_tenant_id), payload)
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
@@ -741,11 +749,15 @@ async def purge_route(
     dry_run: bool = True,
     limit: Annotated[int, Query(ge=1, le=5000)] = 500,
 ) -> dict[str, object]:
-    """Scheduler entrypoint; defaults to a dry run so deletion must be requested explicitly."""
+    """Scheduler entrypoint; defaults to a dry run so deletion must be requested explicitly.
+
+    The tenants come from the identity API and each is purged under its own context.
+    """
     try:
         repository: CoreRepository = request.app.state.repository
-        return await purge_inactive_companies(
-            repository.retention_unit_of_work(), dry_run=dry_run, limit=limit
+        tenant_ids = await list_tenant_ids(settings.identity_url, settings.internal_service_token)
+        return await purge_tenants(
+            repository.retention_unit_of_work, tenant_ids, dry_run=dry_run, limit=limit
         )
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
