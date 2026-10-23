@@ -103,7 +103,9 @@ make verify-live SOURCE=maps INPUTS=inputs.json
 - When every hop passes it captures redacted fixtures and prints mapping coverage (section 5).
 - Exit code 0 means all hops passed, 1 a hop failed, 2 a refusal or usage error.
 
-Known caveat: Compose does not publish the ingest and core ports, so the defaults (`http://localhost:8001` and `http://localhost:8002`) do not answer. Set `VERIFY_LIVE_INGEST_URL` and `VERIFY_LIVE_CORE_URL` to addresses that reach those services, for example through a local override file that publishes the ports, or run the command from inside the Compose network. `VERIFY_LIVE_DATABASE_URL` overrides the database connection; otherwise `DATABASE_URL` or the `POSTGRES_*` values are used. These three `VERIFY_LIVE_*` names are read only by `ops/verify_live.py` and are not listed in `.env.example`.
+In-network run (T-186): `make verify-live` runs `docker compose --profile tools run --rm verify-live python ops/verify_live.py ...`, so it reaches ingest and core by service name (`http://ingest:8000`, `http://core:8000`) and publishes no port. It is not yet proven on a machine with Docker (T-187 confirms it).
+
+Known caveat for runs outside the Compose network: Compose does not publish the ingest and core ports, so the defaults (`http://localhost:8001` and `http://localhost:8002`) do not answer. Set `VERIFY_LIVE_INGEST_URL` and `VERIFY_LIVE_CORE_URL` to addresses that reach those services, for example through a local override file that publishes the ports, or run the command from inside the Compose network. `VERIFY_LIVE_DATABASE_URL` overrides the database connection; otherwise `DATABASE_URL` or the `POSTGRES_*` values are used. These three `VERIFY_LIVE_*` names are read only by `ops/verify_live.py` and are not listed in `.env.example`.
 
 ## 8. How data reaches `/api/v1`
 

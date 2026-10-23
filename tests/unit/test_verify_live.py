@@ -144,3 +144,16 @@ def test_main_failure_does_not_capture(tmp_path: Path, monkeypatch: pytest.Monke
 def test_main_requires_inputs(capsys: pytest.CaptureFixture[str]) -> None:
     assert vl.main(["--source", "maps"], environ=_env(), backend=FakeBackend()) == 2
     assert "--inputs" in capsys.readouterr().out
+
+
+def test_live_backend_honours_service_url_overrides() -> None:
+    backend = vl.LiveBackend(
+        _env(
+            VERIFY_LIVE_INGEST_URL="http://ingest:8000",
+            VERIFY_LIVE_CORE_URL="http://core:8000",
+            VERIFY_LIVE_DATABASE_URL="postgresql+asyncpg://u:p@postgres:5432/d",
+        )
+    )
+    assert backend._ingest == "http://ingest:8000"
+    assert backend._core == "http://core:8000"
+    assert backend._database.endswith("@postgres:5432/d")

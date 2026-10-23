@@ -24,7 +24,7 @@ WORKERS = {
 }
 DB_APIS = {"ingest": "ingest", "core": "core", "pulse": "pulse", "brief": "brief", "ml": "ml"}
 # Profile-gated helpers, outside the SPEC section 3.1 catalog.
-DEV_TOOLS = {"pgadmin", "drift-worker"}
+DEV_TOOLS = {"pgadmin", "drift-worker", "verify-live"}
 EXPECTED = (
     {"postgres", "redis", "migrate", "bootstrap-roles", "streamlit", "mocks", "n8n"}
     | set(APIS)
@@ -304,3 +304,20 @@ def test_event_chain_flag_reaches_producers_and_defaults_to_false(
     services: dict[str, Any], name: str
 ) -> None:
     assert _env(services[name])["EVENT_CHAIN_EMIT"] == "${EVENT_CHAIN_EMIT:-false}"
+
+
+def test_verify_live_runs_in_network_with_no_published_ports(services: dict[str, Any]) -> None:
+    tool = services["verify-live"]
+    assert tool["profiles"] == ["tools"]
+    assert "ports" not in tool and "ports" not in services["ingest"]
+    assert "ports" not in services["core"]
+    assert tool["restart"] == "no"
+    env = _env(tool)
+    for name, service in (("INGEST", "ingest"), ("CORE", "core")):
+        port = services[service]["command"][-1]
+        assert env[f"VERIFY_LIVE_{name}_URL"] == f"http://{service}:{port}"
+    assert "@postgres:5432/" in env["VERIFY_LIVE_DATABASE_URL"]
+    assert _depends(tool)["ingest"] == "service_healthy"
+    makefile = (COMPOSE.parent / "Makefile").read_text(encoding="utf-8")
+    assert "docker compose --profile tools run --rm" in makefile
+    assert "verify-live python ops/verify_live.py" in makefile

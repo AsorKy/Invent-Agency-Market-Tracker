@@ -2,7 +2,8 @@
 
 Pure functions, no I/O. The three features (``icp_fit``, ``signal_strength``,
 ``territory_opportunity``) are the demo heuristic of the seed, a placeholder until the real
-feature definition is decided. The seed (``ops/seed/enrich.py``) and the core internal route
+feature definition is decided (decision D-23: the permanent audited baseline, never deleted or
+switched off, INV-18). The seed (``ops/seed/enrich.py``) and the core internal route
 (``services/core/app/score_features.py``) share this one derivation so the numbers agree.
 Complexity is O(n) over the profiles. ``territory_opportunity`` is relative to the companies
 passed in, so callers pass the companies of one tenant only.
@@ -11,7 +12,12 @@ passed in, so callers pass the companies of one tenant only.
 from dataclasses import dataclass
 from typing import Any
 
-SCORE_SOURCE_VERSION = "demo-1"
+# Version rule (D-23): any change of ``city_widths``, ``features_of`` or the constants below bumps
+# this string as ``features-<major>.<minor>`` in the same pull request; ``demo-1`` is the frozen
+# baseline. tests/unit/test_score_features.py pins a formula fingerprint and the seed rows per
+# version, so a formula change without a new version string fails.
+BASELINE_SOURCE_VERSION = "demo-1"
+SCORE_SOURCE_VERSION = BASELINE_SOURCE_VERSION
 SIGNALS_FOR_FULL_STRENGTH = 6
 
 

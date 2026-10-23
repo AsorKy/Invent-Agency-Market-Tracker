@@ -171,3 +171,97 @@ async def test_read_sets_tenant_context_first_and_filters_every_statement() -> N
     assert engine.calls[2][1]["fetch"] == MAX_LIMIT + 1  # type: ignore[index]
     assert body["companies"][0]["icp_fit"] == pytest.approx(0.7)
     assert body["companies"][0]["territory_opportunity"] == 1.0
+
+
+# --- T-178 / D-23: versioned baseline and pinned output ---------------------------------------
+
+PINNED_PROFILES = {
+    "b": CompanyProfile(city="Cali", has_website=True, has_nit=True, signals=40),
+    "a": CompanyProfile(city="Cali"),
+    "c": CompanyProfile(city=None, signals=2),
+    "d": CompanyProfile(city="Bogota", has_nit=True, signals=3),
+    "e": CompanyProfile(city="Cali", has_website=True, signals=6),
+}
+# Full rows per source_version. A formula change must add a new version with its own rows.
+PINNED_ROWS = {
+    "demo-1": [
+        {
+            "company_id": "a",
+            "icp_fit": 0.4,
+            "signal_strength": 0.0,
+            "territory_opportunity": 1.0,
+            "source_version": "demo-1",
+        },
+        {
+            "company_id": "b",
+            "icp_fit": 1.0,
+            "signal_strength": 1.0,
+            "territory_opportunity": 1.0,
+            "source_version": "demo-1",
+        },
+        {
+            "company_id": "c",
+            "icp_fit": 0.4,
+            "signal_strength": 2 / 6,
+            "territory_opportunity": 1 / 3,
+            "source_version": "demo-1",
+        },
+        {
+            "company_id": "d",
+            "icp_fit": 0.7,
+            "signal_strength": 0.5,
+            "territory_opportunity": 1 / 3,
+            "source_version": "demo-1",
+        },
+        {
+            "company_id": "e",
+            "icp_fit": 0.7,
+            "signal_strength": 1.0,
+            "territory_opportunity": 1.0,
+            "source_version": "demo-1",
+        },
+    ],
+}
+# sha256 of the formula source and constants, per source_version.
+FORMULA_FINGERPRINTS = {
+    "demo-1": "1b2f19a8641f33952850f75126d6a01b7e7282c943a2bf50f1b8918c7373d042",
+}
+
+
+def _formula_fingerprint() -> str:
+    import hashlib
+    import inspect
+
+    from libs.domain import score_features as module
+
+    material = "\n".join(
+        [
+            inspect.getsource(module.city_widths),
+            inspect.getsource(module.features_of),
+            repr(module.SIGNALS_FOR_FULL_STRENGTH),
+        ]
+    )
+    return hashlib.sha256(material.encode()).hexdigest()
+
+
+def test_baseline_version_constant_is_demo_1() -> None:
+    from libs.domain.score_features import BASELINE_SOURCE_VERSION
+
+    assert BASELINE_SOURCE_VERSION == "demo-1"
+    assert "demo-1" in PINNED_ROWS
+
+
+def test_seed_output_is_pinned_for_a_fixed_profile_set() -> None:
+    from libs.domain.score_features import SCORE_SOURCE_VERSION
+
+    rows = score_features(PINNED_PROFILES)
+    assert rows == PINNED_ROWS[SCORE_SOURCE_VERSION]
+
+
+def test_changed_formula_requires_a_new_version_string() -> None:
+    from libs.domain.score_features import SCORE_SOURCE_VERSION
+
+    assert SCORE_SOURCE_VERSION in FORMULA_FINGERPRINTS, "bump source_version and pin new rows"
+    assert _formula_fingerprint() == FORMULA_FINGERPRINTS[SCORE_SOURCE_VERSION], (
+        "formula changed: bump source_version as features-<major>.<minor> and pin its rows"
+    )
