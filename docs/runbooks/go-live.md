@@ -12,7 +12,8 @@ This runbook switches a local stack from mock data to live Bright Data sources a
 
 1. Run `make invent-tracker`. It creates `.env` from `.env.example` (generating passwords), starts Postgres and Redis, creates the per-service database roles, builds and starts all services, waits for readiness, and loads demo data once (marker file `.env.seeded`). It is safe to run again.
 2. Run `make doctor` and confirm that nothing required is missing (section 6).
-3. Stop with `make invent-tracker-down`. `make invent-tracker-reset` also deletes the data volumes and asks for confirmation.
+3. Migration check for an existing database: before the first migrate of a database that already holds data (for example from F0), run `python ops/doctor.py --tenants` (read only, counts only, no row or id printed). It counts rows with a NULL `tenant_id` in `core.company`, `core.lead`, `core.signal`, `core.location` and `core.lead_outcome`, and the rows of signal, location and lead outcome whose company or lead also has no tenant. Migration `20261023_0014` stops the `migrate` container on such rows. Exit 1 means a count is above zero: assign a tenant to those rows (never delete them), then run the command again until it exits 0. A fresh stack needs no check.
+4. Stop with `make invent-tracker-down`. `make invent-tracker-reset` also deletes the data volumes and asks for confirmation.
 
 ## 3. Credentials and enabling sources
 

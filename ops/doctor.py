@@ -37,6 +37,14 @@ OLDEST_UNPUBLISHED_SECONDS = (
 AUTO_QUALIFIED_LEADS = "SELECT count(*) FROM core.lead WHERE source = 'auto_qualification'"
 DEFAULT_MAX_BACKLOG_SECONDS = 300
 
+# Tenant check before migration 0014 (REQ-DAT-005): table, parent table, parent key column.
+TENANT_PARENTS = (
+    ("core.signal", "core.company", "company_id"),
+    ("core.location", "core.company", "company_id"),
+    ("core.lead_outcome", "core.lead", "lead_id"),
+)
+TENANT_ROOTS = ("core.company", "core.lead")
+
 REQUIRED = (
     "POSTGRES_PASSWORD",
     "INTERNAL_SERVICE_TOKEN",
@@ -172,6 +180,44 @@ def pipeline_report(
     return lines, not problems
 
 
+def tenant_queries() -> list[tuple[str, str]]:
+    """Return (label, SQL) pairs that count rows without a tenant; no row or id is selected."""
+    queries = []
+    for table in (*TENANT_ROOTS, *(item[0] for item in TENANT_PARENTS)):
+        queries.append(
+            (
+                f"{table} rows without tenant_id",
+                f"SELECT count(*) FROM {table} WHERE tenant_id IS NULL",
+            )
+        )
+    for table, parent, key in TENANT_PARENTS:
+        queries.append(
+            (
+                f"{table} rows unresolved (no parent tenant)",
+                f"SELECT count(*) FROM {table} t WHERE t.tenant_id IS NULL AND NOT EXISTS "
+                f"(SELECT 1 FROM {parent} p WHERE p.id = t.{key} AND p.tenant_id IS NOT NULL)",
+            )
+        )
+    return queries
+
+
+def tenants_report(query: Callable[[str], int] = compose_query) -> tuple[list[str], bool]:
+    """Return the tenant count lines and whether every count is zero.
+
+    Run before the first migrate of an existing database: migration 20261023_0014 stops
+    when a signal, location or lead outcome row has no resolvable tenant. Counts only.
+    """
+    lines = ["", "Tenants before migration 0014 (counts only)"]
+    clean = True
+    for label, sql in tenant_queries():
+        count = query(sql)
+        lines.append(f"  {label}: {count}")
+        clean = clean and count == 0
+    if not clean:
+        lines.append("  UNRESOLVED: assign a tenant to these rows (never delete), then rerun")
+    return lines, clean
+
+
 def main(
     argv: Sequence[str] | None = None,
     query: Callable[[str], int] = compose_query,
@@ -179,6 +225,9 @@ def main(
     """Print the report; return 1 when a variable is missing or the pipeline is unhealthy."""
     parser = argparse.ArgumentParser(description="Report configuration and pipeline health.")
     parser.add_argument("--pipeline", action="store_true", help="also report the data pipeline")
+    parser.add_argument(
+        "--tenants", action="store_true", help="count rows without a tenant (before migrate)"
+    )
     parser.add_argument(
         "--max-backlog-seconds", type=int, default=DEFAULT_MAX_BACKLOG_SECONDS, metavar="N"
     )
@@ -191,6 +240,13 @@ def main(
             extra, healthy = ["", f"Pipeline: query failed ({type(error).__name__})"], False
         lines += extra
         ok = ok and healthy
+    if args.tenants:
+        try:
+            extra, clean = tenants_report(query)
+        except (RuntimeError, ValueError, OSError) as error:
+            extra, clean = ["", f"Tenants: query failed ({type(error).__name__})"], False
+        lines += extra
+        ok = ok and clean
     print("\n".join(lines))
     return 0 if ok else 1
 
