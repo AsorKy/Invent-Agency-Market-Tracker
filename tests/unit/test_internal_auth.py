@@ -201,3 +201,18 @@ def test_seed_and_verify_live_are_refused_in_production(
     assert (
         client.get("/internal/seed", headers={"X-Service-Token": gateway_token}).status_code == 200
     )
+
+
+def test_only_the_named_caller_passes_a_single_service_allow_list() -> None:
+    """T-189: ``n8n_socioeco`` is accepted by its own route and a gateway token is not."""
+    app = FastAPI()
+
+    @app.post("/refresh", dependencies=[Depends(require_service_token("n8n_socioeco"))])
+    async def refresh() -> dict[str, str]:
+        return {"ok": "1"}
+
+    client = TestClient(app)
+    own = {"X-Service-Token": sign_service_token("n8n_socioeco", SECRET)}
+    other = {"X-Service-Token": sign_service_token("gateway", SECRET)}
+    assert client.post("/refresh", headers=own).status_code == 200
+    assert client.post("/refresh", headers=other).status_code == 401

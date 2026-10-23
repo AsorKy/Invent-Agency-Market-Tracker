@@ -151,13 +151,16 @@ def test_project_metrics_need_a_tenant_and_a_token(store: FakeStore) -> None:
     assert _client().get(path, headers=service_headers()).status_code == 400
 
 
+SOCIO_HEADERS = service_headers("n8n_socioeco")
+
+
 def test_socio_refresh_counts_records(tmp_path: Path, store: FakeStore) -> None:
     header = "city,territory_code,territory_name," + ",".join(INDICATOR_FIELDS) + "\n"
     row = "Bogota,001,Chapinero," + ",".join("5" for _ in INDICATOR_FIELDS) + "\n"
     (tmp_path / "dane.csv").write_text(header + row, encoding="utf-8")
     pulse.app.state.repository = type("R", (), {"socio_data_dir": str(tmp_path)})()
     response = _client().post(
-        "/internal/pulse/socioeconomic/refresh", json={"source": "dane"}, headers=service_headers()
+        "/internal/pulse/socioeconomic/refresh", json={"source": "dane"}, headers=SOCIO_HEADERS
     )
     assert response.status_code == 200, response.text
     assert response.json()["records"] == 1
@@ -170,12 +173,10 @@ def test_socio_refresh_reports_invalid_data_and_missing_directory(
     path = "/internal/pulse/socioeconomic/refresh"
     (tmp_path / "bad.csv").write_text("city\nBogota\n", encoding="utf-8")
     pulse.app.state.repository = type("R", (), {"socio_data_dir": str(tmp_path)})()
-    assert _client().post(path, json={}, headers=service_headers()).status_code == 503
+    assert _client().post(path, json={}, headers=SOCIO_HEADERS).status_code == 503
     pulse.app.state.repository = type("R", (), {"socio_data_dir": str(tmp_path / "none")})()
-    empty = _client().post(path, json={"source": "dane"}, headers=service_headers())
+    empty = _client().post(path, json={"source": "dane"}, headers=SOCIO_HEADERS)
     assert empty.json()["records"] == 0
     assert empty.json()["as_of"] is None
-    assert (
-        _client().post(path, json={"source": "BAD!"}, headers=service_headers()).status_code == 422
-    )
+    assert _client().post(path, json={"source": "BAD!"}, headers=SOCIO_HEADERS).status_code == 422
     assert _client().post(path, json={}).status_code == 401

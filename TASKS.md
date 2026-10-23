@@ -2137,7 +2137,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: filled by the agent when done
 
 ### T-189 The pulse socioeconomic refresh accepts only its own caller
-- status: todo
+- status: done
 - spec: REQ-SEC-005
 - owner: lead-backend-engineer
 - depends: T-185
@@ -2146,7 +2146,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: S
 - acceptance: `pytest -q tests/unit/test_pulse_lens.py tests/unit/test_internal_auth.py` and `make static` and `make test`
 - note: T-185 mints a 60 second token for the fixed caller `n8n_socioeco`, but the pulse refresh route still uses `require_internal_token`, which accepts a validly signed token from any service name. Replace that dependency on the refresh route with `require_service_token("n8n_socioeco")` and keep the other pulse routes as they are. Tests: the `n8n_socioeco` token is accepted; the `gateway`, `seed` and `verify_live` tokens and a missing token answer 401; a token signed with another key answers 401. Do not change the mint route or the workflow, and do not activate the workflow.
-- evidence: filled by the agent when done
+- evidence: pytest -q tests/unit/test_pulse_lens.py tests/unit/test_internal_auth.py (plus test_pulse_lens_routes.py, test_openapi.py) passed; make static OK; make test 1689 passed, 2 skipped, 4 xfailed. Note: test_pulse_lens.py is new (the file named in the task did not exist); the refresh cases of test_pulse_lens_routes.py now send the n8n_socioeco token
 
 ### T-190 Bring the test lint to zero
 - status: todo
