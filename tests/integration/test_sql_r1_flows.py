@@ -962,11 +962,11 @@ async def test_validation_inputs_write_one_key_audit_and_etag_as_core_app(
     )
     assert body["version"] == 1
     keep, funnel_version, growth, version = db.one(
-        "SELECT metadata->>'keep', metadata->>'version', metadata->'validation'->'growth'->>'new',"
+        "SELECT metadata->>'keep', metadata->>'version', (metadata->'validation'->'growth'->>'new')::float,"
         " metadata->'validation'->>'version' FROM core.project WHERE id = %s",
         project,
     )
-    assert (keep, funnel_version, growth, version) == ("me", "4", "10", "1")
+    assert (keep, funnel_version, growth, version) == ("me", "4", 10.0, "1")
     action, tenant, sections = db.one(
         "SELECT action, tenant_id, payload->'sections' FROM core.audit_log WHERE aggregate_id = %s",
         project,
