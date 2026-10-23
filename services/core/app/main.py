@@ -354,7 +354,7 @@ async def record_outcome_route(
     try:
         repository: CoreRepository = request.app.state.repository
         return await record_outcome(
-            repository.action_unit_of_work(),
+            repository.action_unit_of_work(x_tenant_id),
             lead_id,
             payload,
             tenant_id=x_tenant_id,
@@ -378,7 +378,7 @@ async def log_activity_route(
     try:
         repository: CoreRepository = request.app.state.repository
         body, created = await log_activity(
-            repository.action_unit_of_work(),
+            repository.action_unit_of_work(x_tenant_id),
             lead_id,
             payload,
             tenant_id=x_tenant_id,
@@ -402,7 +402,7 @@ async def create_project(
     try:
         repository: CoreRepository = request.app.state.repository
         return await convert_to_project(
-            repository.action_unit_of_work(),
+            repository.action_unit_of_work(x_tenant_id),
             payload,
             tenant_id=x_tenant_id,
             request_id=request.headers.get("X-Request-ID"),

@@ -1945,7 +1945,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `ops/doctor.py --pipeline [--max-backlog-seconds N]` added (injectable query, exit 1 on dead letters or stale backlog); go-live runbook line and test_runbook needle added; test_doctor, test_runbook, test_sql_consistency, check_language and make static pass
 
 ### T-082 Row level security on core.signal, core.location and core.lead_outcome
-- status: todo
+- status: done
 - spec: REQ-DAT-005, REQ-SEC-005
 - owner: database-engineer
 - depends: T-162, T-168
@@ -1954,7 +1954,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: L
 - acceptance: `pytest -q tests/integration/test_sql_postgres.py tests/integration/test_sql_r1_flows.py tests/unit/test_sql_consistency.py tests/unit/test_schema_catalog.py` and `python ops/check_migrations.py` and `make static` and `make test`
 - note: decision D-29 (owner, closed 2026-10-22), the former F-r1e-11. `core.signal`, `core.location` and `core.lead_outcome` carry business data per tenant and must not stay exempt: one expand migration that does ENABLE and FORCE row level security and creates the policy `<table>_tenant_isolation` on `tenant_id = current_setting('app.tenant_id')::uuid`, following the pattern of `20261018_0004`. If any of the three has a nullable `tenant_id`, backfill and set it `NOT NULL` in the same expand file (the statement must be re-runnable). Then every writer and reader of those tables must run under `set_tenant_context`: find them all (signal create, the import and location writers, the outcome route and the readers behind brief facts and lead reads) and prove each one with a real Postgres test as `core_app` (a write and a read with the context succeed, without it they see or write nothing). The final exempt registry has five tables, each with its real reason and no wording like "guess": `core.outbox_event`, `core.outbox_dead_letter`, `core.processed_event`, `ml.processed_event` (messaging and idempotency infrastructure read and written only by the owning service role, never exposed by a public API; isolation comes from INV-01 and the role, and `tenant_id` is routing metadata) and `core.audit_log` (append-only, read only by an admin route of the same tenant with an explicit filter). Remove the "UNVERIFIED" comment, add the assertion that the three new tables DO have RLS, and check that no live migration or test still names `analytics.processed_event` (the historical expand files may keep it, the contract migration drops it). Name the migration exactly as above. Do not weaken any existing policy.
-- evidence: filled by the agent when done
+- evidence: pytest -q test_sql_postgres test_sql_r1_flows test_sql_consistency test_schema_catalog against a local PostgreSQL 16 (TEST_DATABASE_URL): passed; python ops/check_migrations.py OK; make static OK; make test 1680 passed, 2 skipped, 4 xfailed (see docs/runs/RUN-r1-n-rls.md)
 
 ### T-174 Typed payloads for the six chain events
 - status: done
