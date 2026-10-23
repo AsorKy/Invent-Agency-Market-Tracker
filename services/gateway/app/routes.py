@@ -141,6 +141,16 @@ def resolve(path: str, method: str, settings: Settings) -> Resolution:
     if first in {"imports", "jobs"}:
         key = "core:imports" if first == "imports" else "core"
         return Route(_join(settings.core_url, f"/internal/core/{path}"), "core", key, path)
+    if first == "projects" and path.endswith("/validation-inputs") and path.count("/") == 2:
+        if method.upper() != "PUT":
+            return "method_not_allowed"
+        return Route(
+            _join(settings.core_url, f"/internal/core/{path}"),
+            "core",
+            "core",
+            path,
+            allowed_roles=_DECIDE_ROLES,
+        )
     if first in _CORE_RESOURCES:
         return Route(_join(settings.core_url, f"/internal/core/{path}"), "core", "core", path)
     if first == "ingest":

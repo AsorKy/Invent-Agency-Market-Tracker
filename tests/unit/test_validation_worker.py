@@ -60,6 +60,9 @@ class Store:
         self.scores = [(0.9, True), (0.8, True), (0.2, False), (0.1, False)]
         self.holdout = {False: {"won": 3, "lost": 1}, True: {"won": 1, "lost": 1}}
         self.fail = False
+        self.project_calls: list[UUID] = []
+        self.line_calls: list[str | None] = []
+        self.line_counts = {"entered": 20, "converted": 4, "won": 1, "lost": 1}
 
     async def __aenter__(self) -> "Store":
         self.rows = []
@@ -75,11 +78,23 @@ class Store:
             raise RuntimeError("boom")
         return self._projects[:limit]
 
-    async def lead_counts(self, tenant_id: UUID, service_line: str | None) -> dict[str, int]:
+    async def lead_counts(self, tenant_id: UUID, project_id: UUID) -> dict[str, int]:
+        self.project_calls.append(project_id)
         return self.counts
 
-    async def won_cycle_days(self, tenant_id: UUID, service_line: str | None) -> list[float]:
-        return [10.0, 20.0, 30.0]
+    async def won_cycle_days(self, tenant_id: UUID, project_id: UUID) -> list[float]:
+        return [10.0, 20.0, 30.0] if self.counts else []
+
+    async def service_line_counts(
+        self, tenant_id: UUID, service_line: str | None
+    ) -> dict[str, int]:
+        self.line_calls.append(service_line)
+        return self.line_counts
+
+    async def service_line_cycle_days(
+        self, tenant_id: UUID, service_line: str | None
+    ) -> list[float]:
+        return [5.0] if self.line_counts else []
 
     async def closed_scores(self, tenant_id: UUID) -> list[tuple[float, bool]]:
         return self.scores
@@ -98,8 +113,12 @@ def _store(inputs: Any = INPUTS) -> Store:
 async def test_all_cards_are_computed_and_written() -> None:
     store = _store()
     result = await worker.run_tenant(lambda _t: store, TENANT, now=NOW)
-    assert result == {"projects": 1, "written": 6, "skipped": 0}
-    rows = dict(store.committed)
+    assert result == {"projects": 1, "written": 7, "skipped": 0}
+    rows = dict(
+        (t, r)
+        for t, r in store.committed
+        if not (t == "funnel_metric" and r["project_id"] == TENANT_WIDE_PROJECT)
+    )
     assert float(rows["financial_run"]["npv"]) == pytest.approx(0.0)
     assert float(rows["financial_run"]["irr"]) == pytest.approx(0.10)
     assert json.loads(rows["financial_run"]["assumptions"])["horizon"] == "H1"
@@ -120,12 +139,31 @@ async def test_all_cards_are_computed_and_written() -> None:
     assert all(r["measured_at"] == NOW for _, r in store.committed)
 
 
+async def test_funnel_is_per_project_and_tenant_row_counts_all_leads() -> None:
+    store = _store()
+    await worker.run_tenant(lambda _t: store, TENANT, now=NOW)
+    assert store.project_calls == [PROJECT] and store.line_calls == [None]
+    funnel = [r for t, r in store.committed if t == "funnel_metric"]
+    by_project = {r["project_id"]: r for r in funnel}
+    assert by_project[PROJECT]["conversion_rate"] == Decimal("0.500000")
+    assert by_project[TENANT_WIDE_PROJECT]["conversion_rate"] == Decimal("0.200000")
+    assert by_project[TENANT_WIDE_PROJECT]["cycle_time_days"] == Decimal("5.00")
+
+
+async def test_project_without_leads_has_an_empty_funnel() -> None:
+    store = _store({})
+    store.counts = {}
+    store.scores, store.holdout, store.line_counts = [], {}, {}
+    await worker.run_tenant(lambda _t: store, TENANT, now=NOW)
+    assert store.committed == []
+
+
 async def test_missing_inputs_leave_cards_unwritten() -> None:
     store = _store({})
     store.scores, store.holdout = [], {}
     result = await worker.run_tenant(lambda _t: store, TENANT, now=NOW)
     tables = [t for t, _ in store.committed]
-    assert tables == ["funnel_metric"] and result["skipped"] == 5
+    assert tables == ["funnel_metric", "funnel_metric"] and result["skipped"] == 5
 
 
 async def test_garbage_inputs_never_raise() -> None:
@@ -188,6 +226,17 @@ async def test_sql_store_sets_tenant_before_any_statement() -> None:
     assert "set_config('app.tenant_id'" in statements[0]
     assert "FROM core.project" in statements[1]
     assert "INSERT INTO validation.funnel_metric" in statements[2]
+
+
+async def test_sql_store_funnel_reads_filter_by_project_not_service_line() -> None:
+    engine = FakeEngine([FakeResult(), FakeResult(), FakeResult()])
+    factory = worker.sql_store_factory(engine)  # type: ignore[arg-type]
+    async with factory(TENANT) as store:
+        await store.lead_counts(TENANT, PROJECT)
+        await store.won_cycle_days(TENANT, PROJECT)
+    statements = [call[0] for call in engine.connection.calls]
+    assert "set_config('app.tenant_id'" in statements[0]
+    assert all("project_id = :project_id" in s and "service_line" not in s for s in statements[1:])
 
 
 def test_sql_store_needs_a_database() -> None:

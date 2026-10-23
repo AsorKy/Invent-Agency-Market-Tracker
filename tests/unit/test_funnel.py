@@ -198,3 +198,21 @@ def test_unknown_project() -> None:
             evaluate_project_gate(FakeUow(tx), uuid4(), "G3", {}, checklist=checklist())
         )
     assert tx.events == [] and tx.audits == []
+
+
+def test_gate_event_id_is_exposed_and_matches_the_outbox_event() -> None:
+    seen: list[dict] = []
+    tx = run({"k": 1}, on_gate_event=seen.append)
+    assert len(seen) == 1 and seen[0]["event_type"] == "funnel.gate_decision"
+    assert seen[0]["event_id"] == str(tx.events[0]["event_id"])
+    assert seen[0]["source_version"] == tx.events[0]["payload"]["source_version"]
+    assert run({"k": 1}).events  # the hook is optional
+
+
+def test_gate_event_mapping_feeds_the_lead_stage_patch() -> None:
+    from services.core.app.leads import LeadStatusPatch
+
+    seen: list[dict] = []
+    run({}, on_gate_event=seen.append)
+    patch = LeadStatusPatch(stage="qualified", expected_version=1, gate_event_id=seen[0]["event_id"])
+    assert str(patch.gate_event_id) == seen[0]["event_id"]

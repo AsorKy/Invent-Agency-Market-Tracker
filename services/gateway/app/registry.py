@@ -32,6 +32,7 @@ from services.core.app.actions import ActivityCreate, OutcomeCreate, ProjectCrea
 from services.core.app.companies import CompanyUpsert
 from services.core.app.leads import LeadCreate, LeadStatusPatch
 from services.core.app.tenant_config import TenantConfig
+from services.core.app.validation_inputs import ValidationInputs
 
 
 class ErrorBody(BaseModel):
@@ -384,6 +385,17 @@ def _build() -> tuple[PublicRoute, ...]:
             response=TenantConfig,
             request=TenantConfig,
             errors=(*c, 412, 422),
+            request_headers=("If-Match",),
+            response_headers=("ETag",),
+        ),
+        PublicRoute(
+            "PUT",
+            "/projects/{project_id}/validation-inputs",
+            "Replace the hand-written validation inputs of a project (admin, strategist)",
+            "projects",
+            response=JsonObject,
+            request=ValidationInputs,
+            errors=(*c, 400, 404, 412, 422),
             request_headers=("If-Match",),
             response_headers=("ETag",),
         ),

@@ -115,7 +115,7 @@ def test_portfolio_card_has_mix_deviation(client: Any) -> None:
 
 def test_card_without_row_is_empty_with_reason(client: Any) -> None:
     body = client.get(f"{BASE}/growth", headers=GATEWAY).json()
-    assert body["empty"] is True and body["reason"] == "no_measurement"
+    assert body["empty"] is True and body["reason"] == "needs_strategist_input"
     assert body["mrr"] is None and body["thresholds"] == {}
 
 
@@ -192,3 +192,8 @@ def test_decimal_and_json_string_rows_are_plain() -> None:
         {"horizon_mix": '{"H1": 1.0}', "hhi": Decimal("1.0"), "sharpe_like": None},
     )
     assert body["hhi"] == 1.0 and body["horizon_mix_deviation"] == pytest.approx(0.4)
+
+
+def test_funnel_and_meta_ml_cards_keep_the_no_measurement_reason(client: Any) -> None:
+    body = client.get(f"{BASE}/funnel", headers=GATEWAY).json()
+    assert body["empty"] is True and body["reason"] == "no_measurement"

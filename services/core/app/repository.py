@@ -452,6 +452,20 @@ class SqlActionTransaction:
             ),
             {**row, "metadata": json.dumps(row["metadata"])},
         )
+        # T-181 (D-26): the conversion fills core.lead.project_id in the same transaction.
+        await self.connection.execute(
+            text(
+                """
+                UPDATE core.lead SET project_id = :project_id
+                WHERE id = :lead_id AND tenant_id = :tenant_id AND project_id IS NULL
+                """
+            ),
+            {
+                "project_id": row["id"],
+                "lead_id": row.get("lead_id"),
+                "tenant_id": row.get("tenant_id"),
+            },
+        )
 
     async def add_outbox_event(
         self,
@@ -541,6 +555,47 @@ class SqlFunnelUnitOfWork(SqlCompanyUnitOfWork):
 
     async def __aenter__(self) -> SqlFunnelTransaction:  # type: ignore[override]
         return SqlFunnelTransaction((await super().__aenter__()).connection)
+
+
+class SqlValidationInputTransaction(SqlFunnelTransaction):
+    """Strategist validation inputs of one project: one locked read, one write (T-179)."""
+
+    async def get_inputs(self, project_id: UUID, tenant_id: UUID) -> dict[str, object] | None:
+        result = await self.connection.execute(
+            text(
+                """
+                SELECT id, COALESCE(metadata->'validation', '{}'::jsonb) AS inputs
+                FROM core.project
+                WHERE id = :id AND tenant_id = :tenant_id
+                FOR UPDATE
+                """
+            ),
+            {"id": project_id, "tenant_id": tenant_id},
+        )
+        row = result.mappings().first()
+        return dict(row) if row else None
+
+    async def set_inputs(
+        self, project_id: UUID, tenant_id: UUID, inputs: dict[str, object]
+    ) -> None:
+        await self.connection.execute(
+            text(
+                """
+                UPDATE core.project
+                SET metadata = jsonb_set(metadata, '{validation}', CAST(:inputs AS jsonb), true),
+                    updated_at = now()
+                WHERE id = :id AND tenant_id = :tenant_id
+                """
+            ),
+            {"id": project_id, "tenant_id": tenant_id, "inputs": json.dumps(inputs)},
+        )
+
+
+class SqlValidationInputUnitOfWork(SqlFunnelUnitOfWork):
+    """Same boundary; the tenant context is set before the first statement."""
+
+    async def __aenter__(self) -> SqlValidationInputTransaction:  # type: ignore[override]
+        return SqlValidationInputTransaction((await super().__aenter__()).connection)
 
 
 class SqlConfigTransaction:
@@ -1166,6 +1221,11 @@ class CoreRepository:
         # core.lead and core.lead_outcome are under row level security: the tenant context
         # must be set before the first read or write (REQ-SEC-005, T-082).
         return SqlActionUnitOfWork(self.engine, tenant_id)
+
+    def validation_input_unit_of_work(self, tenant_id: UUID) -> SqlValidationInputUnitOfWork:
+        if self.engine is None:
+            raise RuntimeError("DATABASE_URL is required for core writes")
+        return SqlValidationInputUnitOfWork(self.engine, tenant_id)
 
     def config_unit_of_work(self) -> SqlConfigUnitOfWork:
         if self.engine is None:

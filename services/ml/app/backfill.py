@@ -86,6 +86,8 @@ async def run_backfill(
                         signal_strength=company.signal_strength,
                         territory_opportunity=company.territory_opportunity,
                         source_version=company.source_version,
+                        # Core sends the signal.tagged id on the features route when it knows it.
+                        parent_event_id=getattr(company, "parent_event_id", None),
                     ),
                     weights,
                     tenant_id,

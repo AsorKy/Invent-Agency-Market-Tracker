@@ -372,6 +372,82 @@
         "title": "ErrorBody",
         "type": "object"
       },
+      "Financial": {
+        "additionalProperties": false,
+        "description": "V1: cash flows per period (first one usually negative) and the discount rate.",
+        "properties": {
+          "cash_flows": {
+            "items": {
+              "maximum": 1000000000000.0,
+              "minimum": -1000000000000.0,
+              "type": "number"
+            },
+            "maxItems": 240,
+            "minItems": 1,
+            "title": "Cash Flows",
+            "type": "array"
+          },
+          "discount_rate": {
+            "maximum": 1,
+            "minimum": 0,
+            "title": "Discount Rate",
+            "type": "number"
+          },
+          "horizon": {
+            "anyOf": [
+              {
+                "enum": [
+                  "H1",
+                  "H2",
+                  "H3"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Horizon"
+          },
+          "outcomes": {
+            "anyOf": [
+              {
+                "items": {
+                  "maxItems": 2,
+                  "minItems": 2,
+                  "prefixItems": [
+                    {
+                      "maximum": 1,
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    {
+                      "maximum": 1000000000000.0,
+                      "minimum": -1000000000000.0,
+                      "type": "number"
+                    }
+                  ],
+                  "type": "array"
+                },
+                "maxItems": 100,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Outcomes"
+          }
+        },
+        "required": [
+          "discount_rate",
+          "cash_flows"
+        ],
+        "title": "Financial",
+        "type": "object"
+      },
       "FunnelDecisionRequest": {
         "additionalProperties": false,
         "description": "Body of a funnel gate decision (checklist inputs and optimistic version).",
@@ -405,6 +481,168 @@
           }
         },
         "title": "FunnelRules",
+        "type": "object"
+      },
+      "Growth": {
+        "additionalProperties": false,
+        "description": "V4: monthly recurring revenue movements and the SaaS efficiency inputs.",
+        "properties": {
+          "churned": {
+            "anyOf": [
+              {
+                "maximum": 1000000000000.0,
+                "minimum": 0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Churned"
+          },
+          "contraction": {
+            "anyOf": [
+              {
+                "maximum": 1000000000000.0,
+                "minimum": 0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Contraction"
+          },
+          "delta_arr": {
+            "anyOf": [
+              {
+                "maximum": 1000000000000.0,
+                "minimum": -1000000000000.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Delta Arr"
+          },
+          "expansion": {
+            "anyOf": [
+              {
+                "maximum": 1000000000000.0,
+                "minimum": 0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Expansion"
+          },
+          "growth_pct": {
+            "anyOf": [
+              {
+                "maximum": 1000,
+                "minimum": -1000,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Growth Pct"
+          },
+          "net_burn": {
+            "anyOf": [
+              {
+                "maximum": 1000000000000.0,
+                "minimum": -1000000000000.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Net Burn"
+          },
+          "net_new_arr": {
+            "anyOf": [
+              {
+                "maximum": 1000000000000.0,
+                "minimum": -1000000000000.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Net New Arr"
+          },
+          "new": {
+            "anyOf": [
+              {
+                "maximum": 1000000000000.0,
+                "minimum": 0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "New"
+          },
+          "prior_quarter_sm": {
+            "anyOf": [
+              {
+                "maximum": 1000000000000.0,
+                "minimum": 0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Prior Quarter Sm"
+          },
+          "profit_margin_pct": {
+            "anyOf": [
+              {
+                "maximum": 1000,
+                "minimum": -1000,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Profit Margin Pct"
+          },
+          "starting_mrr": {
+            "anyOf": [
+              {
+                "maximum": 1000000000000.0,
+                "minimum": 0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Starting Mrr"
+          }
+        },
+        "title": "Growth",
         "type": "object"
       },
       "ImportJobAccepted": {
@@ -878,6 +1116,56 @@
           "n"
         ],
         "title": "PipelineTimeGroup",
+        "type": "object"
+      },
+      "Portfolio": {
+        "additionalProperties": false,
+        "description": "V5: revenue per horizon and the NPV of each project of the portfolio.",
+        "properties": {
+          "npvs": {
+            "anyOf": [
+              {
+                "items": {
+                  "maximum": 1000000000000.0,
+                  "minimum": -1000000000000.0,
+                  "type": "number"
+                },
+                "maxItems": 1000,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Npvs"
+          },
+          "revenue_by_horizon": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "maximum": 1000000000000.0,
+                  "minimum": 0,
+                  "type": "number"
+                },
+                "propertyNames": {
+                  "enum": [
+                    "H1",
+                    "H2",
+                    "H3"
+                  ]
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Revenue By Horizon"
+          }
+        },
+        "title": "Portfolio",
         "type": "object"
       },
       "ProjectCreate": {
@@ -1426,6 +1714,98 @@
         "title": "TopSourcesResponse",
         "type": "object"
       },
+      "UnitEconomics": {
+        "additionalProperties": false,
+        "description": "V2: acquisition cost, customers, revenue per account, revenue and cost of goods.",
+        "properties": {
+          "acquisition_cost": {
+            "anyOf": [
+              {
+                "maximum": 1000000000000.0,
+                "minimum": 0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Acquisition Cost"
+          },
+          "arpa": {
+            "anyOf": [
+              {
+                "maximum": 1000000000000.0,
+                "minimum": 0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Arpa"
+          },
+          "cogs": {
+            "anyOf": [
+              {
+                "maximum": 1000000000000.0,
+                "minimum": 0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Cogs"
+          },
+          "monthly_churn": {
+            "anyOf": [
+              {
+                "maximum": 1,
+                "minimum": 0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Monthly Churn"
+          },
+          "new_customers": {
+            "anyOf": [
+              {
+                "maximum": 1000000000000.0,
+                "minimum": 0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "New Customers"
+          },
+          "revenue": {
+            "anyOf": [
+              {
+                "maximum": 1000000000000.0,
+                "minimum": 0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Revenue"
+          }
+        },
+        "title": "UnitEconomics",
+        "type": "object"
+      },
       "UnprocessedSignalsResponse": {
         "additionalProperties": false,
         "description": "Return signal processing counts with an explicit freshness timestamp.",
@@ -1465,6 +1845,57 @@
           "stale"
         ],
         "title": "UnprocessedSignalsResponse",
+        "type": "object"
+      },
+      "ValidationInputs": {
+        "additionalProperties": false,
+        "properties": {
+          "financial": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Financial"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "growth": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Growth"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "portfolio": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Portfolio"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "unit_economics": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UnitEconomics"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "title": "ValidationInputs",
         "type": "object"
       }
     },
@@ -3649,6 +4080,149 @@
           }
         ],
         "summary": "Convert a lead into a project",
+        "tags": [
+          "projects"
+        ]
+      }
+    },
+    "/api/v1/projects/{project_id}/validation-inputs": {
+      "put": {
+        "operationId": "put_projects_project_id_by_validation_inputs",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "ETag of the version being replaced.",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ValidationInputs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JsonObject"
+                }
+              }
+            },
+            "description": "Successful response",
+            "headers": {
+              "ETag": {
+                "description": "Entity version for optimistic concurrency.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Invalid cursor or parameter"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Forbidden or CSRF token invalid"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "412": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Stale ETag"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Validation error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Rate limit exceeded"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Upstream unavailable"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "summary": "Replace the hand-written validation inputs of a project (admin, strategist)",
         "tags": [
           "projects"
         ]

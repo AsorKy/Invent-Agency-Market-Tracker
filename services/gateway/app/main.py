@@ -308,7 +308,7 @@ async def proxy(path: str, request: Request) -> Response:
     if not isinstance(request_id, str):
         request_id = request.headers.get("X-Request-ID") or str(uuid4())
     upstream_headers: dict[str, str] = {"X-Request-ID": request_id}
-    forwarded = ["content-type", "x-brightdata-signature", "x-brightdata-timestamp"]
+    forwarded = ["content-type", "if-match", "x-brightdata-signature", "x-brightdata-timestamp"]
     if route.service == "identity":
         forwarded += ["cookie", "x-csrf-token"]
     for header_name in forwarded:

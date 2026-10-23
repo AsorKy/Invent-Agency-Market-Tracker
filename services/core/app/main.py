@@ -83,6 +83,14 @@ from services.core.app.tenant_config import (
     read_config,
     update_config,
 )
+from services.core.app.validation_inputs import (
+    ProjectNotFoundError as InputsProjectNotFoundError,
+)
+from services.core.app.validation_inputs import (
+    StaleInputsError,
+    ValidationInputs,
+    update_inputs,
+)
 from services.core.app.validation_reads import (
     CardNotFoundError,
     read_card,
@@ -543,6 +551,46 @@ async def validation_card_route(
     x_tenant_id: Annotated[UUID | None, Header()] = None,
 ) -> dict[str, object]:
     return await _validation_card(request, _funnel_tenant(x_tenant_id), card, project_id)
+
+
+@app.put("/internal/core/projects/{project_id}/validation-inputs", dependencies=[GATEWAY_ONLY])
+async def put_validation_inputs(
+    project_id: UUID,
+    payload: ValidationInputs,
+    request: Request,
+    response: Response,
+    x_tenant_id: Annotated[UUID, Header()],
+    if_match: Annotated[str | None, Header()] = None,
+    x_user_id: Annotated[UUID | None, Header()] = None,
+) -> dict[str, object]:
+    if if_match is None:
+        raise HTTPException(status_code=428, detail="if_match_required")
+    try:
+        expected = parse_etag(if_match)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="invalid_if_match") from exc
+    try:
+        repository: CoreRepository = request.app.state.repository
+        body = await update_inputs(
+            repository.validation_input_unit_of_work(x_tenant_id),
+            x_tenant_id,
+            project_id,
+            payload,
+            if_match=expected,
+            updated_by=x_user_id,
+            request_id=request.headers.get("X-Request-ID"),
+        )
+    except InputsProjectNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="project_not_found") from exc
+    except StaleInputsError as exc:
+        raise HTTPException(
+            status_code=412,
+            detail={"error": "stale_etag", "current_version": exc.current_version},
+        ) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    response.headers["ETag"] = etag(int(str(body["version"])))
+    return body
 
 
 @app.get("/internal/core/admin/score-rules", dependencies=[ML_READ])

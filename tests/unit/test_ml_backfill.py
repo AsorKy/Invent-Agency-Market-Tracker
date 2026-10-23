@@ -178,3 +178,41 @@ def test_cli_requires_tenant_and_a_positive_limit() -> None:
         backfill.main(["--limit", "5"])
     with pytest.raises(SystemExit):
         backfill.main(["--tenant", str(TENANT), "--limit", "0"])
+
+
+class TaggedCompany(CompanyFeatures):
+    parent_event_id: UUID | None = None
+
+
+class TaggedCore(Core):
+    def __init__(self, ids: list[UUID], tagged: dict[UUID, UUID]) -> None:
+        super().__init__(ids)
+        self.tagged = tagged
+
+    async def get_page(self, tenant_id, limit, after) -> CoreFeaturesPage:
+        page = await super().get_page(tenant_id, limit, after)
+        page.companies = [
+            TaggedCompany(**c.model_dump(), parent_event_id=self.tagged.get(c.company_id))
+            for c in page.companies
+        ]
+        return page
+
+
+async def test_parent_event_id_reaches_score_features_and_stays_empty_without_one() -> None:
+    with_id, without = uuid4(), uuid4()
+    tagged = uuid4()
+    repo = Repo(old={with_id, without})
+    seen: dict[UUID, UUID | None] = {}
+    store = Store(repo)
+    service = ScoringService(store, FakeRedis(), lock_ttl_seconds=5)  # type: ignore[arg-type]
+    original = service.regenerate
+
+    async def spy(features, weights, tenant_id):
+        seen[features.company_id] = features.parent_event_id
+        return await original(features, weights, tenant_id)
+
+    service.regenerate = spy  # type: ignore[method-assign]
+    core = TaggedCore([with_id, without], {with_id: tagged})
+    counts = await backfill.run_backfill(TENANT, 10, core, repo, service, WEIGHTS)
+    assert counts.rescored == 2 and counts.failed == 0
+    assert seen == {with_id: tagged, without: None}
