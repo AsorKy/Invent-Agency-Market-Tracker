@@ -2210,26 +2210,26 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_identity_tenants.py tests/unit/test_openapi.py` 18 passed; `make static` clean; `make test` 1728 passed, 2 skipped, 4 xfailed
 
 ### T-195 Per-tenant unique key on core.signal (expand)
-- status: blocked
+- status: todo
 - spec: REQ-DAT-005, REQ-SEC-005, REQ-ING-009
 - owner: database-engineer
 - depends: T-082
 - write_scope: migrations/20261024_0017_core_signal_tenant_unique.sql (new), services/core/app/repository.py (create_signal only), services/ingest/app/ (only if it builds `source_external_id` or has its own upsert), tests/unit/test_sql_consistency.py, tests/unit/snapshots/table_catalog.json (only if the catalog test requires it), tests/integration/test_sql_r1_flows.py (new cases only), docs/runs/
 - context: SPEC.md decision D-37, migrations/20261017_0001_expand_initial_schemas.sql (the global UNIQUE), services/core/app/repository.py (create_signal), docs/runs/RUN-r1-n-rls.md
 - size: M
-- acceptance: the integration case with two tenants and the SAME `(source, source_external_id)` passes (each tenant gets its own row, neither sees the other's, `create_signal` does not raise), `python ops/check_migrations.py`, `pytest -q tests/unit/test_sql_consistency.py`, `make static` and `make test`
-- note: decision D-37 (owner), option B, priority: do it before a second tenant is onboarded. Today the global `UNIQUE (source, source_external_id)` makes `ON CONFLICT DO NOTHING` hit the row of another tenant, the fallback `SELECT ... scalar_one()` is hidden by row level security and raises, so `create_signal` fails. Expand only (INV-06), in ONE pull request: (1) the migration creates `UNIQUE (tenant_id, source, source_external_id)` (a unique index, `IF NOT EXISTS`, re-runnable) and FIRST verifies that no row violates it, failing with an explicit message and never deduplicating by deleting; the global unique stays until T-196; (2) `create_signal` uses `ON CONFLICT (tenant_id, source, source_external_id)` and the fallback SELECT filters by `tenant_id`; (3) the integration test above. The migration number is pinned to 0017 (0014 is T-082, 0015 is T-181, 0016 is the ml outbox).
-- evidence: BLOCKED (run r1-o-schema). The acceptance case (two tenants, same `(source, source_external_id)`, each gets its own row, `create_signal` does not raise) cannot pass while the global `UNIQUE (source, source_external_id)` stays, which the note requires until T-196. `ON CONFLICT (tenant_id, source, source_external_id)` only absorbs a violation of that one index; the insert of the second tenant still violates the global unique and raises. See docs/runs/RUN-r1-o-schema.md for options.
+- acceptance: the integration cases below pass on real Postgres, `python ops/check_migrations.py`, `pytest -q tests/unit/test_sql_consistency.py`, `make static` and `make test`
+- note: decision D-37 (owner), option B, priority: do it before a second tenant is onboarded. Today the global `UNIQUE (source, source_external_id)` makes `ON CONFLICT DO NOTHING` hit the row of another tenant, the fallback `SELECT ... scalar_one()` is hidden by row level security and raises, so `create_signal` fails. Expand only (INV-06), in ONE pull request: (1) the migration creates `UNIQUE (tenant_id, source, source_external_id)` (a unique index, `IF NOT EXISTS`, re-runnable) and FIRST verifies that no row violates it, failing with an explicit message and never deduplicating by deleting; the global unique stays until T-196; (2) `create_signal` uses `ON CONFLICT (tenant_id, source, source_external_id)` and the fallback SELECT filters by `tenant_id`; (3) integration cases that pass WHILE the global unique still exists: the new unique index is present in `pg_indexes`; `create_signal` called twice in the same tenant with the same `(source, source_external_id)` returns the same id and keeps one row; the fallback SELECT filters by `tenant_id` (assert it with a second tenant that holds a different external id). The two tenant case with the SAME external id cannot pass until the global key is gone, so it belongs to T-196 (first attempt of this task, run r1-o-schema, was blocked on exactly this; see docs/runs/RUN-r1-o-schema.md). Until T-196 is merged and applied, a second tenant that collides on an external id still fails; that is accepted by D-37 option B and the order expand then contract of INV-06. The migration number is pinned to 0017 (0014 is T-082, 0015 is T-181, 0016 is the ml outbox).
+- evidence: filled by the agent when done
 
 ### T-196 Drop the global unique key on core.signal (contract)
 - status: todo
 - spec: REQ-DAT-005, REQ-ING-009
 - owner: database-engineer
 - depends: T-195
-- write_scope: migrations/contract_20261024_0018_drop_signal_global_unique.sql (new), tests/integration/test_sql_postgres.py (only if an assertion lists the old key), docs/runs/
+- write_scope: migrations/contract_20261024_0018_drop_signal_global_unique.sql (new), tests/integration/test_sql_postgres.py (only if an assertion lists the old key), tests/integration/test_sql_r1_flows.py (new case only), docs/runs/
 - context: SPEC.md decision D-37, docs/runs/ (the T-195 report), ops/check_migrations.py
 - size: S
-- acceptance: `python ops/check_migrations.py --base origin/main` and `pytest -q tests/unit/test_sql_consistency.py` and `make static` and `make test`
+- acceptance: the integration case with two tenants and the SAME `(source, source_external_id)` passes on real Postgres (each tenant gets its own row, neither sees the other's, `create_signal` does not raise), `python ops/check_migrations.py --base origin/main`, `pytest -q tests/unit/test_sql_consistency.py`, `make static` and `make test`
 - note: INV-06: a contract file goes in its own pull request and only after the code of T-195 is on main and no statement depends on the old key. Drop the global `UNIQUE (source, source_external_id)` of `core.signal` (look up the real constraint name in the migrations; do not guess it). Do not launch this task in the same wave as T-195, and not before T-195 is merged AND its migration is applied in the target environment (the code must already use the per-tenant key before the global one is dropped); when in doubt that it is applied, wait.
 - evidence: filled by the agent when done
 
