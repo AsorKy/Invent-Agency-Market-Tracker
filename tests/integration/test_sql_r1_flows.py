@@ -962,7 +962,8 @@ async def test_validation_inputs_write_one_key_audit_and_etag_as_core_app(
     )
     assert body["version"] == 1
     keep, funnel_version, growth, version = db.one(
-        "SELECT metadata->>'keep', metadata->>'version', (metadata->'validation'->'growth'->>'new')::float,"
+        "SELECT metadata->>'keep', metadata->>'version',"
+        " (metadata->'validation'->'growth'->>'new')::float,"
         " metadata->'validation'->>'version' FROM core.project WHERE id = %s",
         project,
     )
@@ -1138,3 +1139,75 @@ async def test_retention_purge_runs_each_tenant_separately_as_core_app(db: Db) -
         )[0]
         >= 1
     )
+
+
+# --- T-195: per-tenant unique key on core.signal ----------------------------------------
+
+
+def _signal_input(company: UUID, tenant: UUID, external_id: str) -> Any:
+    from libs.contracts.api import SignalCreate
+
+    return SignalCreate(
+        company_id=company,
+        source="t195",
+        signal_type="hiring",
+        observed_at=datetime.now(UTC),
+        source_external_id=external_id,
+        tenant_id=tenant,
+    )
+
+
+def test_signal_tenant_unique_index_exists_and_is_unique(db: Db) -> None:
+    row = db.one(
+        "SELECT indexdef FROM pg_indexes WHERE schemaname = 'core' AND tablename = 'signal' "
+        "AND indexname = 'signal_tenant_source_external_id_key'"
+    )
+    assert "UNIQUE" in row[0]
+    assert "(tenant_id, source, source_external_id)" in row[0]
+
+
+async def test_create_signal_twice_in_one_tenant_keeps_one_row(db: Db) -> None:
+    company = _company(db, TENANT)
+    repository = _core_repository(db)
+    try:
+        first, event = await repository.create_signal(
+            _signal_input(company, TENANT, "t195-same"), request_id=None
+        )
+        second, second_event = await repository.create_signal(
+            _signal_input(company, TENANT, "t195-same"), request_id=None
+        )
+    finally:
+        await repository.close()
+    assert event is not None
+    assert second == first
+    assert second_event is None
+    assert db.one(
+        "SELECT count(*) FROM core.signal WHERE source = 't195' "
+        "AND source_external_id = 't195-same' AND tenant_id = %s",
+        TENANT,
+    ) == (1,)
+
+
+async def test_signal_fallback_select_is_filtered_by_tenant(db: Db) -> None:
+    company = _company(db, TENANT)
+    other_company = _company(db, OTHER)
+    repository = _core_repository(db)
+    try:
+        mine, _ = await repository.create_signal(
+            _signal_input(company, TENANT, "t195-mine"), request_id=None
+        )
+        theirs, _ = await repository.create_signal(
+            _signal_input(other_company, OTHER, "t195-theirs"), request_id=None
+        )
+        again, _ = await repository.create_signal(
+            _signal_input(company, TENANT, "t195-mine"), request_id=None
+        )
+        other_again, _ = await repository.create_signal(
+            _signal_input(other_company, OTHER, "t195-theirs"), request_id=None
+        )
+    finally:
+        await repository.close()
+    assert again == mine
+    assert other_again == theirs
+    assert mine != theirs
+    assert db.one("SELECT tenant_id FROM core.signal WHERE id = %s", theirs) == (OTHER,)

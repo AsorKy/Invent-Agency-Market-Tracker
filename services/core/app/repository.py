@@ -1324,7 +1324,7 @@ class CoreRepository:
                                    WHERE c.id = :company_id ORDER BY c.version DESC LIMIT 1)),
                          :company_id, :source, :source_external_id, :signal_type,
                          :observed_at, :strength, CAST(:payload AS jsonb))
-                    ON CONFLICT (source, source_external_id) DO NOTHING
+                    ON CONFLICT (tenant_id, source, source_external_id) DO NOTHING
                     RETURNING id
                     """
                 ),
@@ -1347,9 +1347,15 @@ class CoreRepository:
                         """
                         SELECT id FROM core.signal
                         WHERE source = :source AND source_external_id = :source_external_id
+                          AND tenant_id = COALESCE(
+                              CAST(:tenant_id AS uuid),
+                              (SELECT c.tenant_id FROM core.company c
+                               WHERE c.id = :company_id ORDER BY c.version DESC LIMIT 1))
                         """
                     ),
                     {
+                        "tenant_id": signal.tenant_id,
+                        "company_id": signal.company_id,
                         "source": signal.source,
                         "source_external_id": source_external_id,
                     },

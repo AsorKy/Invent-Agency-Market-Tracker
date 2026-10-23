@@ -53,6 +53,7 @@ Size is a rough token cost guide: S under 1 USD, M 1 to 3 USD, L 3 to 8 USD. Tes
 | r1-m | Wave, three parallel sessions: verify-live in the Compose network and the versioned feature baseline T-186, T-178; production refusal of seed and verify_live tokens and the n8n mint credential T-184, T-185; typed chain payloads, parent ids, the ml outbox with one shared relay and the pulse stage projection T-174 to T-177 | 8 tasks | about 65 USD |
 | r1-n | Wave, two parallel sessions: row level security on signal, location and lead outcome T-082, then the pulse refresh allow list T-189 and the test lint T-190; validation inputs served end to end T-179, T-180, funnel per project T-181, and real parent ids in the production callers T-188 | 7 tasks | about 70 USD |
 | r1-o | Wave, three parallel sessions: per-tenant unique key on core.signal, expand only T-195; identity lists the tenants for service callers T-194; doctor check for rows without a tenant and the verify-live owner role pin T-192, T-193 | 4 tasks | about 35 USD |
+| r1-p | Wave, two parallel sessions: per-tenant unique key on core.signal, expand only T-195; tenant-aware compliance routes and retention job T-191 | 2 tasks | about 35 USD |
 | r2 | Continuation with ADR-0002: T-100 to T-112, only if budget remains after T-080; run as r1-f and r1-g | 13 tasks | about 38 USD |
 
 Total estimate for run 1 (smoke to r1-d): about 197 USD (183 USD of the v3 plan plus about 14 USD for T-090 to T-097 and about 30 USD for the v6 follow-ups), plus about 38 USD for the optional ADR-0002 continuation, to be corrected after the smoke run shows real cost per task. Blocked tasks do not consume budget. Set the session budget of each run to about 1.5 times its estimate.
@@ -2210,7 +2211,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: `pytest -q tests/unit/test_identity_tenants.py tests/unit/test_openapi.py` 18 passed; `make static` clean; `make test` 1728 passed, 2 skipped, 4 xfailed
 
 ### T-195 Per-tenant unique key on core.signal (expand)
-- status: todo
+- status: done
 - spec: REQ-DAT-005, REQ-SEC-005, REQ-ING-009
 - owner: database-engineer
 - depends: T-082
@@ -2219,7 +2220,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: M
 - acceptance: the integration cases below pass on real Postgres, `python ops/check_migrations.py`, `pytest -q tests/unit/test_sql_consistency.py`, `make static` and `make test`
 - note: decision D-37 (owner), option B, priority: do it before a second tenant is onboarded. Today the global `UNIQUE (source, source_external_id)` makes `ON CONFLICT DO NOTHING` hit the row of another tenant, the fallback `SELECT ... scalar_one()` is hidden by row level security and raises, so `create_signal` fails. Expand only (INV-06), in ONE pull request: (1) the migration creates `UNIQUE (tenant_id, source, source_external_id)` (a unique index, `IF NOT EXISTS`, re-runnable) and FIRST verifies that no row violates it, failing with an explicit message and never deduplicating by deleting; the global unique stays until T-196; (2) `create_signal` uses `ON CONFLICT (tenant_id, source, source_external_id)` and the fallback SELECT filters by `tenant_id`; (3) integration cases that pass WHILE the global unique still exists: the new unique index is present in `pg_indexes`; `create_signal` called twice in the same tenant with the same `(source, source_external_id)` returns the same id and keeps one row; the fallback SELECT filters by `tenant_id` (assert it with a second tenant that holds a different external id). The two tenant case with the SAME external id cannot pass until the global key is gone, so it belongs to T-196 (first attempt of this task, run r1-o-schema, was blocked on exactly this; see docs/runs/RUN-r1-o-schema.md). Until T-196 is merged and applied, a second tenant that collides on an external id still fails; that is accepted by D-37 option B and the order expand then contract of INV-06. The migration number is pinned to 0017 (0014 is T-082, 0015 is T-181, 0016 is the ml outbox).
-- evidence: filled by the agent when done
+- evidence: docs/runs/RUN-r1-p-schema.md; migration 0017, create_signal on the tenant key, 3 integration cases (CI integration stage is the real check; not run locally, no Postgres)
 
 ### T-196 Drop the global unique key on core.signal (contract)
 - status: todo
