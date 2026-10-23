@@ -1211,3 +1211,50 @@ async def test_signal_fallback_select_is_filtered_by_tenant(db: Db) -> None:
     assert other_again == theirs
     assert mine != theirs
     assert db.one("SELECT tenant_id FROM core.signal WHERE id = %s", theirs) == (OTHER,)
+
+
+# --- T-196: the global unique key on core.signal is gone ---------------------------------
+
+
+def test_signal_global_unique_key_is_dropped(db: Db) -> None:
+    assert db.one(
+        "SELECT count(*) FROM pg_constraint c WHERE c.conrelid = 'core.signal'::regclass "
+        "AND c.contype = 'u'"
+    ) == (0,)
+    assert db.one(
+        "SELECT count(*) FROM pg_indexes WHERE schemaname = 'core' AND tablename = 'signal' "
+        "AND indexname = 'signal_tenant_source_external_id_key'"
+    ) == (1,)
+
+
+async def test_two_tenants_can_use_the_same_signal_external_id(db: Db) -> None:
+    company = _company(db, TENANT)
+    other_company = _company(db, OTHER)
+    repository = _core_repository(db)
+    try:
+        mine, mine_event = await repository.create_signal(
+            _signal_input(company, TENANT, "t196-shared"), request_id=None
+        )
+        theirs, their_event = await repository.create_signal(
+            _signal_input(other_company, OTHER, "t196-shared"), request_id=None
+        )
+        mine_again, _ = await repository.create_signal(
+            _signal_input(company, TENANT, "t196-shared"), request_id=None
+        )
+        theirs_again, _ = await repository.create_signal(
+            _signal_input(other_company, OTHER, "t196-shared"), request_id=None
+        )
+    finally:
+        await repository.close()
+    assert mine != theirs
+    assert mine_event is not None and their_event is not None
+    assert mine_again == mine and theirs_again == theirs
+    for tenant, signal_id in ((TENANT, mine), (OTHER, theirs)):
+        assert db.one(
+            "SELECT count(*) FROM core.signal WHERE source = 't195' "
+            "AND source_external_id = 't196-shared' AND tenant_id = %s",
+            tenant,
+        ) == (1,)
+        assert db.one(
+            "SELECT tenant_id FROM core.signal WHERE id = %s", signal_id
+        ) == (tenant,)

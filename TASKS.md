@@ -2224,7 +2224,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: docs/runs/RUN-r1-p-schema.md; migration 0017, create_signal on the tenant key, 3 integration cases (CI integration stage is the real check; not run locally, no Postgres)
 
 ### T-196 Drop the global unique key on core.signal (contract)
-- status: todo
+- status: done
 - spec: REQ-DAT-005, REQ-ING-009
 - owner: database-engineer
 - depends: T-195
@@ -2233,7 +2233,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: S
 - acceptance: the integration case with two tenants and the SAME `(source, source_external_id)` passes on real Postgres (each tenant gets its own row, neither sees the other's, `create_signal` does not raise), `python ops/check_migrations.py --base origin/main`, `pytest -q tests/unit/test_sql_consistency.py`, `make static` and `make test`
 - note: INV-06: a contract file goes in its own pull request and only after the code of T-195 is on main and no statement depends on the old key. Drop the global `UNIQUE (source, source_external_id)` of `core.signal` (look up the real constraint name in the migrations; do not guess it). Do not launch this task in the same wave as T-195, and not before T-195 is merged AND its migration is applied in the target environment (the code must already use the per-tenant key before the global one is dropped); when in doubt that it is applied, wait. Write this exact line in the pull request, in the run report and in a comment at the top of the contract migration: "Do not apply until it is confirmed that 20261024_0017 ran in the target environment; if in doubt, wait." Never assume 0017 is applied.
-- evidence: filled by the agent when done
+- evidence: docs/runs/RUN-r1-q-contract.md; contract migration 0018 drops the constraint found by its columns (core.signal_source_source_external_id_key); 2 integration cases (CI integration stage is the real check; not run locally, no Postgres)
 
 ### T-197 Gateway route for operator-initiated opt-out (admin role)
 - status: todo
