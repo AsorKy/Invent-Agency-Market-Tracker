@@ -2173,7 +2173,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - evidence: filled by the agent when done
 
 ### T-192 Check for rows without a tenant before migration 0014
-- status: todo
+- status: done
 - spec: REQ-DAT-005, REQ-RUN-001
 - owner: database-engineer
 - depends: T-082
@@ -2182,10 +2182,10 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: S
 - acceptance: `pytest -q tests/unit/test_doctor.py tests/unit/test_runbook.py && python ops/check_language.py`
 - note: migration 20261023_0014 raises an exception, and the `migrate` container stops, when `core.signal`, `core.location` or `core.lead_outcome` has a row whose tenant cannot be resolved from its company or lead. A fresh stack is unaffected, but a database that held F0 data is not. Add `ops/doctor.py --tenants`, read only and counts only, through the same superuser psql path as `--pipeline`: rows with a NULL `tenant_id` and rows that would stay unresolved (NULL `tenant_id` whose company or lead also has a NULL tenant) for those three tables plus `core.company` and `core.lead`. Exit 1 when any count is above zero. Document in the go-live runbook that this command runs BEFORE the first migrate of an existing database, and what the operator does with the result (assign a tenant, never delete). Never print rows or ids.
-- evidence: filled by the agent when done
+- evidence: `pytest -q tests/unit/test_doctor.py tests/unit/test_runbook.py && python ops/check_language.py` passed; `python ops/doctor.py --tenants` added (8 count queries, exit 1 above zero); make static and make test green (r1-o-ops)
 
 ### T-193 Pin the owner role of verify-live under row level security
-- status: todo
+- status: done
 - spec: REQ-SEC-005, REQ-RUN-006
 - owner: devops-engineer
 - depends: T-186
@@ -2194,7 +2194,7 @@ The session does not stop when T-080 (the run 1 review pack) is `done`. If budge
 - size: S
 - acceptance: `pytest -q tests/unit/test_verify_live.py tests/unit/test_compose.py tests/unit/test_runbook.py`
 - note: `ops/verify_live.py` counts `core.signal` directly (an operator tool, INV-01 does not apply). With T-082 that table is under forced row level security, so a connection as `core_app` would count 0 and the signal hop would fail with a misleading message. Today the default URL and the Compose service use `POSTGRES_USER` (the owner), which is correct. Pin it: a test that the compose `verify-live` URL never uses an `_app` role, a refusal in `ops/verify_live.py` (exit 2 with a clear message, no value printed) when `VERIFY_LIVE_DATABASE_URL` names a role ending in `_app`, and one sentence in section 7 of the go-live runbook.
-- evidence: filled by the agent when done
+- evidence: `pytest -q tests/unit/test_verify_live.py tests/unit/test_compose.py tests/unit/test_runbook.py` passed; verify_live refuses `_app` roles with exit 2; make static and make test green (r1-o-ops)
 
 ### T-194 Identity lists the tenants for service callers
 - status: todo

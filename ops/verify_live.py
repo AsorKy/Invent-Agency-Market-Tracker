@@ -32,6 +32,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Protocol
+from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -83,6 +84,17 @@ class StackError(Exception):
     """A call to the running stack failed; the message holds no secret."""
 
 
+def database_role(values: Mapping[str, str]) -> str:
+    """Return the database role the run would use; never the password or the URL."""
+    url = values.get("VERIFY_LIVE_DATABASE_URL", "").strip()
+    if url:
+        try:
+            return urlsplit(url).username or ""
+        except ValueError:
+            return ""
+    return values.get("POSTGRES_USER") or "postgres"
+
+
 def refusal(values: Mapping[str, str], source: str) -> str | None:
     """Return why the run must not start, or None when it may."""
     if (values.get("INGEST_MODE", "mock").strip() or "mock") != "live":
@@ -99,6 +111,12 @@ def refusal(values: Mapping[str, str], source: str) -> str | None:
     ]
     if missing:
         return "refused: missing " + ", ".join(missing) + " (names only; see `make doctor`)"
+    if database_role(values).endswith("_app"):
+        return (
+            "refused: the database role ends in _app; row level security would hide the "
+            "signal rows and the signal hop would count 0. Use the owner role "
+            "(POSTGRES_USER) in VERIFY_LIVE_DATABASE_URL"
+        )
     return None
 
 

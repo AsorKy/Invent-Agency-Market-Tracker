@@ -307,6 +307,13 @@ def test_event_chain_flag_reaches_producers_and_defaults_to_false(
     assert _env(services[name])["EVENT_CHAIN_EMIT"] == "${EVENT_CHAIN_EMIT:-false}"
 
 
+def test_verify_live_database_url_never_uses_an_app_role(services: dict[str, Any]) -> None:
+    url = _env(services["verify-live"])["VERIFY_LIVE_DATABASE_URL"]
+    user = url.split("://", 1)[1].split("}:", 1)[0] + "}"
+    assert user == "${POSTGRES_USER:-postgres}"
+    assert not user.endswith("_app")
+
+
 def test_verify_live_runs_in_network_with_no_published_ports(services: dict[str, Any]) -> None:
     tool = services["verify-live"]
     assert tool["profiles"] == ["tools"]
