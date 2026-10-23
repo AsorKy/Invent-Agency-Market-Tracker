@@ -489,7 +489,8 @@ class SqlActionUnitOfWork(SqlCompanyUnitOfWork):
     """Same commit-or-rollback boundary, yielding action operations."""
 
     async def __aenter__(self) -> SqlActionTransaction:  # type: ignore[override]
-        return SqlActionTransaction(await self._context.__aenter__())
+        # ``super()`` sets the tenant context; opening the context directly would skip it.
+        return SqlActionTransaction((await super().__aenter__()).connection)
 
 
 class SqlFunnelTransaction(SqlActionTransaction):
@@ -1135,7 +1136,7 @@ class SqlRetentionUnitOfWork(SqlCompanyUnitOfWork):
     """Same commit-or-rollback boundary, yielding retention operations."""
 
     async def __aenter__(self) -> SqlRetentionTransaction:  # type: ignore[override]
-        return SqlRetentionTransaction(await self._context.__aenter__())
+        return SqlRetentionTransaction((await super().__aenter__()).connection)
 
 
 class SqlLeadUnitOfWork(SqlCompanyUnitOfWork):
@@ -1159,10 +1160,12 @@ class CoreRepository:
             raise RuntimeError("DATABASE_URL is required for core writes")
         return SqlLeadUnitOfWork(self.engine)
 
-    def action_unit_of_work(self) -> SqlActionUnitOfWork:
+    def action_unit_of_work(self, tenant_id: UUID | None = None) -> SqlActionUnitOfWork:
         if self.engine is None:
             raise RuntimeError("DATABASE_URL is required for core writes")
-        return SqlActionUnitOfWork(self.engine)
+        # core.lead and core.lead_outcome are under row level security: the tenant context
+        # must be set before the first read or write (REQ-SEC-005, T-082).
+        return SqlActionUnitOfWork(self.engine, tenant_id)
 
     def config_unit_of_work(self) -> SqlConfigUnitOfWork:
         if self.engine is None:
@@ -1246,10 +1249,14 @@ class CoreRepository:
                 text(
                     """
                     INSERT INTO core.signal
-                        (id, company_id, source, source_external_id, signal_type,
+                        (id, tenant_id, company_id, source, source_external_id, signal_type,
                          observed_at, strength, payload)
                     VALUES
-                        (:id, :company_id, :source, :source_external_id, :signal_type,
+                        (:id,
+                         COALESCE(CAST(:tenant_id AS uuid),
+                                  (SELECT c.tenant_id FROM core.company c
+                                   WHERE c.id = :company_id ORDER BY c.version DESC LIMIT 1)),
+                         :company_id, :source, :source_external_id, :signal_type,
                          :observed_at, :strength, CAST(:payload AS jsonb))
                     ON CONFLICT (source, source_external_id) DO NOTHING
                     RETURNING id
@@ -1257,6 +1264,7 @@ class CoreRepository:
                 ),
                 {
                     "id": signal_id,
+                    "tenant_id": signal.tenant_id,
                     "company_id": signal.company_id,
                     "source": signal.source,
                     "source_external_id": source_external_id,

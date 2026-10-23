@@ -41,7 +41,9 @@ def make_connector(source: str, **app_options: Any) -> MockConnector:
 def test_shipped_mappings_load_and_are_marked_unverified(source: str) -> None:
     mapping = load_mapping(source)
     assert mapping.source == source and mapping.version >= 1
-    has_samples = (MAPPINGS_DIR.parents[2] / "tests" / "fixtures" / "brightdata" / "captured").is_dir()
+    has_samples = (
+        MAPPINGS_DIR.parents[2] / "tests" / "fixtures" / "brightdata" / "captured"
+    ).is_dir()
     assert mapping.unverified is not has_samples
 
 

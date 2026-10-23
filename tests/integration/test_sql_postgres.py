@@ -31,24 +31,28 @@ UNPREPARABLE: dict[tuple[str, str], str] = {}
 DYNAMIC_SKELETON_SKIPPED: dict[tuple[str, str], str] = {}
 
 # Tables with a tenant_id column that deliberately have no row level security.
-# SPEC requires RLS only for the core business tables; these are infrastructure
-# tables. UNVERIFIED: reasons are guesses from table names; pending an owner
-# decision (core.location and core.signal may need RLS). Key: schema.table.
+# Infrastructure tables that stay without row level security (D-29, REQ-DAT-005). Each is read
+# and written only by the service role that owns it and is never exposed by a public API; the
+# isolation comes from INV-01 and the role, and tenant_id is routing metadata. Key: schema.table.
+_MESSAGING = (
+    "messaging infrastructure read and written only by the owning service role, never exposed by"
+    " a public API; isolation comes from INV-01 and the role, tenant_id is routing metadata"
+)
+_IDEMPOTENCY = (
+    "consumer idempotency ledger read and written only by the owning service role, never exposed"
+    " by a public API; isolation comes from INV-01 and the role, tenant_id is routing metadata"
+)
 RLS_EXEMPT: dict[str, str] = {
-    "core.audit_log": "append-only audit trail written by the service, not tenant queried",
-    "core.lead_outcome": "outcome log written by the service for lead scoring",
-    "core.location": "shared location reference data keyed by tenant for lookup",
-    "core.outbox_dead_letter": "outbox infrastructure, read by the relay only",
-    "core.outbox_event": "transactional outbox, read by the relay across tenants",
-    "core.processed_event": "consumer idempotency ledger, written by the service only",
-    "core.signal": "ingest-derived signal rows written by the pipeline",
-    "ml.outbox_dead_letter": (
-        "messaging infrastructure read and written only by ml_app, tenant_id is routing metadata"
+    "core.audit_log": (
+        "append-only audit trail, read only by an admin route of the same tenant with an explicit"
+        " tenant filter"
     ),
-    "ml.outbox_event": (
-        "messaging infrastructure read and written only by ml_app, tenant_id is routing metadata"
-    ),
-    "ml.processed_event": "consumer idempotency ledger, written by the service only",
+    "core.outbox_dead_letter": _MESSAGING,
+    "core.outbox_event": _MESSAGING,
+    "core.processed_event": _IDEMPOTENCY,
+    "ml.outbox_dead_letter": _MESSAGING,
+    "ml.outbox_event": _MESSAGING,
+    "ml.processed_event": _IDEMPOTENCY,
 }
 
 
@@ -91,6 +95,16 @@ def test_rls_enabled_on_every_tenant_table(conn):
 
     assert tables_with_tenant_id(conn), "no tenant_id table found; the check would be vacuous"
     assert sorted(set(tables_without_rls(conn)) - set(RLS_EXEMPT)) == []
+
+
+def test_signal_location_and_lead_outcome_have_row_level_security(conn):
+    """D-29 (T-082): the three business tables are protected, not exempt."""
+    from support_sql_pg import tables_without_rls
+
+    unprotected = set(tables_without_rls(conn))
+    for table in ("core.signal", "core.location", "core.lead_outcome"):
+        assert table not in unprotected, table
+        assert table not in RLS_EXEMPT, table
 
 
 def test_rls_exemptions_are_not_stale(conn):

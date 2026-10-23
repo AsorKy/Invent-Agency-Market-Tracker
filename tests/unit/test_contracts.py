@@ -110,7 +110,10 @@ def _chain_samples():
             "company_id": b, "lead_id": a, "rues_matched": True, "parent_event_id": c,
         },
         "signal.explained": {
-            "lead_id": a, "company_id": b, "qualification_reason": {"fit": "high"}, "parent_event_id": c,
+            "lead_id": a,
+            "company_id": b,
+            "qualification_reason": {"fit": "high"},
+            "parent_event_id": c,
         },
         "project.pipeline_updated": {
             "lead_id": a, "project_id": None, "from": "new", "to": "qualified", "version": 2,

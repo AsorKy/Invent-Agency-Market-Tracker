@@ -127,7 +127,7 @@ def test_routes(monkeypatch: pytest.MonkeyPatch) -> None:
     store = FakeStore()
 
     class Repo:
-        def action_unit_of_work(self) -> Any:
+        def action_unit_of_work(self, tenant_id: Any = None) -> Any:
             return store.unit_of_work()
 
         async def list_projects(self, limit: int, cursor: str | None = None, **kw: Any) -> Any:

@@ -21,7 +21,8 @@ T0 = datetime(2026, 1, 1, tzinfo=UTC)
 
 def jr(chans: list[str], converted: bool = True, days: list[float] | None = None) -> Journey:
     days = days or list(range(len(chans)))
-    return Journey(tuple(Touch(c, T0 + timedelta(days=d)) for c, d in zip(chans, days)), converted)
+    touches = tuple(Touch(c, T0 + timedelta(days=d)) for c, d in zip(chans, days, strict=False))
+    return Journey(touches, converted)
 
 
 def test_last_and_first_touch() -> None:

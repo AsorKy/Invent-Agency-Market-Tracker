@@ -182,11 +182,8 @@ async def test_flag_on_emits_every_producer_and_no_consumer_dead_letters(
         seen.append(fields["event_type"])
         async with pulse.begin() as connection:
             await process_event(connection, fields)  # type: ignore[arg-type]
-        statements: list[str] = []
-
         class Conn:
             async def execute(self, statement: Any, params: Any = None) -> Any:
-                statements.append(str(statement))
                 return type("R", (), {"scalar_one_or_none": lambda self: uuid4()})()
 
         await ml_consumer.process_event(Conn(), fields)  # type: ignore[arg-type]

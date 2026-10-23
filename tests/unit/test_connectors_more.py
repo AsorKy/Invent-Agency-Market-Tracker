@@ -47,7 +47,9 @@ RECORDS = {
 def test_mapping_loads_and_is_unverified(source: str) -> None:
     mapping = load_mapping(source)
     assert mapping.source == source and mapping.version >= 1
-    has_samples = (MAPPINGS_DIR.parents[2] / "tests" / "fixtures" / "brightdata" / "captured").is_dir()
+    has_samples = (
+        MAPPINGS_DIR.parents[2] / "tests" / "fixtures" / "brightdata" / "captured"
+    ).is_dir()
     assert mapping.unverified is not has_samples
 
 
@@ -70,7 +72,9 @@ def test_linkedin_company_numbers() -> None:
 @pytest.mark.parametrize("source", SOURCES)
 def test_record_without_required_field_is_rejected(source: str) -> None:
     with pytest.raises(MappingError):
-        normalize_record(load_mapping(source), {"id": "1", "job_posting_id": "1", "company_id": "1"})
+        normalize_record(
+            load_mapping(source), {"id": "1", "job_posting_id": "1", "company_id": "1"}
+        )
 
 
 def settings(mode: str) -> Settings:

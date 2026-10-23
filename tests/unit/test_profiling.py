@@ -74,9 +74,9 @@ class FakeClient:
 def test_publisher_signs_token_and_posts() -> None:
     client = FakeClient()
     asyncio.run(
-        PulsePublisher(client, "s3cret", tenant_id="11111111-1111-1111-1111-111111111111").publish_profiles(
-            ProfileResult(run_id="r1", assignments={"a": 0})
-        )
+        PulsePublisher(
+            client, "s3cret", tenant_id="11111111-1111-1111-1111-111111111111"
+        ).publish_profiles(ProfileResult(run_id="r1", assignments={"a": 0}))
     )
     url, body, headers = client.calls[0]
     assert url == PATHS["profiles"]
