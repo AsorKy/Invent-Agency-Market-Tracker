@@ -265,3 +265,26 @@ def test_changed_formula_requires_a_new_version_string() -> None:
     assert _formula_fingerprint() == FORMULA_FINGERPRINTS[SCORE_SOURCE_VERSION], (
         "formula changed: bump source_version as features-<major>.<minor> and pin its rows"
     )
+
+
+# --- T-198: the signal.tagged id ---------------------------------------------------------------
+
+
+def test_features_body_carries_the_tagged_event_id_or_none() -> None:
+    a, b = uuid4(), uuid4()
+    tagged = uuid4()
+    page = [(a, CompanyProfile(city="Cali")), (b, CompanyProfile(city="Cali"))]
+    body = build_features_body({"Cali": 2}, page, 10, {a: tagged})
+    assert [c["parent_event_id"] for c in body["companies"]] == [str(tagged), None]
+    assert build_features_body({"Cali": 2}, page, 10)["companies"][0]["parent_event_id"] is None
+
+
+async def test_tagged_lookup_runs_after_the_context_and_filters_by_tenant() -> None:
+    from services.core.app.score_features import TAGGED_SQL
+
+    assert "tenant_id = :tenant_id" in TAGGED_SQL and "'signal.tagged'" in TAGGED_SQL
+    engine = _Engine()
+    await read_score_features(engine, TENANT_A, 10, None)  # type: ignore[arg-type]
+    assert "set_config('app.tenant_id'" in engine.calls[0][0]
+    tagged_calls = [c for c in engine.calls if "signal.tagged" in c[0]]
+    assert len(tagged_calls) == 1 and tagged_calls[0][1]["tenant_id"] == TENANT_A  # type: ignore[index]

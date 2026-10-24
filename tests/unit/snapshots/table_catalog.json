@@ -112,6 +112,7 @@
       "legal_name",
       "nit",
       "score",
+      "score_event_id",
       "score_source_version",
       "score_updated_at",
       "sector_code",

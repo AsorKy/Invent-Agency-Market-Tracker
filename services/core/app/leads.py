@@ -136,6 +136,15 @@ def lead_view(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+async def _stored_scored_event_id(tx: Any, company_id: UUID, tenant_id: UUID) -> UUID | None:
+    """Read the signal.scored id core stored for the company (None when unknown)."""
+    reader = getattr(tx, "scored_event_id", None)
+    if reader is None:
+        return None
+    found: UUID | None = await reader(company_id, tenant_id)
+    return found
+
+
 async def create_lead(
     unit_of_work: LeadUnitOfWork,
     payload: LeadCreate,
@@ -188,9 +197,13 @@ async def create_lead(
         )
         if get_settings().event_chain_emit:
             # company.matched -> signal.explained; the scored parent lives in the ML service.
-            if payload.scored_event_id is not None:
+            scored_event_id = payload.scored_event_id
+            if scored_event_id is None:
+                # Not part of the request hash: the stored id changes with each new score.
+                scored_event_id = await _stored_scored_event_id(tx, payload.company_id, tenant_id)
+            if scored_event_id is not None:
                 parent = {
-                    "event_id": str(payload.scored_event_id),
+                    "event_id": str(scored_event_id),
                     "event_type": "signal.scored",
                     "source_version": "",
                 }

@@ -1255,6 +1255,74 @@ async def test_two_tenants_can_use_the_same_signal_external_id(db: Db) -> None:
             "AND source_external_id = 't196-shared' AND tenant_id = %s",
             tenant,
         ) == (1,)
-        assert db.one(
-            "SELECT tenant_id FROM core.signal WHERE id = %s", signal_id
-        ) == (tenant,)
+        assert db.one("SELECT tenant_id FROM core.signal WHERE id = %s", signal_id) == (tenant,)
+
+
+# --- T-198: the stored signal.scored id and the signal.tagged id on the features route ---------
+
+
+async def test_score_event_id_is_stored_and_read_back_as_core_app_with_the_context(
+    db: Db, engines: dict[str, Any]
+) -> None:
+    from sqlalchemy import text
+
+    from libs.common.tenant import set_tenant_context
+    from services.core.app.repository import SqlLeadTransaction
+
+    company = _company(db, TENANT)
+    scored = uuid4()
+    repository = _core_repository(db)
+    try:
+        assert await repository.store_company_score(
+            company_id=company,
+            tenant_id=TENANT,
+            score=70,
+            source_version="1",
+            now=MOMENT,
+            scored_event_id=scored,
+        )
+        async with engines["core"].begin() as connection:
+            tx = SqlLeadTransaction(connection)
+            assert await tx.scored_event_id(company, TENANT) == scored
+            assert await tx.scored_event_id(company, OTHER) is None  # other tenant sees nothing
+        async with engines["core"].begin() as connection:
+            # Without the tenant context row level security hides the row: this is what the
+            # method would return if it forgot set_tenant_context.
+            bare = await connection.execute(
+                text("SELECT score_event_id FROM core.company WHERE id = :id"), {"id": company}
+            )
+            assert bare.first() is None
+            await set_tenant_context(connection, TENANT)
+            seen = await connection.execute(
+                text("SELECT score_event_id FROM core.company WHERE id = :id"), {"id": company}
+            )
+            assert seen.scalar_one() == scored
+        # A later score without an id clears it: the id always belongs to the stored score.
+        assert await repository.store_company_score(
+            company_id=company, tenant_id=TENANT, score=71, source_version="2", now=MOMENT
+        )
+    finally:
+        await repository.close()
+    assert db.one("SELECT score_event_id FROM core.company WHERE id = %s", company) == (None,)
+
+
+async def test_features_route_carries_the_latest_tagged_event_id_of_the_tenant(
+    db: Db, engines: dict[str, Any]
+) -> None:
+    from services.core.app.score_features import read_score_features
+
+    tagged_company, plain_company = _company(db, TENANT), _company(db, TENANT)
+    old, latest, foreign = uuid4(), uuid4(), uuid4()
+    for event_id, tenant in ((old, TENANT), (latest, TENANT), (foreign, OTHER)):
+        db.rows(
+            "INSERT INTO core.outbox_event (event_id, tenant_id, aggregate_type, aggregate_id, "
+            "event_type, version, payload) VALUES (%s, %s, 'signal', %s, 'signal.tagged', 1, %s)",
+            event_id,
+            tenant,
+            uuid4(),
+            json.dumps({"company_id": str(tagged_company)}),
+        )
+    body = await read_score_features(engines["core"], TENANT, 500, None)
+    by_company = {c["company_id"]: c["parent_event_id"] for c in body["companies"]}
+    assert by_company[str(tagged_company)] == str(latest)  # not the older one, not the other tenant
+    assert by_company[str(plain_company)] is None

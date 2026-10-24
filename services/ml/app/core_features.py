@@ -29,6 +29,7 @@ class CompanyFeatures(BaseModel):
     signal_strength: float
     territory_opportunity: float
     source_version: str
+    parent_event_id: UUID | None = None
 
 
 class FeaturesPage(BaseModel):

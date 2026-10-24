@@ -45,6 +45,13 @@ def _tenant_of(fields: Mapping[str, str]) -> UUID | None:
         return None
 
 
+def _uuid_of(value: str | None) -> UUID | None:
+    try:
+        return UUID(value) if value else None
+    except ValueError:
+        return None
+
+
 def build_handlers(
     unit_of_work_factory: Callable[[], QualificationUnitOfWork],
     on_hot: HotCallback | None = None,
@@ -55,12 +62,17 @@ def build_handlers(
     async def on_score_updated(fields: Mapping[str, str]) -> None:
         if store_score is not None:
             _, company_id, score, _line = parse_score_event(fields)
+            extra: dict[str, UUID] = {}
+            scored_event_id = _uuid_of(fields.get("scored_event_id"))
+            if scored_event_id is not None:
+                extra["scored_event_id"] = scored_event_id
             await store_score(
                 company_id=company_id,
                 tenant_id=_tenant_of(fields),
                 score=score,
                 source_version=fields.get("source_version") or None,
                 now=datetime.now(UTC),
+                **extra,
             )
         await handle_score_event(unit_of_work_factory(), fields, on_hot=on_hot)
 

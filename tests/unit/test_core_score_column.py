@@ -125,3 +125,35 @@ async def test_handler_without_tenant_or_version_passes_none(monkeypatch: Any) -
         {"event_id": str(uuid4()), "aggregate_id": str(COMPANY), "score": "5"}
     )
     assert seen[0]["tenant_id"] is None and seen[0]["source_version"] is None
+
+
+async def test_worker_passes_the_scored_event_id_only_when_the_entry_carries_one(
+    monkeypatch: Any,
+) -> None:
+    calls: list[dict[str, Any]] = []
+
+    async def fake_handle(uow: Any, fields: Any, on_hot: Any = None) -> None:
+        return None
+
+    async def store(**kwargs: Any) -> bool:
+        calls.append(kwargs)
+        return True
+
+    monkeypatch.setattr(worker, "handle_score_event", fake_handle)
+    handlers = worker.build_handlers(lambda: cast(Any, None), None, store)
+    scored = uuid4()
+    base = {
+        "event_id": str(uuid4()),
+        "aggregate_id": str(COMPANY),
+        "score": "77",
+        "tenant_id": str(TENANT),
+        "source_version": "9",
+    }
+    for fields in (
+        {**base, "scored_event_id": str(scored)},
+        {**base, "scored_event_id": "x"},
+        base,
+    ):
+        await handlers["lead.score_updated"](fields)
+    assert calls[0]["scored_event_id"] == scored
+    assert "scored_event_id" not in calls[1] and "scored_event_id" not in calls[2]
