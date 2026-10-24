@@ -30,6 +30,7 @@ class CompanyFeatures(BaseModel):
     signal_strength: float
     territory_opportunity: float
     source_version: str
+    parent_event_id: UUID | None = None
 
 
 class ScoreFeaturesPage(BaseModel):
@@ -50,10 +51,20 @@ PAGE_SQL = (
     "AND (CAST(:after AS uuid) IS NULL OR c.id > CAST(:after AS uuid)) "
     "ORDER BY c.id LIMIT :fetch"
 )
+# The latest signal.tagged event core wrote to its own outbox, per company of the page (T-198).
+TAGGED_SQL = (
+    "SELECT DISTINCT ON (payload->>'company_id') payload->>'company_id' AS company_id, event_id "
+    "FROM core.outbox_event WHERE tenant_id = :tenant_id AND event_type = 'signal.tagged' "
+    "AND payload->>'company_id' = ANY(CAST(:company_ids AS text[])) "
+    "ORDER BY payload->>'company_id', id DESC"
+)
 
 
 def build_features_body(
-    city_counts: dict[str, int], page: list[tuple[UUID, CompanyProfile]], limit: int
+    city_counts: dict[str, int],
+    page: list[tuple[UUID, CompanyProfile]],
+    limit: int,
+    tagged: dict[UUID, UUID] | None = None,
 ) -> dict[str, Any]:
     """Map the tenant city counts and one page of ``(id, profile)`` to the response body.
 
@@ -61,12 +72,14 @@ def build_features_body(
     more and is not returned.
     """
     widest = max(city_counts.values(), default=1)
+    tagged = tagged or {}
     shown = page[:limit]
     companies = [
         {
             "company_id": str(company_id),
             **features_of(profile, city_counts.get(profile.city or "", 1), widest),
             "source_version": SCORE_SOURCE_VERSION,
+            "parent_event_id": str(tagged[company_id]) if company_id in tagged else None,
         }
         for company_id, profile in shown
     ]
@@ -96,4 +109,11 @@ async def read_score_features(
             )
             for r in result.all()
         ]
-    return build_features_body(city_counts, page, limit)
+        shown_ids = [str(company_id) for company_id, _ in page[:limit]]
+        tagged: dict[UUID, UUID] = {}
+        if shown_ids:
+            rows = await connection.execute(
+                text(TAGGED_SQL), {"tenant_id": tenant_id, "company_ids": shown_ids}
+            )
+            tagged = {UUID(str(r[0])): UUID(str(r[1])) for r in rows.all()}
+    return build_features_body(city_counts, page, limit, tagged)

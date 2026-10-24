@@ -237,6 +237,19 @@ class SqlLeadTransaction:
             text("SELECT pg_advisory_xact_lock(hashtext(:key))"), {"key": key}
         )
 
+    async def scored_event_id(self, company_id: UUID, tenant_id: UUID) -> UUID | None:
+        """Return the stored ``signal.scored`` event id of a company, or None (T-198)."""
+        await set_tenant_context(self.connection, tenant_id)
+        result = await self.connection.execute(
+            text(
+                "SELECT score_event_id FROM core.company "
+                "WHERE id = :company_id AND tenant_id = :tenant_id"
+            ),
+            {"company_id": company_id, "tenant_id": tenant_id},
+        )
+        value = result.scalar_one_or_none()
+        return UUID(str(value)) if value is not None else None
+
     async def get_idempotency(self, tenant_id: UUID, key: str) -> dict[str, object] | None:
         result = await self.connection.execute(
             text(
@@ -1563,6 +1576,7 @@ class CoreRepository:
         score: int,
         source_version: str | None,
         now: datetime,
+        scored_event_id: UUID | None = None,
     ) -> bool:
         """Store the score of a ``lead.score_updated`` event; never lower a newer version.
 
@@ -1581,7 +1595,7 @@ class CoreRepository:
                     """
                     UPDATE core.company
                     SET score = :score, score_source_version = CAST(:source_version AS text),
-                        score_updated_at = :now
+                        score_updated_at = :now, score_event_id = :scored_event_id
                     WHERE id = :company_id AND tenant_id IS NOT DISTINCT FROM :tenant_id
                       AND (
                           score_source_version IS NULL
@@ -1600,6 +1614,7 @@ class CoreRepository:
                     "score": score,
                     "source_version": source_version,
                     "now": now,
+                    "scored_event_id": scored_event_id,
                 },
             )
             return bool(result.rowcount)

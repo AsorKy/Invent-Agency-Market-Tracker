@@ -10,6 +10,7 @@ from services.ml.app.core_features import (
     CompanyFeatures,
     CoreFeaturesPage,
     CoreFeaturesUnavailable,
+    HttpCoreFeatures,
 )
 from services.ml.app.scoring_service import ScoringService
 from tests.unit.test_ml_singleflight import FakeRedis, FakeStore
@@ -180,10 +181,6 @@ def test_cli_requires_tenant_and_a_positive_limit() -> None:
         backfill.main(["--tenant", str(TENANT), "--limit", "0"])
 
 
-class TaggedCompany(CompanyFeatures):
-    parent_event_id: UUID | None = None
-
-
 class TaggedCore(Core):
     def __init__(self, ids: list[UUID], tagged: dict[UUID, UUID]) -> None:
         super().__init__(ids)
@@ -192,7 +189,7 @@ class TaggedCore(Core):
     async def get_page(self, tenant_id, limit, after) -> CoreFeaturesPage:
         page = await super().get_page(tenant_id, limit, after)
         page.companies = [
-            TaggedCompany(**c.model_dump(), parent_event_id=self.tagged.get(c.company_id))
+            c.model_copy(update={"parent_event_id": self.tagged.get(c.company_id)})
             for c in page.companies
         ]
         return page
@@ -216,3 +213,30 @@ async def test_parent_event_id_reaches_score_features_and_stays_empty_without_on
     counts = await backfill.run_backfill(TENANT, 10, core, repo, service, WEIGHTS)
     assert counts.rescored == 2 and counts.failed == 0
     assert seen == {with_id: tagged, without: None}
+
+
+async def test_http_core_features_reads_the_parent_event_id() -> None:
+    import httpx
+
+    cid, tagged = uuid4(), uuid4()
+    body = {
+        "companies": [
+            {
+                "company_id": str(cid),
+                "icp_fit": 0.5,
+                "signal_strength": 0.5,
+                "territory_opportunity": 0.5,
+                "source_version": "demo-1",
+                "parent_event_id": str(tagged),
+            }
+        ],
+        "next_after": None,
+    }
+    client = HttpCoreFeatures("http://core", "secret")
+    client._client = httpx.AsyncClient(
+        base_url="http://core",
+        transport=httpx.MockTransport(lambda request: httpx.Response(200, json=body)),
+    )
+    page = await client.get_page(TENANT, 10, None)
+    await client.close()
+    assert page.companies[0].parent_event_id == tagged

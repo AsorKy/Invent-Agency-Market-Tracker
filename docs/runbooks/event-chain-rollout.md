@@ -49,9 +49,11 @@ Closed by T-188 (callers in code, each id optional so a missing id never fails a
 - `funnel.py`: `evaluate_project_gate` takes an optional `on_gate_event` hook and hands the written `funnel.gate_decision` event (`event_id`, `event_type`, `source_version`) to the caller, who passes its id as `LeadStatusPatch.gate_event_id`. The route response is unchanged. No route links a gate decision to a lead stage change yet, so the hook is not wired to a route.
 - `services/ml/app/backfill.py`: forwards `parent_event_id` to `ScoreFeatures` when the features payload from core carries one, and leaves it empty otherwise.
 
-Still open (follow-up task needed, outside the T-188 scope):
-- core to ml `signal.tagged` id: the internal features route (`services/core/app/score_features.py`, `services/ml/app/core_features.py`) does not return the id of the company's `signal.tagged` event, so the backfill always sends an empty parent and `signal.tagged` to `signal.scored` still uses `reference_parent`.
-- core storage of the `signal.scored` id: core cannot read `ml.outbox_event` (INV-01) and stores no score event id, so lead creation (`main.py`, `imports.py`) cannot fill `LeadCreate.scored_event_id` and `signal.scored` to `company.matched` still uses `reference_parent`. It needs an additive column, a core worker handler for `signal.scored` and a read in the lead create call.
+Closed by T-198 (migration `20261024_0019_core_score_event_id.sql`, expand only, nullable, no backfill):
+- core to ml `signal.tagged` id: the internal features route returns, per company, `parent_event_id` = the latest `signal.tagged` event core wrote to its own outbox for that tenant (null when none); `core_features.py` reads it and the backfill forwards it.
+- core storage of the `signal.scored` id: ml puts the id of its `signal.scored` outbox row in the `lead.score_updated` stream entry as the top-level field `scored_event_id` (only with `EVENT_CHAIN_EMIT` on); the core worker stores it in `core.company.score_event_id` next to the score (a score without an id clears it); the lead create reads it inside its own transaction and uses it as the parent of `company.matched` (an explicit `scored_event_id` in the body wins; it is not part of the idempotency hash). Companies scored before the migration keep a null id and fall back to `reference_parent` until the next score event.
+
+Still open:
 - `funnel.gate_decision` to `project.pipeline_updated` stays on `reference_parent` until a route passes the hook's id to the stage change.
 
 Until those are done, a gap at the open joins is the known limit, not a failed rollout. See `docs/runs/RUN-r1-i-events.md` for the origin of the limit.

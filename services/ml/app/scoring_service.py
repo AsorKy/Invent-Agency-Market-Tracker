@@ -64,7 +64,13 @@ class ScoreRedis(Protocol):
 
 
 def score_event_fields(
-    *, company_id: UUID, tenant_id: UUID | None, score: int, is_hot: bool, source_version: str
+    *,
+    company_id: UUID,
+    tenant_id: UUID | None,
+    score: int,
+    is_hot: bool,
+    source_version: str,
+    scored_event_id: str | None = None,
 ) -> dict[str, str]:
     """Build the stream entry of ``lead.score_updated`` in the core relay envelope.
 
@@ -93,6 +99,9 @@ def score_event_fields(
     }
     if tenant_id is not None:
         fields["tenant_id"] = str(tenant_id)
+    if scored_event_id is not None:
+        # Id of the signal.scored outbox row written with this score; core stores it (T-198).
+        fields["scored_event_id"] = scored_event_id
     return fields
 
 
@@ -237,6 +246,10 @@ class ScoringService:
                 if get_settings().event_chain_emit
                 else []
             )
+            scored_event_id = next(
+                (str(e["event_id"]) for e in outbox_events if e["event_type"] == "signal.scored"),
+                None,
+            )
             # Flag off: the call is exactly what it was, with no outbox argument.
             extra = {"outbox_events": outbox_events} if outbox_events else {}
             await self._store.upsert_score(
@@ -263,6 +276,7 @@ class ScoringService:
                     score=breakdown.score,
                     is_hot=breakdown.is_hot,
                     source_version=features.source_version,
+                    scored_event_id=scored_event_id,
                 ),
             )
             return ScoreResponse(

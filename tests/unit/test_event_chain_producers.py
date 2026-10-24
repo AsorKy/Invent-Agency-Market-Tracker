@@ -53,7 +53,13 @@ CHAIN_ONLY = set(CHAIN) - {"signal.created", "funnel.gate_decision"}
 
 
 class Engine(FakeCoreEngine):
-    """Add the two statements ``change_status`` runs that the shared fake does not know."""
+    """Add the statements the lead flow runs that the shared fake does not know."""
+
+    score_event_ids: dict[UUID, UUID] = {}  # noqa: RUF012  (replaced per instance below)
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.score_event_ids = {}
 
     def _dispatch(self, sql: str, params: dict[str, Any], staged: Any) -> Result:
         if "UPDATE core.lead SET stage" in sql:
@@ -61,6 +67,10 @@ class Engine(FakeCoreEngine):
             return Result()
         if "INSERT INTO core.audit_log" in sql:
             return Result()
+        if "set_config('app.tenant_id'" in sql:
+            return Result()
+        if "SELECT score_event_id FROM core.company" in sql:
+            return Result(scalar=self.score_event_ids.get(params["company_id"]))
         return super()._dispatch(sql, params, staged)
 
 
@@ -182,6 +192,7 @@ async def test_flag_on_emits_every_producer_and_no_consumer_dead_letters(
         seen.append(fields["event_type"])
         async with pulse.begin() as connection:
             await process_event(connection, fields)  # type: ignore[arg-type]
+
         class Conn:
             async def execute(self, statement: Any, params: Any = None) -> Any:
                 return type("R", (), {"scalar_one_or_none": lambda self: uuid4()})()
@@ -283,3 +294,58 @@ async def test_full_chain_closes_with_real_event_ids(
             assert "parent_event_id" in event["payload"]
     trace = trace_chain(events)
     assert trace.complete is True and trace.gap is None, trace
+
+
+# --- T-198: real parent ids -------------------------------------------------------------------
+
+
+async def test_lead_create_uses_the_stored_scored_event_id_as_parent(
+    monkeypatch: pytest.MonkeyPatch, fake_redis: Any
+) -> None:
+    set_flag(monkeypatch, True)
+    flow = Flow(fake_redis)
+    stored = uuid4()
+    flow.engine.score_event_ids[flow.company] = stored
+    body = LeadCreate(company_id=flow.company, service_line="web")
+    await create_lead(flow.repo.lead_unit_of_work(), body, tenant_id=TENANT, idempotency_key="k9")
+    matched = next(r for r in flow.engine.outbox if r["event_type"] == "company.matched")
+    assert matched["payload"]["parent"]["event_id"] == str(stored)
+    assert matched["payload"]["parent"]["event_type"] == "signal.scored"
+
+
+async def test_lead_create_without_a_stored_id_still_succeeds_with_a_reference_parent(
+    monkeypatch: pytest.MonkeyPatch, fake_redis: Any
+) -> None:
+    set_flag(monkeypatch, True)
+    flow = Flow(fake_redis)
+    body = LeadCreate(company_id=flow.company, service_line="web")
+    view, created = await create_lead(
+        flow.repo.lead_unit_of_work(), body, tenant_id=TENANT, idempotency_key="k8"
+    )
+    assert created and view["stage"]
+    matched = next(r for r in flow.engine.outbox if r["event_type"] == "company.matched")
+    assert matched["payload"]["parent"]["event_type"] == "signal.scored"
+
+
+async def test_score_stream_entry_carries_the_signal_scored_event_id(
+    monkeypatch: pytest.MonkeyPatch, fake_redis: Any
+) -> None:
+    set_flag(monkeypatch, True)
+    flow = Flow(fake_redis)
+    await flow.run()
+    entries = await stream_entries(fake_redis)
+    scored = next(e for e in entries if e["event_type"] == "signal.scored")
+    updated = next(e for e in entries if e["event_type"] == "lead.score_updated")
+    assert updated["scored_event_id"] == scored["event_id"]
+
+
+async def test_score_stream_entry_has_no_scored_id_with_the_flag_off(
+    monkeypatch: pytest.MonkeyPatch, fake_redis: Any
+) -> None:
+    set_flag(monkeypatch, False)
+    flow = Flow(fake_redis)
+    await flow.run()
+    updated = next(
+        e for e in await stream_entries(fake_redis) if e["event_type"] == "lead.score_updated"
+    )
+    assert "scored_event_id" not in updated

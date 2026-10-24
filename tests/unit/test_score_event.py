@@ -95,3 +95,11 @@ async def test_malformed_entry_is_dead_lettered_and_acked(
     assert dead[0][1]["error"]
     assert dead[0][1]["source_message_id"]
     assert len(db.fact_signals) == 1
+
+
+def test_score_event_carries_the_scored_event_id_only_when_given() -> None:
+    kw = {"company_id": COMPANY, "tenant_id": TENANT, "score": 80, "is_hot": True}
+    with_id = score_event_fields(**kw, source_version="2", scored_event_id="abc")
+    assert with_id["scored_event_id"] == "abc"
+    assert "scored_event_id" not in json.loads(with_id["payload"])
+    assert "scored_event_id" not in score_event_fields(**kw, source_version="2")
