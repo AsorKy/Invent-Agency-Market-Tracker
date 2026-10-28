@@ -214,5 +214,7 @@ def test_gate_event_mapping_feeds_the_lead_stage_patch() -> None:
 
     seen: list[dict] = []
     run({}, on_gate_event=seen.append)
-    patch = LeadStatusPatch(stage="qualified", expected_version=1, gate_event_id=seen[0]["event_id"])
+    patch = LeadStatusPatch(
+        stage="qualified", expected_version=1, gate_event_id=seen[0]["event_id"]
+    )
     assert str(patch.gate_event_id) == seen[0]["event_id"]
