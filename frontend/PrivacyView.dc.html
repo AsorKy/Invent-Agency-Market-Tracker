@@ -13,24 +13,15 @@
   <main style="flex:1;display:flex;align-items:center;justify-content:center;padding:48px 24px"><div style="width:100%;max-width:560px;background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:40px;display:flex;flex-direction:column;gap:20px">
     <div style="font-size:11px;font-weight:500;letter-spacing:.16em;color:#666666">PRIVACIDAD · HABEAS DATA</div>
     <h1 style="margin:0;font-size:28px;line-height:32px;font-weight:500;letter-spacing:-.03em">Pide que tu empresa salga de nuestra base</h1>
-    <p style="margin:0;font-size:16px;line-height:24px;color:#3D3D3D">Solo guardamos datos públicos de empresas. Si quieres que eliminemos los de la tuya, cuéntanos cuál es.</p>
-    <sc-if value="{{ sent }}" hint-placeholder-val="{{ false }}"><div role="status" style="padding:16px;border-radius:12px;background:#ECFAF3;border:1px solid #A9E9C9;color:#067647;font-size:14px;font-weight:500">Recibimos tu solicitud. La revisamos y te respondemos al correo indicado.</div></sc-if>
-    <sc-if value="{{ form }}" hint-placeholder-val="{{ true }}"><label style="display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:500;color:#3D3D3D">NIT de la empresa<input value="{{ nit }}" onInput="{{ setNit }}" placeholder="900.000.001-1" style="height:44px;box-sizing:border-box;padding:0 12px;border:1px solid {{ e1 }};border-radius:8px;background:#FAFAFA;font-family:ui-monospace,Menlo,monospace;font-size:13px;color:#0A0A0A"></label>
-    <label style="display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:500;color:#3D3D3D">Correo para responderte<input value="{{ mail }}" onInput="{{ setMail }}" style="height:44px;box-sizing:border-box;padding:0 12px;border:1px solid {{ e2 }};border-radius:8px;background:#FAFAFA;font-family:inherit;font-size:14px;color:#0A0A0A"></label>
-    <sc-if value="{{ err }}" hint-placeholder-val="{{ false }}"><div role="alert" style="font-size:13px;color:#B42318">Completa un NIT válido y un correo.</div></sc-if>
-    <button onClick="{{ send }}" style="height:44px;border:1px solid #0A0A0A;border-radius:999px;background:#0A0A0A;color:#FAFAFA;font-family:inherit;font-size:13px;font-weight:500;letter-spacing:.02em;cursor:pointer;white-space:nowrap">Enviar solicitud</button></sc-if>
+    <p style="margin:0;font-size:16px;line-height:24px;color:#3D3D3D">Solo guardamos datos públicos de empresas. Si quieres que eliminemos los de la tuya, escríbenos al canal legal de Invent con el NIT de la empresa y un correo para responderte.</p>
+    <div role="note" style="display:flex;gap:12px;padding:12px 16px;border-radius:12px;background:#E5F8FD;border:1px solid #9BE3F7;color:#006A99;font-size:14px;line-height:20px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none;margin-top:1px"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 16v-4M12 8h.01"></path></svg><span>Este formulario todavía no recibe solicitudes en línea: la API solo expone la exclusión a un administrador, que la aplica desde Configuración.</span></div>
   </div></main>
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1136,&quot;height&quot;:700}}">
 class Component extends DCLogic {
-  state = { nit: '', mail: '', err: false, sent: false };
   renderVals() {
-    const st = this.state, set = o => this.setState(o);
-    const nitOk = /^\d{3}\.\d{3}\.\d{3}-\d$/.test(st.nit), mailOk = /\S+@\S+\.\S+/.test(st.mail);
-    return { nit: st.nit, mail: st.mail, setNit: e => set({ nit: e.target.value, err: false }), setMail: e => set({ mail: e.target.value, err: false }), err: st.err, sent: st.sent, form: !st.sent,
-      e1: st.err && !nitOk ? '#D92D20' : '#767676', e2: st.err && !mailOk ? '#D92D20' : '#767676', back: () => this.props.onBack && this.props.onBack(),
-      send: () => { if (nitOk && mailOk) set({ sent: true }); else set({ err: true }); } };
+    return { back: () => this.props.onBack && this.props.onBack() };
   }
 }
 </script>

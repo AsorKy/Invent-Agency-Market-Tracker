@@ -16,9 +16,14 @@ class Component extends DCLogic {
       match: ['Match', '#ECFAF3', '#067647', '#A9E9C9', 'M20 6 9 17l-5-5'],
       borderline: ['Borderline', '#FFF8EB', '#A1460A', '#FCDDA0', 'm21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3M12 9v4M12 17h.01'],
       cuarentena: ['Cuarentena', '#FEF3F2', '#B42318', '#FECDCA', 'M7.86 2h8.28L22 7.86v8.28L16.14 22H7.86L2 16.14V7.86zM12 8v4M12 16h.01'],
-      pendiente: ['Pendiente', '#F5F5F5', '#525252', 'rgba(10,10,10,.14)', 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 6v6l4 2']
+      pendiente: ['RUES pendiente', '#F5F5F5', '#525252', 'rgba(10,10,10,.14)', 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 6v6l4 2'],
+      unknown: ['RUES sin dato', '#F5F5F5', '#666666', 'rgba(10,10,10,.14)', 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01'],
+      sinmatch: ['Sin match RUES', '#FFF8EB', '#A1460A', '#FCDDA0', 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM15 9l-6 6M9 9l6 6']
     };
-    const m = M[(this.props.state || 'pendiente').toLowerCase()] || M.pendiente;
+    // API values (core rues_status) map onto the design keys.
+    const API = { matched: 'match', pending: 'pendiente', unmatched: 'sinmatch', quarantined: 'cuarentena' };
+    const k = String(this.props.state || 'pendiente').toLowerCase();
+    const m = M[API[k] || k] || M.pendiente;
     return { label: m[0], bg: m[1], fg: m[2], bd: m[3], icon: m[4] };
   }
 }

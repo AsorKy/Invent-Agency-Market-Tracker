@@ -3,16 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./api.js"></script>
 <script src="./support.js"></script>
 </head>
 <body>
 <x-dc>
-<section data-testid="lead-panel" style="background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;overflow:hidden;color:#0A0A0A;font-family:Inter,sans-serif;font-variant-numeric:tabular-nums">
+<section data-testid="lead-panel" aria-label="Resumen del lead" style="background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;overflow:hidden;color:#0A0A0A;font-family:Inter,sans-serif;font-variant-numeric:tabular-nums">
   <div style="background:#0A0A0A;padding:24px;color:#FAFAFA">
-    <div style="font-size:11px;line-height:16px;font-weight:500;letter-spacing:.16em;color:#00D4FF">LEAD · hace 3 min</div>
+    <div style="font-size:11px;line-height:16px;font-weight:500;letter-spacing:.16em;color:#00D4FF">BRIEF · {{ when }}</div>
     <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-top:12px">
-      <h2 style="margin:0;font-size:20px;line-height:28px;font-weight:500;letter-spacing:-.02em">{{ headline }}</h2>
-      <div data-testid="lead-score" style="font-size:48px;line-height:48px;font-weight:300;letter-spacing:-.04em;color:#FAFAFA">{{ score }}</div>
+      <h2 style="margin:0;font-size:18px;line-height:26px;font-weight:500;letter-spacing:-.02em;overflow-wrap:anywhere">{{ headline }}</h2>
+      <div data-testid="lead-score" title="{{ scoreTip }}" style="font-size:48px;line-height:48px;font-weight:300;letter-spacing:-.04em;color:#FAFAFA">{{ score }}</div>
     </div>
     <div style="display:flex;gap:24px;margin-top:20px;padding-top:16px;border-top:1px solid rgba(250,250,250,.14)">
       <sc-for list="{{ counters }}" as="c" hint-placeholder-count="3">
@@ -20,15 +21,18 @@
       </sc-for>
     </div>
   </div>
-  <sc-if value="{{ stale }}" hint-placeholder-val="{{ false }}"><div data-testid="brief-stale" style="display:flex;gap:8px;align-items:center;padding:12px 24px;background:#E5F8FD;border-bottom:1px solid #9BE3F7;color:#006A99;font-size:13px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8M21 3v5h-5"></path></svg>Este resumen se está actualizando</div></sc-if>
-  <sc-if value="{{ degraded }}" hint-placeholder-val="{{ false }}"><div data-testid="brief-degraded" style="display:flex;gap:8px;align-items:center;padding:12px 24px;background:#FFF8EB;border-bottom:1px solid #FCDDA0;color:#A1460A;font-size:13px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3M12 9v4M12 17h.01"></path></svg>Generado con reglas de respaldo</div></sc-if>
-  <sc-if value="{{ retry }}" hint-placeholder-val="{{ false }}"><div data-testid="lead-enrich-pending" style="display:flex;gap:8px;align-items:center;padding:12px 24px;background:#F5F5F5;border-bottom:1px solid rgba(10,10,10,.14);color:#3D3D3D;font-size:13px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 6v6l4 2"></path></svg>Reintentando enriquecimiento</div></sc-if>
+  <sc-if value="{{ stale }}" hint-placeholder-val="{{ false }}"><div data-testid="brief-stale" role="status" style="display:flex;gap:8px;align-items:center;padding:12px 24px;background:#E5F8FD;border-bottom:1px solid #9BE3F7;color:#006A99;font-size:13px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8M21 3v5h-5"></path></svg>Este resumen se está actualizando</div></sc-if>
+  <sc-if value="{{ degraded }}" hint-placeholder-val="{{ false }}"><div data-testid="brief-degraded" role="status" style="display:flex;gap:8px;align-items:center;padding:12px 24px;background:#FFF8EB;border-bottom:1px solid #FCDDA0;color:#A1460A;font-size:13px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3M12 9v4M12 17h.01"></path></svg>Generado con reglas de respaldo</div></sc-if>
   <div style="padding:24px;display:flex;flex-direction:column;gap:24px">
+    <sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}"><div role="status" style="font-size:14px;color:#666666">Cargando el resumen…</div></sc-if>
+    <sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;gap:6px;padding:16px;border:1px dashed rgba(10,10,10,.26);border-radius:12px"><div style="font-size:14px;font-weight:500">Sin resumen todavía</div><div style="font-size:13px;line-height:20px;color:#666666">{{ emptyMsg }}</div></div></sc-if>
+    <sc-if value="{{ failed }}" hint-placeholder-val="{{ false }}"><div role="alert" style="display:flex;flex-direction:column;gap:8px;padding:12px 16px;border-radius:12px;background:#FEF3F2;border:1px solid #FECDCA;color:#B42318;font-size:14px"><span style="font-weight:500">{{ errMsg }}</span><span style="font-family:ui-monospace,Menlo,monospace;font-size:12px">{{ errCode }}</span><button onClick="{{ retry }}" style="align-self:flex-start;height:28px;padding:0 12px;border:1px solid currentColor;border-radius:999px;background:transparent;color:inherit;font-family:inherit;font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap">Reintentar</button></div></sc-if>
+    <sc-if value="{{ hasBrief }}" hint-placeholder-val="{{ false }}">
     <div data-testid="lead-alerts">
       <div style="font-size:11px;line-height:16px;font-weight:500;letter-spacing:.16em;color:#666666;margin-bottom:12px">ATENCIÓN</div>
       <sc-if value="{{ clean }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:8px;padding:12px 16px;border:1px dashed rgba(10,10,10,.26);border-radius:12px;font-size:14px;color:#3D3D3D"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#067647" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Nada requiere atención</div></sc-if>
       <div style="display:flex;flex-direction:column;gap:8px">
-        <sc-for list="{{ alerts }}" as="a" hint-placeholder-count="3">
+        <sc-for list="{{ alerts }}" as="a" hint-placeholder-count="2">
           <div style="display:flex;gap:12px;padding:12px 16px;border-radius:12px;background:{{ a.bg }};border:1px solid {{ a.bd }}">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="{{ a.fg }}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none;margin-top:1px"><path d="{{ a.icon }}"></path></svg>
             <div style="min-width:0"><div style="font-size:14px;line-height:20px;font-weight:500;color:{{ a.fg }}">{{ a.t }}</div><div style="font-family:ui-monospace,Menlo,monospace;font-size:12px;line-height:16px;color:{{ a.fg }};margin-top:2px">{{ a.code }}</div></div>
@@ -38,60 +42,64 @@
     </div>
     <div data-testid="lead-next-steps">
       <div style="font-size:11px;line-height:16px;font-weight:500;letter-spacing:.16em;color:#666666;margin-bottom:12px">SIGUIENTES PASOS</div>
-      <div style="display:flex;flex-direction:column;gap:8px">
+      <ol style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px">
         <sc-for list="{{ steps }}" as="s" hint-placeholder-count="2">
-          <a href="#" style="display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px;padding:0 16px;border:1px solid rgba(10,10,10,.14);border-radius:12px;background:#FAFAFA;color:#0A0A0A;font-size:14px;font-weight:500;text-decoration:none" style-hover="border-color:rgba(10,10,10,.26);background:#F5F5F5"><span style="display:flex;align-items:center;gap:12px"><span style="font-family:ui-monospace,Menlo,monospace;font-size:12px;color:#666666">{{ s.n }}</span>{{ s.t }}</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#006A99" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"></path></svg></a>
+          <li style="display:flex;align-items:center;gap:12px;min-height:44px;padding:8px 16px;box-sizing:border-box;border:1px solid rgba(10,10,10,.14);border-radius:12px;background:#FAFAFA;color:#0A0A0A;font-size:14px;font-weight:500"><span style="font-family:ui-monospace,Menlo,monospace;font-size:12px;color:#666666">{{ s.n }}</span>{{ s.t }}</li>
         </sc-for>
-      </div>
+      </ol>
     </div>
-    <div data-testid="lead-drivers">
+    <sc-if value="{{ hasDrivers }}" hint-placeholder-val="{{ false }}"><div data-testid="lead-drivers">
       <div style="font-size:11px;line-height:16px;font-weight:500;letter-spacing:.16em;color:#666666;margin-bottom:12px">POR QUÉ ESTE SCORE</div>
       <div style="display:flex;flex-direction:column;gap:12px">
         <sc-for list="{{ drivers }}" as="d" hint-placeholder-count="3">
-          <div style="display:grid;grid-template-columns:minmax(0,1fr) 120px 40px;align-items:center;gap:12px;font-size:14px"><span>{{ d.t }}</span><span style="position:relative;height:8px;background:#F5F5F5;border-radius:4px;display:block"><span style="position:absolute;left:0;top:0;bottom:0;width:{{ d.w }};background:{{ d.c }};border-radius:4px"></span></span><span style="text-align:right;font-weight:500;color:{{ d.tc }}">{{ d.v }}</span></div>
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) 120px 56px;align-items:center;gap:12px;font-size:14px"><span style="overflow-wrap:anywhere">{{ d.t }}</span><span style="position:relative;height:8px;background:#F5F5F5;border-radius:4px;display:block"><span style="position:absolute;left:0;top:0;bottom:0;width:{{ d.w }};background:{{ d.c }};border-radius:4px"></span></span><span style="text-align:right;font-weight:500;color:{{ d.tc }}">{{ d.v }}</span></div>
         </sc-for>
       </div>
-    </div>
-    <div data-testid="lead-icp-match">
-      <div style="font-size:11px;line-height:16px;font-weight:500;letter-spacing:.16em;color:#666666;margin-bottom:12px"><span title="Perfil de cliente ideal">COINCIDENCIA ICP</span></div>
-      <div style="font-size:14px;line-height:20px;color:#3D3D3D">HORECA Medellín · PyME 20-50 sin app · distancia 0,18 al perfil ideal</div>
-    </div>
+    </div></sc-if>
+    </sc-if>
     <div data-testid="lead-rues-status">
       <div style="font-size:11px;line-height:16px;font-weight:500;letter-spacing:.16em;color:#666666;margin-bottom:12px">COBERTURA</div>
-      <div style="display:flex;align-items:center;gap:12px"><dc-import name="RuesStatus" state="match" hint-size="100px,24px"></dc-import><span style="font-size:13px;color:#666666">Registro RUES verificado</span></div>
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><dc-import name="RuesStatus" state="{{ rues }}" hint-size="110px,24px"></dc-import><sc-for list="{{ coverage }}" as="c" hint-placeholder-count="3"><span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:{{ c.fg }}"><span aria-hidden="true">{{ c.mark }}</span>{{ c.l }}</span></sc-for></div>
     </div>
     <details style="border-top:1px solid rgba(10,10,10,.14);padding-top:16px">
       <summary style="cursor:pointer;font-size:13px;color:#3D3D3D;min-height:24px">Detalle técnico</summary>
-      <div style="margin-top:8px;font-family:ui-monospace,Menlo,monospace;font-size:12px;line-height:18px;color:#666666">rules_v4 · brief_id=br_0087 · icp_dist=0.18<br>enrich=ok · rues=match · gen=2026-10-18T09:02</div><button onClick="{{ toModels }}" style="margin-top:8px;border:0;background:transparent;padding:0;font-family:inherit;font-size:12px;color:#006A99;text-decoration:underline;cursor:pointer">Ver reporte de modelos ↗</button>
+      <dl style="margin:8px 0 0;display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 12px;font-family:ui-monospace,Menlo,monospace;font-size:12px;line-height:18px;color:#666666"><sc-for list="{{ tech }}" as="t" hint-placeholder-count="4"><dt>{{ t.k }}</dt><dd style="margin:0;overflow-wrap:anywhere">{{ t.v }}</dd></sc-for></dl>
+      <button onClick="{{ toModels }}" style="margin-top:8px;border:0;background:transparent;padding:0;font-family:inherit;font-size:12px;color:#006A99;text-decoration:underline;cursor:pointer">Ver reporte de modelos ↗</button>
     </details>
   </div>
 </section>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:480,&quot;height&quot;:900},&quot;variant&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;default&quot;,&quot;clean&quot;,&quot;stale&quot;,&quot;degraded&quot;,&quot;retry&quot;],&quot;default&quot;:&quot;default&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:480,&quot;height&quot;:700}}">
 class Component extends DCLogic {
+  // Renders GET /api/v1/leads/{id}/brief (services/brief). The parent fetches it and passes
+  // brief, briefError and briefLoading; nothing here is invented when the brief is missing.
   renderVals() {
-    const v = this.props.variant || 'default';
-    const clean = v === 'clean';
+    const p = this.props, A = window.InventApi, fmt = A.fmt, b = p.brief || null, c = b && b.content ? b.content : null, err = p.briefError || null;
     const OCT = 'M7.86 2h8.28L22 7.86v8.28L16.14 22H7.86L2 16.14V7.86zM12 8v4M12 16h.01';
     const TRI = 'm21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3M12 9v4M12 17h.01';
     const INF = 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 16v-4M12 8h.01';
-    const alerts = clean ? [] : [
-      { t: 'NIT en cuarentena', code: 'RUES_QUARANTINE', icon: OCT, fg: '#B42318', bg: '#FEF3F2', bd: '#FECDCA' },
-      { t: 'Vacante abierta hace 62 días', code: 'JOB_OPEN_62D', icon: TRI, fg: '#A1460A', bg: '#FFF8EB', bd: '#FCDDA0' },
-      { t: 'Tarea vencida', code: 'TASK_OVERDUE', icon: INF, fg: '#006A99', bg: '#E5F8FD', bd: '#9BE3F7' }
-    ];
-    const sc = this.props.score || 87, ln = this.props.line || 'SaaS', ct = this.props.city || 'Medellín';
+    const SEV = { critical: [OCT, '#B42318', '#FEF3F2', '#FECDCA'], warning: [TRI, '#A1460A', '#FFF8EB', '#FCDDA0'], info: [INF, '#006A99', '#E5F8FD', '#9BE3F7'] };
+    const alerts = (c && Array.isArray(c.alerts) ? c.alerts : []).map(a => { const s = SEV[a.severity] || SEV.info; return { t: a.message || a.code, code: a.code || '', icon: s[0], fg: s[1], bg: s[2], bd: s[3] }; });
+    const steps = (c && Array.isArray(c.next_steps) ? c.next_steps : []).map((t, i) => ({ n: String(i + 1).padStart(2, '0'), t }));
+    const rawDrivers = (b && Array.isArray(b.drivers) && b.drivers) || (c && Array.isArray(c.drivers) && c.drivers) || [];
+    const num = d => { const v = d.contribution != null ? d.contribution : d.value != null ? d.value : d.weight; return typeof v === 'number' ? v : Number(v); };
+    const dmax = Math.max(1e-9, ...rawDrivers.map(d => Math.abs(num(d)) || 0));
+    const drivers = rawDrivers.map(d => { const v = num(d), pos = !(v < 0); return { t: d.label || d.feature || d.name || 'Variable', v: isNaN(v) ? fmt.cell(d.value) : (pos ? '+' : '') + fmt.number(v, 2), w: isNaN(v) ? '0%' : Math.round(Math.abs(v) / dmax * 100) + '%', c: pos ? '#1F9A6E' : '#D92D20', tc: pos ? '#067647' : '#B42318' }; });
+    const cov = c && c.coverage ? c.coverage : {};
+    const COV = { company: 'Empresa', rues: 'RUES', activity: 'Actividad' };
+    const coverage = Object.keys(cov).map(k => ({ l: COV[k] || k, mark: cov[k] ? '✓' : '·', fg: cov[k] ? '#067647' : '#666666' }));
+    const score = p.score == null || p.score === '' ? '—' : p.score;
+    const missing = err && (err.kind === 'not_found');
     return {
-      toModels: () => this.props.onModels && this.props.onModels(), headline: 'Score ' + sc + ' · ' + ln + ' · ' + ct, score: sc,
-      clean, alerts,
-      stale: v === 'stale', degraded: v === 'degraded', retry: v === 'retry',
-      counters: [{ n: '12', l: 'Señales' }, { n: '3', l: 'Tareas' }, { n: '5', l: 'Actividades' }],
-      steps: [{ n: '01', t: 'Enviar propuesta de AaaS' }, { n: '02', t: 'Agendar llamada con el nuevo CTO' }],
-      drivers: [
-        { t: 'Vacante tecnológica abierta', v: '+15', w: '75%', c: '#1F9A6E', tc: '#067647' },
-        { t: 'Coincide con ICP HORECA', v: '+10', w: '50%', c: '#0077AA', tc: '#006A99' },
-        { t: 'Sin actividad en 14 días', v: '−4', w: '20%', c: '#D92D20', tc: '#B42318' }
-      ]
+      when: b ? fmt.ago(b.generated_at) : p.briefLoading ? 'cargando' : 'sin generar', headline: c ? c.headline : [p.line, p.city].filter(Boolean).join(' · ') || 'Lead', score, scoreTip: score === '—' ? 'Sin score todavía' : 'Score del lead (core)',
+      counters: [{ n: c ? alerts.length : '—', l: 'Alertas' }, { n: c ? steps.length : '—', l: 'Pasos' }, { n: c && Array.isArray(c.activity) ? c.activity.length : '—', l: 'Actividades' }],
+      stale: !!(b && b.stale), degraded: !!(b && b.degraded), loading: !!p.briefLoading && !b,
+      hasBrief: !!c, clean: !!c && alerts.length === 0, alerts, steps, drivers, hasDrivers: drivers.length > 0,
+      empty: !b && !p.briefLoading && (!err || missing), emptyMsg: missing ? 'brief aún no tiene datos de la empresa de este lead.' : 'El brief se genera cuando core tiene datos de la empresa.',
+      failed: !!err && !missing && !p.briefLoading, errMsg: err ? err.message : '', errCode: err ? String(err.status || '') + ' ' + (err.code || err.kind || '') : '', retry: () => p.onRetry && p.onRetry(),
+      rues: p.rues || 'unknown', coverage,
+      tech: b ? [{ k: 'summarizer', v: b.summarizer_version }, { k: 'source_version', v: b.source_version }, { k: 'generated_at', v: fmt.date(b.generated_at) }, { k: 'company_id', v: b.company_id }, { k: 'priority', v: c && c.priority != null ? c.priority : '—' }] : [{ k: 'brief', v: 'sin datos' }],
+      toModels: () => p.onModels && p.onModels()
     };
   }
 }

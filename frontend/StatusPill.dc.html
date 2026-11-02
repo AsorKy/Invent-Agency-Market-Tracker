@@ -25,7 +25,10 @@ class Component extends DCLogic {
       ganado: ['Ganado', '#1F9A6E', '#FFFFFF', '#1F9A6E', ''],
       perdido: ['Perdido', '#F5F5F5', '#525252', H, BAN]
     };
-    const m = M[(this.props.status || 'descubierto').toLowerCase()] || M.descubierto;
+    // API stages (core.lead.stage) map onto the design keys; 'new' is the legacy Hot.
+    const API = { discovered: 'descubierto', qualified: 'calificado', new: 'hot', contacted: 'contactado', meeting: 'reunion', proposal: 'propuesta', won: 'ganado', lost: 'perdido' };
+    const k = String(this.props.status || 'descubierto').toLowerCase();
+    const m = M[API[k] || k] || M.descubierto;
     return { label: m[0], bg: m[1], fg: m[2], bd: m[3], icon: m[4], hasIcon: !!m[4] };
   }
 }

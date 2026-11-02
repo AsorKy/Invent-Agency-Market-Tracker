@@ -3,45 +3,24 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./api.js"></script>
 <script src="./support.js"></script>
 </head>
 <body>
 <x-dc>
 <div style="display:flex;flex-direction:column;gap:24px;font-family:Inter,sans-serif;color:#0A0A0A;font-variant-numeric:tabular-nums">
   <div><h1 style="margin:0;font-size:28px;line-height:32px;font-weight:500;letter-spacing:-.03em">Investigación dirigida</h1><div style="font-size:14px;color:#3D3D3D;margin-top:4px">Un formulario con costo y aprobación, no un chat. Los resultados pasan por RUES antes de ser leads.</div></div>
-  <div style="display:flex;flex-wrap:wrap;gap:24px;align-items:start">
-    <section data-testid="research-form" style="flex:5 1 320px;min-width:0;background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:16px"><div style="font-size:15px;line-height:22px;font-weight:500;color:#0A0A0A">Nueva búsqueda</div>
-      <label style="display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:500;color:#3D3D3D">Qué buscar<textarea value="{{ q }}" onInput="{{ setQ }}" rows="4" placeholder="restaurantes nuevos en Chapinero con delivery propio pero sin app" style="box-sizing:border-box;padding:8px 12px;border:1px solid {{ qBd }};border-radius:8px;background:#FAFAFA;font-family:inherit;font-size:14px;color:#0A0A0A;resize:vertical"></textarea></label>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px"><label style="display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:500;color:#3D3D3D">Ciudad<select value="{{ city }}" onChange="{{ setCity }}" style="height:40px;border:1px solid #767676;border-radius:8px;background:#FAFAFA;font-family:inherit;font-size:14px;padding:0 8px"><option>Medellín</option><option>Bogotá</option><option>Cali</option></select></label><label style="display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:500;color:#3D3D3D">Línea<select value="{{ line }}" onChange="{{ setLine }}" style="height:40px;border:1px solid #767676;border-radius:8px;background:#FAFAFA;font-family:inherit;font-size:14px;padding:0 8px"><option>SaaS</option><option>AaaS</option><option>Catering + eventos</option></select></label></div>
-      <div style="padding:12px 16px;border:1px solid rgba(10,10,10,.14);border-radius:12px;background:#F5F5F5;font-size:13px"><div style="display:flex;justify-content:space-between"><span>Costo estimado</span><b style="font-weight:500">US$ {{ cost }}</b></div><div style="display:flex;justify-content:space-between;color:#666666;margin-top:4px"><span>Presupuesto diario restante</span><span>US$ 38</span></div><sc-if value="{{ needsApproval }}" hint-placeholder-val="{{ false }}"><div style="margin-top:8px;color:#A1460A;font-weight:500">Búsqueda costosa: requiere aprobación de un admin.</div></sc-if></div>
-      <button onClick="{{ launch }}" style="height:40px;border:1px solid #0A0A0A;border-radius:999px;background:#0A0A0A;color:#FAFAFA;font-family:inherit;font-size:13px;font-weight:500;letter-spacing:.02em;cursor:pointer;white-space:nowrap">{{ launchLabel }}</button></section>
-    <section style="flex:7 1 448px;min-width:0;display:flex;flex-direction:column;gap:24px">
-      <div style="background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:24px"><div style="font-size:15px;line-height:22px;font-weight:500;color:#0A0A0A;margin-bottom:12px">Búsquedas</div>
-        <sc-if value="{{ noJobs }}" hint-placeholder-val="{{ false }}"><div style="font-size:14px;color:#666666">Aún no hay búsquedas.</div></sc-if>
-        <sc-for list="{{ jobs }}" as="j" hint-placeholder-count="2"><div style="padding:12px 0;border-top:1px solid rgba(10,10,10,.14)"><div style="display:flex;justify-content:space-between;gap:12px;font-size:14px"><span style="font-weight:500;min-width:0">{{ j.q }}</span><span style="flex:none;font-size:12px;font-weight:500;color:{{ j.c }}">{{ j.st }}</span></div><div style="font-size:12px;color:#666666;margin-top:2px">{{ j.city }} · {{ j.line }} · US$ {{ j.cost }}</div>
-          <sc-if value="{{ j.pending }}" hint-placeholder-val="{{ false }}"><sc-if value="{{ canApprove }}" hint-placeholder-val="{{ false }}"><div style="display:flex;gap:8px;margin-top:8px"><button onClick="{{ j.ok }}" style="height:32px;padding:0 14px;border:1px solid #0A0A0A;border-radius:999px;background:#0A0A0A;color:#FAFAFA;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap">Aprobar</button><button onClick="{{ j.no }}" style="height:32px;padding:0 14px;border:1px solid rgba(10,10,10,.26);border-radius:999px;background:transparent;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap">Rechazar</button></div></sc-if></sc-if></div></sc-for></div>
-      <sc-if value="{{ hasResults }}" hint-placeholder-val="{{ false }}"><div style="background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:24px"><div style="font-size:15px;line-height:22px;font-weight:500;color:#0A0A0A;margin-bottom:12px">Candidatas</div><sc-for list="{{ results }}" as="r" hint-placeholder-count="3"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0;border-top:1px solid rgba(10,10,10,.14)"><div><div style="font-size:14px;font-weight:500">{{ r.n }}</div><div style="font-family:ui-monospace,Menlo,monospace;font-size:12px;color:#666666">{{ r.nit }}</div></div><button onClick="{{ r.send }}" disabled="{{ r.sent }}" style="height:32px;padding:0 14px;border:1px solid {{ r.bd }};border-radius:999px;background:{{ r.bg }};color:{{ r.fg }};font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap">{{ r.label }}</button></div></sc-for></div></sc-if>
-      <div style="background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:24px"><div style="font-size:15px;line-height:22px;font-weight:500;color:#0A0A0A;margin-bottom:12px">Monitoreo semanal de competidores</div><sc-for list="{{ comp }}" as="c" hint-placeholder-count="3"><div style="display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid rgba(10,10,10,.14);font-size:13px"><span style="font-weight:500">{{ c.n }}</span><span style="color:#3D3D3D">{{ c.c }}</span></div></sc-for></div>
-    </section>
-  </div>
+  <section style="background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:56px 32px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px">
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#666666" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4.3-4.3"></path></svg>
+    <div style="font-size:18px;font-weight:500">Sin datos todavía</div>
+    <div style="font-size:14px;line-height:20px;color:#666666;max-width:560px">La API aún no expone búsquedas dirigidas: el agente de enriquecimiento corre dentro de ingest. Mientras tanto, los resultados de Bright Data se ven en Datos{{ dataHint }}.</div>
+  </section>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1136,&quot;height&quot;:700},&quot;role&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;admin&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1136,&quot;height&quot;:500}}">
 class Component extends DCLogic {
-  state = { q: '', qErr: false, city: 'Medellín', line: 'SaaS', jobs: [], sent: {} };
   renderVals() {
-    const st = this.state, set = o => this.setState(o), p = this.props;
-    const cost = Math.round(4 + st.q.length / 6 + (st.city === 'Bogotá' ? 6 : 0));
-    const needs = cost > 15;
-    const cands = ['Empresa Demo 31', 'Empresa Demo 32', 'Empresa Demo 33'].map((n, i) => ({ n, nit: '901.000.0' + (31 + i) + '-' + (i + 4) }));
-    const done = st.jobs.find(j => j.st === 'Terminada');
-    const upd = (id, o) => set({ jobs: st.jobs.map(j => j.id === id ? { ...j, ...o } : j) });
-    return { q: st.q, setQ: e => set({ q: e.target.value, qErr: false }), qBd: st.qErr ? '#D92D20' : '#767676', city: st.city, setCity: e => set({ city: e.target.value }), line: st.line, setLine: e => set({ line: e.target.value }),
-      cost, needsApproval: needs, launchLabel: needs ? 'Pedir aprobación' : 'Lanzar búsqueda',
-      launch: () => { if (st.q.trim().length < 8) return set({ qErr: true }); set({ jobs: [{ id: Date.now(), q: st.q, city: st.city, line: st.line, cost, st: needs ? 'Pendiente de aprobación' : 'Terminada' }, ...st.jobs], q: '' }); },
-      jobs: st.jobs.map(j => ({ ...j, pending: j.st === 'Pendiente de aprobación', c: j.st === 'Terminada' ? '#067647' : j.st === 'Rechazada' ? '#B42318' : '#A1460A', ok: () => upd(j.id, { st: 'Terminada' }), no: () => upd(j.id, { st: 'Rechazada' }) })), noJobs: st.jobs.length === 0,
-      canApprove: p.role === 'admin', hasResults: !!done, results: cands.map(c => ({ ...c, sent: !!st.sent[c.nit], label: st.sent[c.nit] ? 'En la bandeja' : 'Enviar a la bandeja', bd: st.sent[c.nit] ? 'rgba(10,10,10,.14)' : '#0A0A0A', bg: st.sent[c.nit] ? '#F5F5F5' : '#0A0A0A', fg: st.sent[c.nit] ? '#666666' : '#FAFAFA', send: () => { p.onSend && p.onSend({ n: c.n, nit: c.nit, city: st.city, line: st.line }); set({ sent: { ...st.sent, [c.nit]: true } }); } })),
-      comp: [{ n: 'Competidor A', c: 'Nuevo servicio de automatización publicado' }, { n: 'Competidor B', c: 'Cambio de precios en su página' }, { n: 'Competidor C', c: 'Sin cambios esta semana' }] };
+    return { dataHint: ['admin', 'strategist', 'analyst'].includes(this.props.role) ? ' (snapshots crudos y candidatos de entidad)' : '' };
   }
 }
 </script>

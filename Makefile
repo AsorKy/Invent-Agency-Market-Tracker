@@ -50,7 +50,7 @@ frontend:
 
 # Offline checks of the frontend data layer and design components (Node built-in test runner).
 test-frontend:
-	node --test frontend/tests/*.test.js
+	node --test frontend/tests/api.test.js frontend/tests/components.test.js
 
 seed:
 	docker compose exec -T gateway python -m ops.seed load

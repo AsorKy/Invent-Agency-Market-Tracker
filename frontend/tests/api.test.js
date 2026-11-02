@@ -1,6 +1,6 @@
 /*
  * Offline tests of frontend/api.js with a fake fetch (no network, no browser).
- * Run with `node --test frontend/tests` (tests/unit/test_frontend.py runs it under pytest
+ * Run with `make test-frontend` (tests/unit/test_frontend.py runs it under pytest
  * when node is installed). Covers result shapes, error kinds, CSRF, cache, pagination,
  * session detection and CSV export.
  */
