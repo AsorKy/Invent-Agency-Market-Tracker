@@ -275,7 +275,7 @@ async def create_lead_route(
     try:
         repository: CoreRepository = request.app.state.repository
         body, created = await create_lead(
-            repository.lead_unit_of_work(),
+            repository.lead_unit_of_work(x_tenant_id),
             payload,
             tenant_id=x_tenant_id,
             idempotency_key=idempotency_key,
@@ -317,7 +317,7 @@ async def change_lead_status(
     try:
         repository: CoreRepository = request.app.state.repository
         body = await change_status(
-            repository.lead_unit_of_work(),
+            repository.lead_unit_of_work(x_tenant_id),
             lead_id,
             payload,
             tenant_id=x_tenant_id,
