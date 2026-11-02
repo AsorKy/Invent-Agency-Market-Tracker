@@ -4,6 +4,7 @@
 # headquarters is free text ("Medellin, Antioquia", "Global"), so city keeps only a target
 # city. The similar and affiliated arrays (companies: title, subtitle, Links) are carried
 # whole into the signal payload; employees and updates (people) are dropped before landing.
+# linkedin_company_id is the identity core shares with the job postings of the company.
 version: 2
 source: linkedin_companies
 unverified: false
@@ -15,6 +16,9 @@ fields:
     from: [name]
     transform: strip
     required: true
+  linkedin_company_id:
+    from: [company_id]
+    transform: strip
   city:
     from: [headquarters, city]
     transform: city

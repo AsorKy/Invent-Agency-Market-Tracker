@@ -472,6 +472,13 @@ class SnapshotFlow:
             json.dumps(_json_safe(fields), sort_keys=True, default=str).encode("utf-8")
         ).hexdigest()
         base = (normalized.source, normalized.external_id, content)
+        linkedin_id = fields.get("linkedin_company_id")
+        if isinstance(linkedin_id, str) and linkedin_id:
+            # A job posting and the profile of one LinkedIn company share one core company.
+            company_body["source_ids"] = {
+                **company_body.get("source_ids", {}),
+                "linkedin_company_id": linkedin_id,
+            }
         company = await self._call(
             self.core.upsert_company, company_body, self._idempotency_key("company", *base)
         )

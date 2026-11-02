@@ -11,11 +11,17 @@ This runbook is the operator procedure for `ops/bd_import.py`, the one-shot impo
 | 1 | `linkedin_jobs` | LinkedIn jobs discover by keyword, dataset `gd_lpfll7v5hcqtkxl6l`, 3 keywords x 50 per city | `brightdata-sdk` 2.5.2 | `persist_snapshot` |
 | 1 | `business_search_companies` | `POST /search/company`, ludicrous, 11-500 employees, 2 niches per city, 100 per search | REST | `persist_snapshot` under the routing id `bd_search_company` |
 | 2 | `linkedin_companies` | LinkedIn company profiles, dataset `gd_l1vikfnt1wgvvqz95w`, unique company URLs of the landed jobs (cap 300) | `brightdata-sdk` | `persist_snapshot` |
-| 3 | `business_search_people` | `POST /search/people` for the 150 best scored imported companies | REST | core `POST /internal/core/signals`, `signal_type` `decision_maker` |
+| 3 | `linkedin_companies`, then `business_search_people` | decision makers of the 150 best scored imported companies: first from the employee lists kept in phase 2, else `POST /search/people` | none, then REST | core `POST /internal/core/signals`, `signal_type` `decision_maker` |
 
 Phases 1 and 2 enter through `IngestRepository.persist_snapshot`, the poller's path, so the processor, resolution, core, ml, pulse, and brief run unchanged. The processor routes a snapshot to its mapping by dataset id (`dataset_sources` in `services/ingest/app/source_config.py`): the `SOURCE_<NAME>_DATASET_ID` of every enabled source, plus the fixed id `bd_search_company` for `business_search_companies`, which has no settings slot. Phase 3 knows the company id from core's lead list, so people never go through mapping or resolution. Only name, title, and the public profile (or the public profile id) of a person are kept; e-mail and phone are never copied (INV-12). Leads are read as the local caller `verify_live` (core accepts only the gateway and that caller on `/internal/core/leads`, and only outside production); signals are written as `ingest`.
 
 Phase 3 searches only companies that this importer landed (their folded names are read back from `ingest.raw_snapshot`), never the demo seed.
+
+Before landing, every record is prepared (`prepare_record`): the `employees` list of a company profile becomes `decision_makers` (only entries whose role matches CEO, Gerente General, Fundador, CTO, Director Comercial, Director de Mercadeo or their Spanish and English variants, with only name, title, and public profile URL); person lists are dropped; and every e-mail address in any text is replaced by `[email removed]`, so none reaches mapping, core, logs, or fixtures (INV-12). In phase 0 the employee entries carried no role (only `img`, `link`, and `title`, the name), so 0 of 14 entries qualified; the path is ready for profiles that carry one.
+
+A job posting and the profile of the same LinkedIn company become one core company: both mappings emit `linkedin_company_id`, ingest sends it as the `linkedin_company_id` source id, and core's `company_slug` uses it as the identity after the NIT (`services/core/app/companies.py`).
+
+An endpoint that answers 401 or 403 (Business Search on an account without early access) is skipped cleanly: its reservation is given back, the remaining calls of that source are not sent, and the report shows a note instead of a failure.
 
 ## 2. Budget
 
@@ -47,7 +53,7 @@ The estimate of a full run (`--phase all`, five cities) is $4.82: maps $2.40, jo
    - `SOURCE_LINKEDIN_JOBS_ENABLED=true` and `SOURCE_LINKEDIN_JOBS_DATASET_ID=gd_lpfll7v5hcqtkxl6l`
    - `SOURCE_LINKEDIN_COMPANIES_ENABLED=true` and `SOURCE_LINKEDIN_COMPANIES_DATASET_ID=gd_l1vikfnt1wgvvqz95w`
    `business_search_companies` needs no line: its routing id is fixed in code.
-3. Rebuild and recreate the processor so it runs the new mapping files, the `city` transform, and the routing: `docker compose up -d --build ingest-processor`. The images copy the code at build time, so a processor that was not rebuilt still uses the old mappings and drops Business Search snapshots ("no mapping source for dataset").
+3. Rebuild and recreate the processor and core so they run the new mapping files, the `city` transform, the routing, and the LinkedIn company identity: `docker compose up -d --build ingest-processor core`. The images copy the code at build time, so a processor that was not rebuilt still uses the old mappings and drops Business Search snapshots ("no mapping source for dataset").
 4. Plan without spending: `make bd-import PHASE=all ARGS=--dry-run`.
 
 ## 4. Commands

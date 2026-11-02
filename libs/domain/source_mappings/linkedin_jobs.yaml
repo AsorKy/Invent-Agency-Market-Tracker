@@ -2,7 +2,8 @@
 # filtered to Colombia) to canonical job posting fields.
 # Verified against tests/fixtures/brightdata/recorded/linkedin_jobs.json (D-13). The search
 # keyword comes back in discovery_input; the dataset returns no job_base_pay_range, and
-# base_salary was empty in every sample, so no salary field is mapped.
+# base_salary was empty in every sample, so no salary field is mapped. linkedin_company_id
+# is the identity that core shares with the company profile (one core company, D-13 run).
 version: 2
 source: linkedin_jobs
 unverified: false
@@ -18,7 +19,7 @@ fields:
     from: [company_name]
     transform: strip
     required: true
-  company_id:
+  linkedin_company_id:
     from: [company_id]
     transform: strip
   company_url:
