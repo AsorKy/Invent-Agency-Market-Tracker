@@ -334,7 +334,10 @@ async def test_processor_acks_only_successful_messages(monkeypatch: pytest.Monke
     assert repo.processed == [UUID(good)]
     assert repo.closed and _ProcCore.closed
     flow = repo.flow  # type: ignore[attr-defined]
-    assert flow.dataset_sources == {"ds-maps": "maps"}
+    assert flow.dataset_sources == {
+        "ds-maps": "maps",
+        "bd_search_company": "business_search_companies",
+    }
     assert repo.resolution_store is not None  # type: ignore[attr-defined]
 
 
