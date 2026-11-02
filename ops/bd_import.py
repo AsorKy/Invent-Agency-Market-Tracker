@@ -61,7 +61,13 @@ from libs.domain.cities import (  # noqa: E402
     normalize_city,
 )
 from services.ingest.app.connectors import BrightDataConnector, ConnectorError  # noqa: E402
-from services.ingest.app.mapping import MappingError, load_mapping, normalize_record  # noqa: E402
+from services.ingest.app.mapping import (  # noqa: E402
+    MAPPINGS_DIR,
+    MappingError,
+    SourceMapping,
+    load_mapping,
+    normalize_record,
+)
 from services.ingest.app.repository import IngestRepository  # noqa: E402
 from services.ingest.app.snapshot import payload_sha256  # noqa: E402
 from services.ingest.app.source_config import (  # noqa: E402
@@ -76,6 +82,7 @@ SDK_VERSION = "2.5.2"
 MAPS_DATASET_ID = "gd_m8ebnr0q2qlklc02fz"
 LINKEDIN_JOBS_DATASET_ID = "gd_lpfll7v5hcqtkxl6l"
 LINKEDIN_COMPANIES_DATASET_ID = "gd_l1vikfnt1wgvvqz95w"
+LINKEDIN_PROFILES_DATASET_ID = "gd_l1viktl72bvl7bjuj0"
 # Business Search has no dataset: a fixed id routes its landed snapshots (source_config).
 BUSINESS_SEARCH_COMPANIES_ID = BUSINESS_SEARCH_COMPANIES_DATASET_ID
 LANDED_DATASETS = {
@@ -84,7 +91,7 @@ LANDED_DATASETS = {
     "linkedin_companies": LINKEDIN_COMPANIES_DATASET_ID,
     "business_search_companies": BUSINESS_SEARCH_COMPANIES_ID,
 }
-SOURCES = (*LANDED_DATASETS, "business_search_people")
+SOURCES = (*LANDED_DATASETS, "linkedin_profiles", "business_search_people")
 PHASE_SOURCES = {
     1: ("maps", "linkedin_jobs", "business_search_companies"),
     2: ("linkedin_companies",),
@@ -166,7 +173,9 @@ JOBS_LIMIT = 50
 COMPANY_SEARCH_LIMIT = 100
 COMPANY_URL_CAP = 300
 COMPANY_URL_BATCH = 50
-TOP_COMPANIES = 150
+TOP_COMPANIES = 50
+EMPLOYEES_PER_COMPANY = 5
+PROFILE_BATCH = 50
 PEOPLE_LIMIT = 10
 PROBE_LIMIT = 3
 MID_SIZE = (11, 500)
@@ -193,14 +202,19 @@ _PAYG = (
     "Web Scraper API pay-as-you-go is $1.50/1K records (brightdata.com/pricing/web-scraper-api); "
     "no per-scraper rate is published, so $2.00/1K (the SDK 2.5.2 LinkedIn constant) is used"
 )
+_LINKEDIN = (
+    "LinkedIn Scraper API pay-as-you-go is $1.50/1K records, one price for profiles, companies, "
+    "and jobs (brightdata.com/products/web-scraper/linkedin); $2.00/1K is used to stay conservative"
+)
 _SEARCH = (
     "$2 per 1,000 searches, a search is a block of up to 100 requested results "
     "(docs.brightdata.com/products/business-search/pricing)"
 )
 PRICES = {
     "maps": Price(0.002, 1, False, _PAYG),
-    "linkedin_jobs": Price(0.002, 1, False, _PAYG),
-    "linkedin_companies": Price(0.002, 1, False, _PAYG),
+    "linkedin_jobs": Price(0.002, 1, False, _LINKEDIN),
+    "linkedin_companies": Price(0.002, 1, False, _LINKEDIN),
+    "linkedin_profiles": Price(0.002, 1, False, _LINKEDIN),
     "business_search_companies": Price(0.002, 100, True, _SEARCH),
     "business_search_people": Price(0.002, 100, True, _SEARCH),
 }
@@ -210,6 +224,7 @@ SOURCE_CAPS_USD = {
     "maps": 5.0,
     "linkedin_jobs": 4.0,
     "linkedin_companies": 2.0,
+    "linkedin_profiles": 3.0,
     "business_search_companies": 1.0,
     "business_search_people": 1.0,
 }
@@ -244,7 +259,7 @@ FIXTURE_PERSON_KEYS = PERSON_KEYS | {
     "email",
     "decision_makers",
 }
-PERSON_SOURCES = frozenset({"business_search_people"})
+PERSON_SOURCES = frozenset({"business_search_people", "linkedin_profiles"})
 # E-mail addresses in any landed text (job descriptions) are masked before mapping (INV-12).
 EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 EMAIL_MASK = "[email removed]"
@@ -743,8 +758,10 @@ class LinkedInSdk:
         self._client = client
         self._rest = rest
         search, scrape = client.search.linkedin, client.scrape.linkedin
-        if search.DATASET_ID_JOBS != LINKEDIN_JOBS_DATASET_ID or (
-            scrape.DATASET_ID_COMPANIES != LINKEDIN_COMPANIES_DATASET_ID
+        if (
+            search.DATASET_ID_JOBS != LINKEDIN_JOBS_DATASET_ID
+            or scrape.DATASET_ID_COMPANIES != LINKEDIN_COMPANIES_DATASET_ID
+            or scrape.DATASET_ID != LINKEDIN_PROFILES_DATASET_ID
         ):
             raise ImportCallError("brightdata-sdk dataset ids changed; update ops/bd_import.py")
 
@@ -777,6 +794,22 @@ class LinkedInSdk:
     async def companies(self, urls: list[str], timeout: int) -> CallResult:
         result = await self._client.scrape.linkedin.companies(url=urls, timeout=timeout)
         return await self._finish(result, "linkedin_companies", LINKEDIN_COMPANIES_DATASET_ID)
+
+    async def profiles(self, urls: list[str], timeout: int) -> CallResult:
+        result = await self._client.scrape.linkedin.profiles(url=urls, timeout=timeout)
+        return await self._finish(result, "linkedin_profiles", LINKEDIN_PROFILES_DATASET_ID)
+
+
+def unmapped(source: str) -> SourceMapping:
+    """A mapping stand-in for a source that is fetched but never normalized or landed."""
+    return SourceMapping(
+        source=source,
+        version=1,
+        unverified=True,
+        entity="company",
+        signal_type=source,
+        external_id=("url",),
+    )
 
 
 def open_sdk_client(token: str) -> Any:
@@ -814,11 +847,15 @@ class BrightDataRest:
     def connector(
         self, source: str, dataset_id: str, extra_params: Mapping[str, str] | None = None
     ) -> BrightDataConnector:
+        # The connector never normalizes here; a source without a mapping file (profiles,
+        # which never land) gets an empty stand-in so the connector can be built.
+        mapping = None if (MAPPINGS_DIR / f"{source}.yaml").is_file() else unmapped(source)
         return BrightDataConnector(
             source,
             self._client,
             dataset_id=dataset_id,
             api_token=self._token,
+            mapping=mapping,
             retry_attempts=max(3, self._settings.upstream_retry_attempts),
             retry_base_delay_seconds=1.0,
             retry_max_delay_seconds=8.0,
@@ -1329,6 +1366,24 @@ async def probe(run: Run, fixtures: Path) -> dict[str, list[dict[str, Any]]]:
         await attempt("linkedin_companies", run.companies_call(urls[:PROBE_LIMIT]))
     elif not run.dry_run:
         run.stat("linkedin_companies").failures.append("no company_url in the jobs sample")
+    # Employee profiles: is there a current-role field? Links stay in memory only.
+    links: list[str] = []
+    for record in raw.get("linkedin_companies", []):
+        for entry in record.get("employees") or []:
+            link = profile_url(entry.get("link")) if isinstance(entry, dict) else None
+            if link and link not in links:
+                links.append(link)
+    if links:
+        batch = links[:PROBE_LIMIT]
+        await attempt(
+            "linkedin_profiles",
+            run.paid_call(
+                "linkedin_profiles",
+                {"probe": True, "urls": batch},
+                len(batch),
+                lambda: run._sdk().profiles(batch, run.timeout_seconds),
+            ),
+        )
     await attempt(
         "business_search_companies", run.company_search_call(city, "software", PROBE_LIMIT)
     )
