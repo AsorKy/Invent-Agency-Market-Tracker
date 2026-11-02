@@ -310,6 +310,12 @@ def test_driver_creates_one_signal_and_moves_one_lead() -> None:
         ("PATCH", "/internal/core/leads/l-1/status"),
     ]
     assert all(r.headers["x-service-token"] for r in seen)
+    from ops.seed.loader import DEMO_TENANT_ID
+
+    # Row level security on core.company hides every row without the tenant.
+    listing = seen[0]
+    assert listing.headers["x-service-token"].split(".")[1] == "gateway"
+    assert listing.headers["x-tenant-id"] == str(DEMO_TENANT_ID)
     assert seen[2].headers["x-tenant-id"] and seen[2].headers["idempotency-key"]
     assert b'"expected_version":1' in seen[3].content.replace(b" ", b"")
 

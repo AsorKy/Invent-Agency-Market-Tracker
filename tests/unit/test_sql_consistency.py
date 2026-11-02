@@ -28,8 +28,8 @@ from support_sql import (
 # the fixed skeleton is checked; only the interpolated fragment is not.
 DYNAMIC_SQL: dict[tuple[str, str], str] = {
     ("services/core/app/repository.py", "FROM core.company\n"): (
-        "list_companies: {cursor_filter} is either empty or one fixed keyset "
-        "predicate on updated_at and id built in the same function."
+        "list_companies: {where} joins a fixed tenant predicate and a fixed keyset "
+        "predicate on updated_at and id built in the same function; every value is bound."
     ),
     ("services/core/app/repository.py", "JOIN core.company c ON c.id = l.company_id"): (
         "list_leads: {where} joins fixed filter predicates from a literal dict in "

@@ -427,7 +427,9 @@ async def test_opt_out_is_admin_only_and_tenant_comes_from_the_jwt(
     body = b'{"nit": "900123456", "tenant_id": "%s"}' % TENANT_B.encode()
     for role in ("strategist", "analyst"):
         denied = await client.post(
-            "/api/v1/compliance/opt-out", content=body, headers=bearer(world.signer.token(role=role))
+            "/api/v1/compliance/opt-out",
+            content=body,
+            headers=bearer(world.signer.token(role=role)),
         )
         assert denied.status_code == 403
     assert world.core_requests() == []

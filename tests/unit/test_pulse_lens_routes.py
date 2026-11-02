@@ -20,7 +20,12 @@ pytest.importorskip("sqlalchemy")
 testclient = pytest.importorskip("fastapi.testclient")
 
 from libs.domain.socio import INDICATOR_FIELDS  # noqa: E402
-from services.ml.app.publisher import PATHS, CommunityResult, ProfileResult, TopicResult  # noqa: E402
+from services.ml.app.publisher import (  # noqa: E402
+    PATHS,
+    CommunityResult,
+    ProfileResult,
+    TopicResult,
+)
 from services.pulse.app import main as pulse  # noqa: E402
 from services.pulse.app.descriptive import ProjectRow, StageVisit  # noqa: E402
 from tests.unit.service_auth import service_headers  # noqa: E402
