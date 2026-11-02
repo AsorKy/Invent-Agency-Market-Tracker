@@ -4,7 +4,9 @@
 forwards headers, query parameters, and body with the service token. The
 gateway also applies configuration-gated edge and CSRF checks and, when
 identity validation is enabled, verifies user JWTs against the identity JWKS and
-sets the tenant and role headers itself. Routes live in ``routes.py``, JWT logic
+sets the tenant and role headers itself. With validation off, the local-only
+``DEV_DEFAULT_TENANT_ID`` sets the tenant header (no role) on routes that need
+no role. Routes live in ``routes.py``, JWT logic
 in ``auth.py``, and upstream readiness polling in ``readiness.py``. It relates to
 ``libs.common.settings``, ``libs.common.security``,
 ``libs.common.log_redaction``, and the API services in ``docker-compose.yml``.
@@ -15,7 +17,7 @@ import hmac
 from collections.abc import AsyncIterator, Mapping
 from contextlib import asynccontextmanager
 from typing import Any
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import httpx
 import structlog
@@ -107,8 +109,20 @@ def valid_csrf(cookies: Mapping[str, str], headers: Mapping[str, str]) -> bool:
     return hmac.compare_digest(cookie_token, header_token)
 
 
+def dev_tenant_id() -> UUID | None:
+    """Return ``DEV_DEFAULT_TENANT_ID`` while identity validation is off, else ``None``.
+
+    Local demos only: the settings refuse the variable in production.
+    """
+    if security_config.identity_validation_enabled:
+        return None
+    return settings.dev_default_tenant_id
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    if dev_tenant_id() is not None:
+        logger.warning("dev_default_tenant_active", setting="DEV_DEFAULT_TENANT_ID")
     redis = create_redis(settings.redis_url)
     app.state.rate_limiter = RedisSlidingWindowRateLimiter(
         redis,
@@ -315,9 +329,18 @@ async def proxy(path: str, request: Request) -> Response:
         header_value = request.headers.get(header_name)
         if header_value:
             upstream_headers[header_name] = header_value
+    dev_tenant = dev_tenant_id()
     if claims is not None:
         # Tenant and role headers come only from the verified token, never the client.
         upstream_headers.update(identity_headers(claims))
+    elif (
+        dev_tenant is not None
+        and route.service != "identity"
+        and not route.admin_only
+        and route.allowed_roles is None
+    ):
+        # The dev tenant carries no role, so role-restricted routes stay without a tenant.
+        upstream_headers["X-Tenant-Id"] = str(dev_tenant)
     timeout = ROUTE_TIMEOUTS.get(route.timeout_key, settings.upstream_timeout_seconds)
     async with httpx.AsyncClient(timeout=timeout) as client:
         try:
