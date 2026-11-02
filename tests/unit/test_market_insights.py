@@ -202,3 +202,7 @@ async def test_lead_list_carries_rues_status_and_public_decision_maker_fields() 
     assert "found_at" not in sql
     # Decision makers arrive from linkedin_profiles or business_search_people: no source filter.
     assert "source" not in sql.split("LEFT JOIN LATERAL", 1)[1].split("AS dm ON true", 1)[0]
+    # One tenant-wide flag (row level security scopes core.signal), any source.
+    flag = sql.split("AS decision_makers,", 1)[1].split("AS decision_makers_available", 1)[0]
+    assert "EXISTS ( SELECT 1 FROM core.signal x WHERE x.signal_type = 'decision_maker' )" in flag
+    assert "source" not in flag and "l." not in flag  # uncorrelated: evaluated once

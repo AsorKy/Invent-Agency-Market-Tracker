@@ -21,6 +21,9 @@ RUES_LABELS = {
 NO_VALUE = "-"
 # Shown by the ratings card when the insights body says the tenant has no Maps signal.
 MAPS_UNAVAILABLE = "Maps no disponible"
+# Shown by the Leads page when core says the tenant has no decision_maker signal at all.
+DECISION_MAKERS_UNAVAILABLE = "Decisores no disponibles (requiere Business Search de Bright Data)"
+PEOPLE_COLUMNS = ("decision_makers", "profiles")
 MAX_MATRIX_ROWS = 30
 
 
@@ -77,8 +80,16 @@ def _people(value: Any) -> list[dict[str, Any]]:
     return [p for p in value if isinstance(p, dict)] if isinstance(value, list) else []
 
 
-def lead_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Display rows of the lead list: RUES label and decision makers as ``name (title)``."""
+def decision_makers_available(rows: list[dict[str, Any]]) -> bool:
+    """False only when every lead row carries core's tenant flag set to false."""
+    return not rows or any(row.get("decision_makers_available") is not False for row in rows)
+
+
+def lead_rows(rows: list[dict[str, Any]], *, with_people: bool = True) -> list[dict[str, Any]]:
+    """Display rows of the lead list: RUES label and decision makers as ``name (title)``.
+
+    With ``with_people=False`` the decision maker columns are left out (the page shows a caption).
+    """
     shown = []
     for row in rows:
         people = _people(row.get("decision_makers"))
@@ -98,4 +109,6 @@ def lead_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "lead_id": row.get("id"),
             }
         )
+    if not with_people:
+        shown = [{k: v for k, v in row.items() if k not in PEOPLE_COLUMNS} for row in shown]
     return shown

@@ -2,7 +2,8 @@
 
 Each lead shows its company, city, stage, score, RUES label (``RUES pendiente`` for a company
 without a RUES match, which is never hidden) and its decision makers (name, title and public
-profile only, INV-12). It relates to ``_common.py``, ``app/ui.py`` and ``app/market.py``.
+profile only, INV-12). When the tenant has no decision maker signal at all, a caption says so
+instead of an empty column. It relates to ``_common.py``, ``app/ui.py`` and ``app/market.py``.
 """
 
 import csv
@@ -18,7 +19,9 @@ filters = _common.start_page("Leads")
 
 
 def _leads(data: Any) -> None:
-    rows = market.lead_rows(_common.rows_of(data))
+    raw = _common.rows_of(data)
+    people = market.decision_makers_available(raw)
+    rows = market.lead_rows(raw, with_people=people)
     if not rows:
         st.write("No leads")
         return
@@ -26,6 +29,8 @@ def _leads(data: Any) -> None:
     cols = st.columns(2)
     cols[0].metric("Leads", len(rows))
     cols[1].metric(market.RUES_LABELS["pending"], pending)
+    if not people:
+        st.caption(market.DECISION_MAKERS_UNAVAILABLE)
     st.dataframe(rows, use_container_width=True)
     columns = list(rows[0])
     buffer = io.StringIO()
