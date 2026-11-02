@@ -81,7 +81,7 @@ Phase 0 writes one redacted sample per endpoint to `tests/fixtures/brightdata/re
 | --- | --- | --- |
 | LinkedIn jobs (SDK) | 3 records, `limit_per_input` held; keyword returned in `discovery_input` | `linkedin_jobs` v2, verified (coverage 1.00) |
 | LinkedIn companies (SDK) | 3 records from the jobs' `company_url`; 1 of 3 mid-size | `linkedin_companies` v2, verified (coverage 0.85) |
-| Google Maps discover by location (REST) | `crawl_error` on 3 attempts (array and wrapped body, two keywords): a provider-side parse failure, no place record | `maps` v2 known fixes, still unverified |
+| Google Maps discover by location (REST) | `crawl_error` on 5 attempts: `/trigger` with the array and the wrapped body, then the documented `/datasets/v3/scrape` call (wrapped body, `type=discover_new`, `discover_by=location`) with Medellin and with the docs example verbatim (US, "coffee shop"). Error: `Crawler error: Unexpected token ')', ")]}'\n[[..." is not valid JSON`, the scraper fails to parse Google's answer: a provider-side failure, no place record | `maps` v2 known fixes, still unverified |
 | Business Search companies and people (REST) | HTTP 403: the account is not on the Business Search allowlist (early access); not billed | `business_search_companies` v1, unverified |
 
 Until Business Search access is granted, phase 1 lands no company search and phase 3 finds no decision maker; until the Maps scraper works, phase 1 lands no place. Provider error records are never landed and are not billed (pay only for success).
