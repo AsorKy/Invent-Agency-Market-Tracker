@@ -6,8 +6,10 @@ live client exists) with ``EntityResolver``, commits the resolution writes in a
 second short transaction, and only then sends a resolved candidate to core through
 ``SnapshotFlow.deliver_company``. No database connection is open during the core
 call. The resolver sets the retry time (``RETRY_BACKOFF``) and quarantines a
-candidate after two attempts. If core fails, the candidate is queued again with the
-error so the next pass retries it. It relates to ``to_core.py`` and
+candidate after two attempts, unless the worker runs with ``quarantine=False`` (a
+mock lookup, whose miss proves nothing: the candidate stays queued as RUES pending).
+If core fails, the candidate is queued again with the error so the next pass retries
+it. It relates to ``to_core.py`` and
 ``libs/domain/entity_resolution.py``.
 """
 
@@ -65,12 +67,14 @@ class RuesQueueWorker:
         flow: SnapshotFlow,
         batch_size: int = 25,
         now: Callable[[], datetime] = lambda: datetime.now(UTC),
+        quarantine: bool = True,
     ) -> None:
         self.engine = engine
         self.rues = rues
         self.flow = flow
         self.batch_size = batch_size
         self.now = now
+        self.quarantine = quarantine
 
     async def run_once(self) -> QueueResult:
         started = self.now()
@@ -89,7 +93,9 @@ class RuesQueueWorker:
                 attempts=int(row["resolution_attempts"]),
             )
             store = SqlResolutionStore()
-            resolution = EntityResolver(self.rues, store, now=started).resolve(candidate)
+            resolution = EntityResolver(
+                self.rues, store, now=started, quarantine=self.quarantine
+            ).resolve(candidate)
             async with self.engine.begin() as connection:
                 await store.flush(connection)
             if resolution.decision in DELIVER_DECISIONS:

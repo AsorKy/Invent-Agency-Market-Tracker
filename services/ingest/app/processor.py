@@ -30,6 +30,7 @@ STREAM_NAME = "invent.ingest"
 GROUP_NAME = "ingest-processors"
 CONSUMER_NAME = "ingest-worker"
 RUES_QUEUE_INTERVAL_SECONDS = 60.0
+RUES_LIVE = False
 
 
 async def main() -> None:
@@ -45,17 +46,20 @@ async def main() -> None:
         settings.internal_service_token,
         timeout_seconds=settings.upstream_timeout_seconds,
     )
+    # No live RUES client exists yet (REQ-ING-003 uses a mock lookup). A miss of the mock
+    # proves nothing, so candidates are never quarantined: they stay RUES pending, reach
+    # core without a NIT, and core reports them as rues_status "pending" (INV-10 needs
+    # real lookups). Set RUES_LIVE to True together with a live client.
     rues = MockRuesLookup([])
     if repository.engine is not None:
         store = SqlResolutionStore()
-        # No live RUES client exists yet (REQ-ING-003 uses a mock lookup).
         repository.resolution_store = store
         repository.flow = SnapshotFlow(
             core=core,
             failures=SqlFailureSink(repository.engine),
-            resolve=lambda candidate: EntityResolver(rues, store, now=datetime.now(UTC)).resolve(
-                candidate
-            ),
+            resolve=lambda candidate: EntityResolver(
+                rues, store, now=datetime.now(UTC), quarantine=RUES_LIVE
+            ).resolve(candidate),
             dataset_sources={
                 str(dataset_id): source
                 for source in settings.enabled_sources()
@@ -70,7 +74,12 @@ async def main() -> None:
     if repository.engine is not None and repository.flow is not None:
         queue_task = asyncio.create_task(
             run_forever(
-                RuesQueueWorker(engine=repository.engine, rues=rues, flow=repository.flow),
+                RuesQueueWorker(
+                    engine=repository.engine,
+                    rues=rues,
+                    flow=repository.flow,
+                    quarantine=RUES_LIVE,
+                ),
                 interval_seconds=RUES_QUEUE_INTERVAL_SECONDS,
             )
         )

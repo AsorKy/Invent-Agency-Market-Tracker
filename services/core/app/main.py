@@ -214,6 +214,18 @@ async def companies(
     return {"data": data, "next_cursor": next_cursor}
 
 
+@app.get("/internal/core/companies/insights", dependencies=[GATEWAY_ONLY])
+async def company_insights(
+    request: Request, x_tenant_id: Annotated[UUID | None, Header()] = None
+) -> dict[str, object]:
+    """Market aggregates of the caller tenant for the Streamlit Market page (``insights.py``)."""
+    try:
+        repository: CoreRepository = request.app.state.repository
+        return await repository.insights(x_tenant_id)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
 @app.get("/internal/core/leads", dependencies=[GATEWAY_OR_VERIFY])
 async def leads(
     request: Request,

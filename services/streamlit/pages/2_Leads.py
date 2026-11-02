@@ -1,6 +1,8 @@
-"""Render the Leads page: scored lead inbox with a role-gated export.
+"""Render the Leads page: scored lead inbox with decision makers and a role-gated export.
 
-It relates to ``_common.py`` and ``app/ui.py``.
+Each lead shows its company, city, stage, score, RUES label (``RUES pendiente`` for a company
+without a RUES match, which is never hidden) and its decision makers (name, title and public
+profile only, INV-12). It relates to ``_common.py``, ``app/ui.py`` and ``app/market.py``.
 """
 
 import csv
@@ -9,19 +11,23 @@ from typing import Any
 
 import streamlit as st
 
-from services.streamlit.app import ui
+from services.streamlit.app import market, ui
 from services.streamlit.pages import _common
 
 filters = _common.start_page("Leads")
 
 
 def _leads(data: Any) -> None:
-    rows = _common.rows_of(data)
+    rows = market.lead_rows(_common.rows_of(data))
     if not rows:
         st.write("No leads")
         return
+    pending = sum(1 for r in rows if r["rues"] == market.RUES_LABELS["pending"])
+    cols = st.columns(2)
+    cols[0].metric("Leads", len(rows))
+    cols[1].metric(market.RUES_LABELS["pending"], pending)
     st.dataframe(rows, use_container_width=True)
-    columns = sorted({key for row in rows for key in row})
+    columns = list(rows[0])
     buffer = io.StringIO()
     writer = csv.DictWriter(buffer, fieldnames=columns, extrasaction="ignore")
     writer.writeheader()
@@ -30,4 +36,5 @@ def _leads(data: Any) -> None:
     ui.export_button("Export CSV", payload, "leads.csv", "text/csv", key="leads-csv")
 
 
-ui.card("leads-inbox", _common.api_url("leads", filters), _leads, title="Scored leads")
+leads_url = _common.api_url("leads", filters, {"limit": "200"})
+ui.card("leads-inbox", leads_url, _leads, title="Scored leads")
