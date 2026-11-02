@@ -876,6 +876,32 @@ async def test_list_companies_rejects_invalid_cursor_and_rows() -> None:
         await repository.list_companies(1)
 
 
+async def test_list_companies_sets_the_tenant_before_reading() -> None:
+    repository, engine = _repository([FakeResult(), FakeResult([])])
+    cursor = encode_cursor(NOW, ID)
+    assert await repository.list_companies(5, cursor, tenant_id=TENANT) == ([], None)
+    context, (sql, params) = engine.connection.calls[:2]
+    assert "app.tenant_id" in context[0] and context[1] == {"tenant_id": str(TENANT)}
+    assert "WHERE tenant_id = :tenant_id AND (updated_at, id) <" in sql
+    assert params["tenant_id"] == TENANT
+    assert params["cursor_id"] == ID
+
+
+async def test_lead_unit_of_work_sets_the_tenant_before_writing() -> None:
+    # Row level security on core.lead refuses the insert without app.tenant_id.
+    repository, engine = _repository([FakeResult(), FakeResult()])
+    async with repository.lead_unit_of_work(TENANT) as tx:
+        await tx.lock_key("k")
+    context, lock = engine.connection.calls[:2]
+    assert "app.tenant_id" in context[0] and context[1] == {"tenant_id": str(TENANT)}
+    assert "pg_advisory_xact_lock" in lock[0]
+
+    repository, engine = _repository([FakeResult()])
+    async with repository.lead_unit_of_work() as tx:
+        await tx.lock_key("k")
+    assert "app.tenant_id" not in engine.connection.calls[0][0]
+
+
 async def test_list_leads_applies_all_filters() -> None:
     rows = _paged_rows(2)
     repository, engine = _repository([FakeResult(), FakeResult(rows)])

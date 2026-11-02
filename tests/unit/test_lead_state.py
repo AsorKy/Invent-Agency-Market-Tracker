@@ -229,7 +229,10 @@ def test_routes_use_repository_and_return_409(monkeypatch: pytest.MonkeyPatch) -
     store = Store()
 
     class Repo:
-        def lead_unit_of_work(self) -> FakeUow:
+        uow_tenants: list[UUID | None] = []
+
+        def lead_unit_of_work(self, tenant_id: UUID | None = None) -> FakeUow:
+            self.uow_tenants.append(tenant_id)
             return FakeUow(store)
 
         async def list_leads(self, limit: int, cursor: str | None = None, **kw: Any) -> Any:
@@ -277,5 +280,14 @@ def test_routes_use_repository_and_return_409(monkeypatch: pytest.MonkeyPatch) -
         one = client.get(f"/internal/core/leads/{uuid4()}")
         assert one.headers["ETag"] == '"4"'
         assert client.get("/internal/core/pipeline/kanban").json()["columns"]["won"] == []
+        # The lead writes run under the caller tenant (row level security on core.lead).
+        assert repo.uow_tenants[:3] == [TENANT] * 3
+        tenant_patch = client.patch(
+            url,
+            json={"stage": "qualified", "expected_version": 99},
+            headers={"X-Tenant-ID": str(TENANT)},
+        )
+        assert tenant_patch.status_code == 409
+        assert repo.uow_tenants[-1] == TENANT
     finally:
         main.app.dependency_overrides.clear()
