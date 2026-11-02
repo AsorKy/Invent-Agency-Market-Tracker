@@ -7,13 +7,15 @@ Format (`version: 1`):
 
 - `source`: source name, equal to the file name.
 - `version`: integer, bump on every change.
-- `unverified`: `true` until the mapping is checked against a recorded provider
-  sample under `tests/fixtures/brightdata/` (decision D-13).
+- `unverified`: `true` until the mapping is checked against a real provider
+  sample under `tests/fixtures/brightdata/recorded/` (written by
+  `make bd-import PHASE=0`) or `tests/fixtures/brightdata/captured/` (decision D-13).
 - `entity`: `company` or `job_posting`.
 - `signal_type`: signal type created for a record of this source.
 - `external_id`: list of provider paths; the first non-empty value is the id.
 - `fields`: canonical field name -> rule with
   - `from`: list of provider paths (dotted, first non-empty wins),
   - `transform`: optional, one of `strip`, `lower`, `int`, `float`, `digits`, `url`,
+    `city` (one of the five canonical cities of `libs/domain/cities.py`, else empty),
   - `required`: optional bool, a missing required field rejects the record,
   - `default`: optional value used when no path yields a value.
