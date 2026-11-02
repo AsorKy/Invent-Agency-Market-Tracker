@@ -96,3 +96,15 @@ def test_rues_failure_counts_as_attempt_and_records_error() -> None:
     second = resolver.resolve(Candidate("c6", "Panaderia El Trigo", None, "900123456", attempts=1))
     assert second.decision == "quarantine"
     assert store.quarantined[0][1] == "mock RUES unavailable"
+
+
+def test_mock_lookup_without_quarantine_keeps_the_candidate_rues_pending() -> None:
+    # A miss of a mock RUES is no evidence (INV-10 counts real lookups): never quarantine.
+    store = InMemoryResolutionStore()
+    resolver = EntityResolver(MockRuesLookup(), store, now=NOW, quarantine=False)
+    for attempts in range(4):
+        out = resolver.resolve(Candidate("c7", "Logistica Andina", "Medellin", None, attempts))
+        assert out.decision == "new_company"
+    assert store.quarantined == []
+    assert store.states["c7"] == ("pending_rues", 4)
+    assert store.queue["c7"]["status"] == "queued"

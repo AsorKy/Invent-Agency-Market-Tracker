@@ -5,7 +5,11 @@ turns a score and NIT/RUES match into an operational decision. On top of that,
 ``EntityResolver`` implements REQ-ING-003 (ADR-IMT-0001 section 5.3): a score
 above 0.9 by NIT is an automatic match, 0.6 to 0.9 goes to the manual review log,
 and anything else becomes a new company queued for a RUES lookup; a candidate
-without a RUES match after two attempts is quarantined.
+without a RUES match after two attempts is quarantined. A resolver built with
+``quarantine=False`` (for a lookup that is not a live RUES, such as the mock wired
+in the processor today) never quarantines: a miss of a mock proves nothing, so the
+candidate stays ``pending_rues`` and is delivered as a new company that core shows
+as RUES pending.
 
 The scorer is pure Python (``difflib`` token-sort ratio) so no extra dependency
 is needed. RUES access and persistence sit behind the ``RuesLookup`` and
@@ -181,10 +185,14 @@ class InMemoryResolutionStore:
 class EntityResolver:
     """Resolve candidates against RUES; every call is one resolution attempt."""
 
-    def __init__(self, rues: RuesLookup, store: ResolutionStore, *, now: datetime) -> None:
+    def __init__(
+        self, rues: RuesLookup, store: ResolutionStore, *, now: datetime, quarantine: bool = True
+    ) -> None:
         self.rues = rues
         self.store = store
         self.now = now
+        # False when ``rues`` is not a live RUES: INV-10 counts real lookups only.
+        self.quarantine = quarantine
 
     def resolve(self, candidate: Candidate) -> Resolution:
         attempts = candidate.attempts + 1
@@ -209,7 +217,7 @@ class EntityResolver:
                 return Resolution("manual_review", score, record.nit)
 
         # No usable RUES match: this attempt failed.
-        if attempts >= MAX_RESOLUTION_ATTEMPTS:
+        if self.quarantine and attempts >= MAX_RESOLUTION_ATTEMPTS:
             reason = error or f"no RUES match after {attempts} attempts"
             self.store.quarantine(candidate.id, reason)
             self.store.set_candidate_state(candidate.id, "quarantined", attempts)

@@ -128,3 +128,14 @@ async def test_core_failure_requeues_the_resolved_candidate() -> None:
     queued = engine.rues_queue[cid]
     assert queued["status"] == "queued" and queued["next_attempt_at"] > NOW
     assert "HTTPStatusError" in queued["last_error"]
+
+
+async def test_mock_lookup_without_quarantine_keeps_requeueing() -> None:
+    engine = QueueEngine()
+    cid = add_candidate(engine, attempts=1)
+    worker, calls = build(engine, MockRuesLookup([]))
+    worker.quarantine = False
+    result = await worker.run_once()
+    assert (result.retried, result.quarantined) == (1, 0)
+    assert engine.rues_queue[cid]["status"] == "queued" and engine.quarantine == []
+    assert calls == []  # the flow already delivered the company as RUES pending

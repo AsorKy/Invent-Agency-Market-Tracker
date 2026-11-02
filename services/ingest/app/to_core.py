@@ -6,9 +6,12 @@ the injected resolver (``libs/domain/entity_resolution.py``), and then calls
 core's internal API through an injectable ``CoreClient``: first the company
 upsert, then the signal, both stamped with the ingest tenant (never taken from the
 payload). ``HttpCoreClient`` is the real adapter and sends the
-service token. A record that fails mapping, resolution, or delivery is written
+service token. A record that fails mapping or delivery is written
 to ``ingest.failed_record`` through a ``FailureSink`` and never stops the rest
-of the batch. ``SqlResolutionStore`` buffers the writes of the synchronous
+of the batch. A quarantined candidate is a resolution outcome, not an import
+failure: it stays in ``ingest.quarantine`` and the record is ``skipped``. A
+company record forwards ``employee_count`` to the company upsert when the mapping
+has it. ``SqlResolutionStore`` buffers the writes of the synchronous
 ``ResolutionStore`` port and flushes them inside the caller's transaction.
 It relates to ``repository.py`` and ``processor.py``.
 
@@ -395,9 +398,7 @@ class SnapshotFlow:
                 )
             )
             if resolution.decision == "quarantine":
-                return await self._fail(
-                    source, snapshot_id, record, "quarantined by resolution", ref
-                )
+                return RecordOutcome("skipped", "quarantined")
             if resolution.decision not in DELIVER_DECISIONS:
                 return RecordOutcome("pending", resolution.decision)
             return PreparedDelivery(
@@ -459,6 +460,7 @@ class SnapshotFlow:
         fields = normalized.fields
         city = fields.get("city")
         website = fields.get("website")
+        employees = fields.get("employee_count")
         company_body: dict[str, Any] = {"legal_name": name, "tenant_id": str(self.tenant_id)}
         if resolution.rues_nit:
             company_body["nit"] = resolution.rues_nit
@@ -467,6 +469,8 @@ class SnapshotFlow:
         if normalized.entity == "company":
             if isinstance(website, str):
                 company_body["website"] = website
+            if isinstance(employees, int) and not isinstance(employees, bool) and employees >= 0:
+                company_body["employee_count"] = employees
             company_body["source_ids"] = {normalized.source: normalized.external_id}
         content = hashlib.sha256(
             json.dumps(_json_safe(fields), sort_keys=True, default=str).encode("utf-8")
