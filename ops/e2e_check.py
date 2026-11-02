@@ -212,6 +212,9 @@ async def drive_chain(client: httpx.AsyncClient, secret: str) -> dict[str, str]:
             "strength": 0.5,
             "source_external_id": f"e2e-chain-{token}",
             "payload": {"origin": "e2e_check"},
+            # As ingest and the seed do: without it core cannot read the company tenant under
+            # row level security and the insert is refused.
+            "tenant_id": str(DEMO_TENANT_ID),
         },
         headers=seed,
     )
