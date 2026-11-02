@@ -19,6 +19,8 @@ RUES_LABELS = {
     "quarantined": "RUES en cuarentena",
 }
 NO_VALUE = "-"
+# Shown by the ratings card when the insights body says the tenant has no Maps signal.
+MAPS_UNAVAILABLE = "Maps no disponible"
 MAX_MATRIX_ROWS = 30
 
 

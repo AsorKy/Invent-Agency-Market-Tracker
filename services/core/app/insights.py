@@ -8,9 +8,12 @@ gateway exposes as ``/api/v1/companies/insights`` for the Streamlit Market page,
 never reads the ``core`` schema. The sections are:
 
 - ``by_city_category``: companies per city and category. The category is the one of the latest
-  ``maps`` signal of the company, else the company ``sector_code``.
+  ``maps`` signal of the company, else the ``industry`` of its latest ``linkedin_companies`` or
+  ``linkedin_jobs`` signal that has one, else the company ``sector_code``.
 - ``maps_by_city``: Maps listings per city with the average ``rating`` and ``reviews_count``
   (``review_count`` is accepted too); only JSON numbers count, so a null means no data.
+- ``maps_available``: false when the tenant has no ``maps`` signal at all, so the page can say
+  so instead of showing empty or zero values.
 - ``hiring``: ``linkedin_jobs`` postings per city and keyword. The keyword is the payload
   ``keyword``, else the job ``title``; the city is the payload ``city``, else the company city.
 - ``mid_size``: the share of companies with ``employee_count`` between 11 and 500 among the
@@ -43,9 +46,17 @@ WITH maps AS (
     FROM core.signal s
     WHERE s.tenant_id = :tenant_id AND s.source = 'maps'
     ORDER BY s.company_id, s.observed_at DESC, s.id DESC
+), linkedin AS (
+    SELECT DISTINCT ON (s.company_id) s.company_id, btrim(s.payload->>'industry') AS industry
+    FROM core.signal s
+    WHERE s.tenant_id = :tenant_id
+      AND s.source IN ('linkedin_companies', 'linkedin_jobs')
+      AND NULLIF(btrim(s.payload->>'industry'), '') IS NOT NULL
+    ORDER BY s.company_id, s.observed_at DESC, s.id DESC
 )
 SELECT c.city,
-       COALESCE(NULLIF(btrim(m.payload->>'category'), ''), c.sector_code) AS category,
+       COALESCE(NULLIF(btrim(m.payload->>'category'), ''), li.industry, c.sector_code)
+           AS category,
        count(*) AS companies,
        count(m.company_id) AS listings,
        count(*) FILTER (WHERE jsonb_typeof(m.payload->'rating') = 'number') AS rated,
@@ -61,6 +72,7 @@ SELECT c.city,
                           AS numeric) END) AS reviews_sum
 FROM core.company c
 LEFT JOIN maps m ON m.company_id = c.id
+LEFT JOIN linkedin li ON li.company_id = c.id
 WHERE c.tenant_id = :tenant_id
 GROUP BY 1, 2
 """
@@ -148,6 +160,7 @@ def build_insights(
             }
             for row in groups[:MAX_ROWS]
         ],
+        "maps_available": bool(maps_by_city),
         "maps_by_city": maps_by_city,
         "hiring": [
             {

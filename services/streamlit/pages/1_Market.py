@@ -3,9 +3,10 @@
 Each card loads independently through ``ui.card``. The pulse cards read ``pulse/*``; the market
 cards read ``companies/insights`` (one cached call for the four cards: companies by city and
 category, Maps rating and reviews, hiring demand by city and keyword, mid-size share) and the
-company list, where a company without a RUES match shows ``RUES pendiente``. The global city
-filter narrows the market rows. It relates to ``_common.py``, ``app/ui.py`` and
-``app/market.py``.
+company list, where a company without a RUES match shows ``RUES pendiente``. When the tenant
+has no Maps signal (``maps_available`` false) the ratings card says ``Maps no disponible``.
+The global city filter narrows the market rows. It relates to ``_common.py``, ``app/ui.py``
+and ``app/market.py``.
 """
 
 from typing import Any
@@ -53,6 +54,9 @@ def _city_category(data: Any) -> None:
 
 
 def _ratings(data: Any) -> None:
+    if isinstance(data, dict) and data.get("maps_available") is False:
+        st.info(market.MAPS_UNAVAILABLE)
+        return
     _table(market.in_city(market.section(data, "maps_by_city"), filters.city))
     listed = [r for r in market.section(data, "by_city_category") if r.get("listings")]
     by_category = market.in_city(listed, filters.city)
