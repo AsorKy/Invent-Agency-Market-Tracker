@@ -46,6 +46,16 @@ NOT_PUBLIC = {
     ("GET", "/internal/identity/tenants"): "core service only, never public",
     # T-151
     ("GET", "/internal/ml/explanations/{company_id}"): "brief service only, never public",
+    # Data explorer: /data/catalog fans out to every owner and /data/{dataset} goes to the owner
+    # of the dataset id, so the checks below resolve only the first id (an ingest dataset).
+    ("GET", "/internal/core/data/catalog"): "merged by the gateway into /data/catalog",
+    ("GET", "/internal/pulse/data/catalog"): "merged by the gateway into /data/catalog",
+    ("GET", "/internal/brief/data/catalog"): "merged by the gateway into /data/catalog",
+    ("GET", "/internal/ml/data/catalog"): "merged by the gateway into /data/catalog",
+    ("GET", "/internal/core/data/{dataset}"): "public as /data/{dataset} for core dataset ids",
+    ("GET", "/internal/pulse/data/{dataset}"): "public as /data/{dataset} for pulse dataset ids",
+    ("GET", "/internal/brief/data/{dataset}"): "public as /data/{dataset} for brief dataset ids",
+    ("GET", "/internal/ml/data/{dataset}"): "public as /data/{dataset} for ml dataset ids",
 }
 SERVICES = ["core", "identity", "pulse", "brief", "ml"]
 STATIC_INTERNAL = {"/internal/metrics"}
@@ -55,7 +65,11 @@ def _doc() -> dict:
     return build_openapi()
 
 
-def _concrete(path: str) -> str:
+def _concrete(route: registry.PublicRoute) -> str:
+    """The path without the leading slash; an enumerated parameter takes its first value."""
+    path = route.path
+    for name, values in route.path_enums.items():
+        path = path.replace("{" + name + "}", values[0])
     return path.strip("/")
 
 
@@ -83,7 +97,7 @@ def test_registry_has_no_duplicates() -> None:
 def test_every_registry_route_resolves_in_the_gateway_table() -> None:
     settings = get_settings()
     for route in registry.PUBLIC_ROUTES:
-        resolved = resolve(_concrete(route.path), route.method, settings)
+        resolved = resolve(_concrete(route), route.method, settings)
         assert isinstance(resolved, Route), route.key
 
 
@@ -104,7 +118,7 @@ def test_every_service_route_is_public_or_explicitly_not_public() -> None:
     settings = get_settings()
     targets: dict[tuple[str, str], tuple[str, str]] = {}
     for route in registry.PUBLIC_ROUTES:
-        resolved = resolve(_concrete(route.path), route.method, settings)
+        resolved = resolve(_concrete(route), route.method, settings)
         assert isinstance(resolved, Route)
         targets[(route.method, unquote(urlsplit(resolved.url).path))] = route.key
     missing: list[tuple[str, str]] = []

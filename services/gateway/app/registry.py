@@ -11,10 +11,11 @@ the contract has no model the response is a generic JSON object.
 """
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from libs.common.data_explorer import CATALOG, MAX_QUERY_LENGTH
 from libs.contracts.api import (
     BriefResponse,
     ImportJobAccepted,
@@ -64,6 +65,43 @@ class Page(BaseModel):
     next_cursor: str | None = None
 
 
+class DataColumn(BaseModel):
+    """One column of a data explorer dataset and its PostgreSQL type."""
+
+    name: str
+    type: str
+
+
+class DataDataset(BaseModel):
+    """One dataset of the data explorer; ``unavailable`` when its service did not answer."""
+
+    id: str
+    title: str
+    description: str
+    service: str
+    origin: Literal["bright_data_raw", "derived"]
+    count: int | None = None
+    columns: list[DataColumn]
+    unavailable: bool = False
+
+
+class DataCatalog(BaseModel):
+    """Every dataset of the data explorer in catalog order."""
+
+    datasets: list[DataDataset]
+
+
+class DataPage(BaseModel):
+    """One keyset page of a dataset, newest first; long cells end with a truncation marker."""
+
+    dataset: str
+    columns: list[DataColumn]
+    data: list[dict[str, Any]]
+    next_cursor: str | None = None
+    total: int | None = None
+    truncated_cells: bool = False
+
+
 @dataclass(frozen=True, slots=True)
 class Param:
     """A query parameter."""
@@ -96,6 +134,8 @@ class PublicRoute:
     response_headers: tuple[str, ...] = ()
     public: bool = False
     extra_responses: dict[int, str] = field(default_factory=dict)
+    # Path parameters that take one of a fixed list of values.
+    path_enums: dict[str, tuple[str, ...]] = field(default_factory=dict)
 
     @property
     def key(self) -> tuple[str, str]:
@@ -466,6 +506,31 @@ def _build() -> tuple[PublicRoute, ...]:
             "validation",
             response=JsonObject,
             errors=(*c, 404),
+        ),
+        PublicRoute(
+            "GET",
+            "/data/catalog",
+            "Data explorer datasets with their columns and row counts (admin, strategist, analyst)",
+            "data",
+            response=DataCatalog,
+            errors=c,
+        ),
+        PublicRoute(
+            "GET",
+            "/data/{dataset}",
+            "One page of a data explorer dataset, newest first (admin, strategist, analyst)",
+            "data",
+            response=DataPage,
+            query=(
+                *PAGING,
+                Param(
+                    "q",
+                    description="Case-insensitive text filter on fixed text columns, at most "
+                    f"{MAX_QUERY_LENGTH} characters",
+                ),
+            ),
+            errors=(*c, 400, 404, 422),
+            path_enums={"dataset": tuple(CATALOG)},
         ),
         *_pulse_routes(),
     ]

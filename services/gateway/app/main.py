@@ -6,7 +6,10 @@ gateway also applies configuration-gated edge and CSRF checks and, when
 identity validation is enabled, verifies user JWTs against the identity JWKS and
 sets the tenant and role headers itself. With validation off, the local-only
 ``DEV_DEFAULT_TENANT_ID`` sets the tenant header (no role) on routes that need
-no role. Routes live in ``routes.py``, JWT logic
+no role. The data
+explorer catalog (``/api/v1/data/catalog``) is merged here from every owning
+service; a service that does not answer is listed with ``unavailable``. Routes
+live in ``routes.py``, JWT logic
 in ``auth.py``, and upstream readiness polling in ``readiness.py``. It relates to
 ``libs.common.settings``, ``libs.common.security``,
 ``libs.common.log_redaction``, and the API services in ``docker-compose.yml``.
@@ -25,6 +28,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, Response
 from redis.exceptions import RedisError
 
+from libs.common.data_explorer import CATALOG
 from libs.common.internal_auth import GATEWAY_SERVICE, service_token_header
 from libs.common.lifecycle import graceful_lifespan, instrument_app
 from libs.common.log_redaction import redact_headers, redact_text
@@ -246,6 +250,65 @@ def _authorize(request: Request, route: Route, claims: Claims) -> JSONResponse |
     return None
 
 
+async def _catalog_of(service: str, url: str, headers: dict[str, str]) -> list[dict[str, Any]]:
+    """Datasets one service lists for the caller; empty when it does not answer."""
+    if readiness.is_red(service):
+        return []
+    timeout = ROUTE_TIMEOUTS.get(service, settings.upstream_timeout_seconds)
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            response = await client.get(
+                url,
+                headers={
+                    **headers,
+                    **service_token_header(GATEWAY_SERVICE, settings.internal_service_token),
+                },
+            )
+    except httpx.HTTPError:
+        return []
+    if response.status_code != 200:
+        return []
+    try:
+        datasets = response.json()["datasets"]
+    except (ValueError, KeyError, TypeError):
+        return []
+    if not isinstance(datasets, list):
+        return []
+    # A service lists only the datasets it owns (INV-01).
+    return [
+        entry
+        for entry in datasets
+        if isinstance(entry, dict)
+        and entry.get("id") in CATALOG
+        and CATALOG[entry["id"]].service == service
+    ]
+
+
+async def _data_catalog(route: Route, headers: dict[str, str]) -> JSONResponse:
+    """Merge the catalogs of the owning services; a missing dataset is ``unavailable``."""
+    answers = await asyncio.gather(
+        *(_catalog_of(service, url, headers) for service, url in route.fanout)
+    )
+    listed = {
+        entry["id"]: {**entry, "unavailable": False} for answer in answers for entry in answer
+    }
+    datasets = [
+        listed.get(info.id)
+        or {
+            "id": info.id,
+            "title": info.title,
+            "description": info.description,
+            "service": info.service,
+            "origin": info.origin,
+            "count": None,
+            "columns": [],
+            "unavailable": True,
+        }
+        for info in CATALOG.values()
+    ]
+    return JSONResponse(content={"datasets": datasets})
+
+
 @app.api_route(
     "/api/v1/{path:path}",
     methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
@@ -341,6 +404,8 @@ async def proxy(path: str, request: Request) -> Response:
     ):
         # The dev tenant carries no role, so role-restricted routes stay without a tenant.
         upstream_headers["X-Tenant-Id"] = str(dev_tenant)
+    if route.fanout:
+        return await _data_catalog(route, upstream_headers)
     timeout = ROUTE_TIMEOUTS.get(route.timeout_key, settings.upstream_timeout_seconds)
     async with httpx.AsyncClient(timeout=timeout) as client:
         try:

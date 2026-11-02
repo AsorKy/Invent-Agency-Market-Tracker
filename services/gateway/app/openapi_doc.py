@@ -98,14 +98,11 @@ def _parameters(route: PublicRoute) -> list[dict[str, Any]]:
     params: list[dict[str, Any]] = []
     for part in route.path.split("/"):
         if part.startswith("{"):
-            params.append(
-                {
-                    "name": part.strip("{}"),
-                    "in": "path",
-                    "required": True,
-                    "schema": {"type": "string"},
-                }
-            )
+            name = part.strip("{}")
+            schema: dict[str, Any] = {"type": "string"}
+            if name in route.path_enums:
+                schema["enum"] = list(route.path_enums[name])
+            params.append({"name": name, "in": "path", "required": True, "schema": schema})
     for query in route.query:
         item: dict[str, Any] = {
             "name": query.name,

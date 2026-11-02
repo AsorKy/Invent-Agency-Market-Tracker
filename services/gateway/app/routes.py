@@ -4,13 +4,18 @@ Maps ``/api/v1/<path>`` to an internal service URL. Only the routes listed here
 are reachable: ``/internal/*`` and ``/admin`` of any service never resolve, and
 the identity service exposes only login, profile, and logout. Resources that
 belong to layers L2 and L3 answer ``not_in_layer`` until their run. There is no
-route to the service that ``pulse`` replaced.
-Relates to ``services/gateway/app/main.py`` and ``libs.common.settings``.
+route to the service that ``pulse`` replaced. The read-only data explorer
+(``data/catalog`` and ``data/<dataset>``) resolves only through ``data/``: the
+catalog fans out to every owning service and a dataset goes to its owner in
+``libs.common.data_explorer.CATALOG``; the ``pulse/``, ``brief/`` and
+``ingest/`` passthroughs never reach it, and a path with a dot segment never
+resolves. Relates to ``services/gateway/app/main.py`` and ``libs.common.settings``.
 """
 
 from dataclasses import dataclass
 from typing import Literal
 
+from libs.common.data_explorer import CATALOG, DATA_SERVICES
 from libs.common.settings import Settings
 
 # First path segments of L2 (ADR-IMT-0002 lens) and L3 (ADR-IMT-0003 prediction) resources.
@@ -62,6 +67,8 @@ class Route:
     public_path: str
     admin_only: bool = False
     allowed_roles: frozenset[str] | None = None
+    # (service, url) pairs the gateway calls and merges instead of proxying ``url``.
+    fanout: tuple[tuple[str, str], ...] = ()
 
 
 class NotInLayer:
@@ -99,12 +106,54 @@ def _lens_route(path: str, method: str, settings: Settings) -> Resolution:
     return Route(_join(settings.core_url, internal), "core", "core", path, allowed_roles=roles)
 
 
+def _service_url(settings: Settings, service: str) -> str:
+    urls = {
+        "ingest": settings.ingest_url,
+        "core": settings.core_url,
+        "ml": settings.ml_url,
+        "brief": settings.brief_url,
+        "pulse": settings.pulse_url,
+    }
+    return urls[service]
+
+
+def _data_route(path: str, name: str, method: str, settings: Settings) -> Resolution:
+    """Resolve the read-only data explorer: the catalog fan-out or one dataset at its owner."""
+    if name != "catalog" and name not in CATALOG:
+        return None
+    if method.upper() != "GET":
+        return "method_not_allowed"
+    if name == "catalog":
+        fanout = tuple(
+            (service, _join(_service_url(settings, service), f"/internal/{service}/data/catalog"))
+            for service in DATA_SERVICES
+        )
+        return Route("", "gateway", "gateway", path, allowed_roles=_READ_ROLES, fanout=fanout)
+    service = CATALOG[name].service
+    internal = f"/internal/{service}/data/{name}"
+    return Route(
+        _join(_service_url(settings, service), internal),
+        service,
+        service,
+        path,
+        allowed_roles=_READ_ROLES,
+    )
+
+
 def resolve(path: str, method: str, settings: Settings) -> Resolution:
     """Resolve ``path`` (without ``/api/v1/``) and ``method`` to a route."""
     path = path.strip("/")
     first, _, suffix = path.partition("/")
+    if {".", ".."} & set(path.split("/")):
+        # httpx would normalize the segment and could reach another internal path.
+        return None
     if first in NOT_IN_LAYER:
         return NotInLayer()
+    if first == "data":
+        return _data_route(path, suffix, method, settings) if "/" not in suffix else None
+    if first in {"pulse", "brief", "ingest"} and suffix.partition("/")[0] == "data":
+        # The data explorer keeps its read roles: only ``data/...`` reaches it.
+        return None
     if first in {"funnel", "validation"}:
         return _lens_route(path, method, settings)
     if path in _IDENTITY_ROUTES:

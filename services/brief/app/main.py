@@ -17,7 +17,7 @@ from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException, Re
 from fastapi.responses import JSONResponse
 from redis.asyncio import Redis
 
-from libs.common.db import check_database
+from libs.common.db import check_database, create_engine
 from libs.common.internal_auth import require_internal_token
 from libs.common.lifecycle import graceful_lifespan, instrument_app
 from libs.common.logging import configure_logging
@@ -30,6 +30,7 @@ from services.brief.app.core_source import (
     CoreUnavailable,
     HttpCoreSource,
 )
+from services.brief.app.data_explorer import router as data_router
 from services.brief.app.explanations import ExplanationSource, HttpExplanationSource
 from services.brief.app.models import BriefResponse
 from services.brief.app.repository import BriefStore, TenantRequired, create_repository
@@ -76,7 +77,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         create_repository(settings.database_url), redis, core, summarizer, explanations
     )
     app.state.brief = state
+    # The data explorer reads brief.record_digest with its own small pool.
+    app.state.data_engine = create_engine(settings.database_url, pool_size=1)
     yield
+    if app.state.data_engine is not None:
+        await app.state.data_engine.dispose()
     if summarizer is not None:
         await summarizer.close()
     await explanations.close()
@@ -92,6 +97,7 @@ app = FastAPI(
 )
 app.add_middleware(RequestIdMiddleware)
 instrument_app(app, "brief")
+app.include_router(data_router)
 
 
 async def _digest_response(

@@ -23,7 +23,9 @@ from libs.common.redis_client import check_redis, create_redis
 from libs.common.request_id import RequestIdMiddleware
 from libs.common.settings import get_settings
 from libs.contracts.api import ScoreFeatures, ScoreResponse
+from services.ml.app.core_features import HttpCoreFeatures
 from services.ml.app.core_rules import HttpCoreRules
+from services.ml.app.data_explorer import router as data_router
 from services.ml.app.explanations_routes import router as explanations_router
 from services.ml.app.repository import MlRepository
 from services.ml.app.scoring_service import ScoringService
@@ -38,8 +40,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         settings.database_url,
         HttpCoreRules(settings.core_url, settings.internal_service_token),
     )
+    app.state.data_engine = getattr(app.state.repository, "engine", None)
+    app.state.core_features = HttpCoreFeatures(settings.core_url, settings.internal_service_token)
     app.state.redis = create_redis(settings.redis_url)
     yield
+    await app.state.core_features.close()
     await app.state.repository.close()
     await app.state.redis.aclose()
 
@@ -52,6 +57,7 @@ app = FastAPI(
 app.add_middleware(RequestIdMiddleware)
 instrument_app(app, "ml")
 app.include_router(explanations_router)
+app.include_router(data_router)
 
 
 @app.get("/health")
