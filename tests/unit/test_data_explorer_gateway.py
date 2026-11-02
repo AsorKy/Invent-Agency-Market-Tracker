@@ -25,7 +25,7 @@ from libs.common.data_explorer import CATALOG, DATA_SERVICES, DatasetInfo  # noq
 from libs.common.settings import get_settings  # noqa: E402
 from services.gateway.app import main as gw  # noqa: E402
 from services.gateway.app.registry import DataCatalog  # noqa: E402
-from services.gateway.app.routes import Route, resolve  # noqa: E402
+from services.gateway.app.routes import DEV_TENANT_ROLES, Route, resolve  # noqa: E402
 
 client = base.client
 READ_ROLES = frozenset({"admin", "strategist", "analyst"})
@@ -114,6 +114,7 @@ def test_catalog_resolves_to_a_fan_out_over_the_five_services() -> None:
         )
         for service in DATA_SERVICES
     )
+    assert DEV_TENANT_ROLES == READ_ROLES
 
 
 @pytest.mark.parametrize("method", ["POST", "PUT", "PATCH", "DELETE"])

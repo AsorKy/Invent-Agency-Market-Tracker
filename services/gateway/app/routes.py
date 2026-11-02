@@ -54,6 +54,8 @@ IDENTITY_PUBLIC_PATHS: frozenset[str] = frozenset(_IDENTITY_ROUTES)
 _CORE_RESOURCES = frozenset({"companies", "leads", "pipeline", "projects", "signals"})
 _READ_ROLES = frozenset({"admin", "strategist", "analyst"})
 _DECIDE_ROLES = frozenset({"admin", "strategist"})
+# GET routes restricted to these roles also get DEV_DEFAULT_TENANT_ID in a local demo.
+DEV_TENANT_ROLES: frozenset[str] = _READ_ROLES
 _PULSE_RESOURCES = frozenset({"market", "segments"})
 
 

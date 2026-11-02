@@ -6,7 +6,8 @@ gateway also applies configuration-gated edge and CSRF checks and, when
 identity validation is enabled, verifies user JWTs against the identity JWKS and
 sets the tenant and role headers itself. With validation off, the local-only
 ``DEV_DEFAULT_TENANT_ID`` sets the tenant header (no role) on routes that need
-no role. The data
+no role and on GET routes restricted to the read roles (``DEV_TENANT_ROLES``),
+never on admin-only, identity, or other role-restricted routes. The data
 explorer catalog (``/api/v1/data/catalog``) is merged here from every owning
 service; a service that does not answer is listed with ``unavailable``. Routes
 live in ``routes.py``, JWT logic
@@ -54,6 +55,7 @@ from services.gateway.app.auth import (
 )
 from services.gateway.app.readiness import UpstreamReadiness
 from services.gateway.app.routes import (
+    DEV_TENANT_ROLES,
     IDENTITY_PUBLIC_PATHS,
     ROUTE_TIMEOUTS,
     NotInLayer,
@@ -400,9 +402,18 @@ async def proxy(path: str, request: Request) -> Response:
         dev_tenant is not None
         and route.service != "identity"
         and not route.admin_only
-        and route.allowed_roles is None
+        and (
+            route.allowed_roles is None
+            or (
+                request.method == "GET"
+                and bool(route.allowed_roles)
+                and route.allowed_roles <= DEV_TENANT_ROLES
+            )
+        )
     ):
-        # The dev tenant carries no role, so role-restricted routes stay without a tenant.
+        # The dev tenant carries no role. Besides the routes that need no role it reaches only
+        # GET routes of the read roles (data explorer, funnel and validation cards); writes
+        # restricted to a role and admin-only routes stay without a tenant.
         upstream_headers["X-Tenant-Id"] = str(dev_tenant)
     if route.fanout:
         return await _data_catalog(route, upstream_headers)

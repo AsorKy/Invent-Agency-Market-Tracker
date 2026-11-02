@@ -2,9 +2,12 @@
 
 With identity validation off the gateway forwards no tenant, so row level security
 hides every row. The setting supplies ``X-Tenant-Id`` (never a role) on routes that
-need no role; a verified claim wins, validation on ignores it, and the settings
-refuse it in production with the D-28 production rule. Reuses the fake upstreams
-of ``test_gateway_auth``; no network, Redis, or Postgres is used.
+need no role and on GET routes restricted to the read roles (admin, strategist,
+analyst: the data explorer, funnel and validation cards), never on admin-only,
+identity, or role-restricted write routes; a verified claim wins, validation on
+ignores it, and the settings refuse it in production with the D-28 production
+rule. Reuses the fake upstreams of ``test_gateway_auth``; no network, Redis, or
+Postgres is used.
 """
 
 import logging
@@ -25,6 +28,7 @@ pytest.importorskip("cryptography")
 import test_gateway_auth as base  # noqa: E402
 from test_gateway_auth import TENANT_A, TENANT_B, World, bearer, configure  # noqa: E402
 
+from libs.common.data_explorer import DATA_SERVICES  # noqa: E402
 from libs.common.settings import Settings  # noqa: E402
 from services.gateway.app import main as gw  # noqa: E402
 
@@ -32,6 +36,7 @@ client = base.client
 world = base.world
 
 DEMO_TENANT = "00000000-0000-4000-8000-0000000000a1"
+PROJECT = "33333333-3333-4333-8333-333333333333"
 COMPOSE = Path(__file__).resolve().parents[2] / "docker-compose.yml"
 ROLE_HEADERS = ("x-user-role", "x-user-id", "x-user-scopes", "authorization")
 
@@ -56,18 +61,54 @@ async def test_validation_off_forwards_the_dev_tenant_and_no_role(
     assert not [name for name in ROLE_HEADERS if name in sent.headers]
 
 
-async def test_role_restricted_routes_never_get_the_dev_tenant(
+async def test_admin_only_routes_and_role_restricted_writes_never_get_the_dev_tenant(
     client: Any, world: World, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     dev(monkeypatch, enabled=False, tenant=DEMO_TENANT)
 
     await client.get("/api/v1/admin/tenant-config")
+    await client.put("/api/v1/admin/tenant-config", content=b"{}")
     await client.post("/api/v1/compliance/opt-out", content=b"{}")
-    await client.get("/api/v1/validation/meta-ml")
+    await client.post(f"/api/v1/funnel/projects/{PROJECT}/gates/g1/decision", content=b"{}")
+    await client.put(f"/api/v1/projects/{PROJECT}/validation-inputs", content=b"{}")
 
     sent = world.core_requests()
-    assert len(sent) == 3
+    assert len(sent) == 5
     assert not [r.url.path for r in sent if "x-tenant-id" in r.headers]
+
+
+async def test_read_role_get_routes_get_the_dev_tenant_and_no_role(
+    client: Any, world: World, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    dev(monkeypatch, enabled=False, tenant=DEMO_TENANT)
+
+    await client.get("/api/v1/validation/meta-ml", headers={"X-Tenant-Id": TENANT_B})
+    await client.get(f"/api/v1/funnel/projects/{PROJECT}")
+    await client.get("/api/v1/data/companies")
+    await client.get("/api/v1/data/raw_snapshots")
+    catalog = await client.get("/api/v1/data/catalog")
+
+    assert catalog.status_code == 200
+    sent = [r for r in world.requests if r.url.path.startswith("/internal/")]
+    assert {r.url.path for r in sent} == {
+        "/internal/core/validation/meta-ml",
+        f"/internal/core/funnel/projects/{PROJECT}",
+        "/internal/core/data/companies",
+        "/internal/ingest/data/raw_snapshots",
+        *(f"/internal/{service}/data/catalog" for service in DATA_SERVICES),
+    }
+    assert {r.headers["x-tenant-id"] for r in sent} == {DEMO_TENANT}
+    assert not [name for r in sent for name in ROLE_HEADERS if name in r.headers]
+
+
+async def test_validation_off_without_the_dev_tenant_sends_no_tenant_to_the_data_explorer(
+    client: Any, world: World, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    dev(monkeypatch, enabled=False, tenant=None)
+
+    await client.get("/api/v1/data/companies", headers={"X-Tenant-Id": TENANT_B})
+
+    assert "x-tenant-id" not in world.core_requests()[0].headers
 
 
 async def test_identity_routes_never_get_the_dev_tenant(
