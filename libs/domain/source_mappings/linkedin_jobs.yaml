@@ -1,10 +1,11 @@
-# LinkedIn job postings (Bright Data dataset, filtered to Colombia) to canonical
-# job posting fields.
-# unverified: field names come from the public Bright Data documentation, not
-# from a recorded sample (no tests/fixtures/brightdata/ samples exist, D-13).
-version: 1
+# LinkedIn job postings (Bright Data dataset gd_lpfll7v5hcqtkxl6l, discover by keyword,
+# filtered to Colombia) to canonical job posting fields.
+# Verified against tests/fixtures/brightdata/recorded/linkedin_jobs.json (D-13). The search
+# keyword comes back in discovery_input; the dataset returns no job_base_pay_range, and
+# base_salary was empty in every sample, so no salary field is mapped.
+version: 2
 source: linkedin_jobs
-unverified: true
+unverified: false
 entity: job_posting
 signal_type: job_posting
 external_id: [job_posting_id, url]
@@ -17,11 +18,20 @@ fields:
     from: [company_name]
     transform: strip
     required: true
+  company_id:
+    from: [company_id]
+    transform: strip
+  company_url:
+    from: [company_url]
+    transform: url
   city:
     from: [job_location]
+    transform: city
+  keyword:
+    from: [discovery_input.keyword, input.discovery_input.keyword]
     transform: strip
-  salary_text:
-    from: [job_base_pay_range]
+  industry:
+    from: [job_industries]
     transform: strip
   description:
     from: [job_summary]

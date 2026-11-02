@@ -67,9 +67,20 @@ The ledger (`BD_IMPORT_STATE_DIR`, the `bd_import_state` volume in Compose) keep
 
 ## 6. Mapping verification (decision D-13)
 
-Phase 0 writes one redacted sample per endpoint to `tests/fixtures/brightdata/recorded/<source>.json`: person values become placeholders of the same type, company data stays, and no request header is stored. Check the mappings against them with `python ops/verify_mappings.py --samples tests/fixtures/brightdata/recorded`; `--apply` sets `unverified: false` for a source with enough coverage. The unit tests assert that a mapping is `unverified` exactly when no real recorded or captured sample of its source exists.
+Phase 0 writes one redacted sample per endpoint to `tests/fixtures/brightdata/recorded/<source>.json`: person values (and e-mail addresses in free text) become placeholders of the same type, company data stays, and no request header is stored. A sample made only of provider error records is not a sample: keep it under `recorded/errors/`. Check the mappings with `python ops/verify_mappings.py --samples tests/fixtures/brightdata/recorded --source linkedin_jobs --source linkedin_companies`; `--apply` sets `unverified: false` for a source with enough coverage. The unit tests assert that a mapping is `unverified` exactly when no real recorded or captured sample of its source exists.
 
-## 7. Troubleshooting
+## 7. Phase 0 results (2026-11-02)
+
+| Endpoint | Result | Mapping |
+| --- | --- | --- |
+| LinkedIn jobs (SDK) | 3 records, `limit_per_input` held; keyword returned in `discovery_input` | `linkedin_jobs` v2, verified (coverage 1.00) |
+| LinkedIn companies (SDK) | 3 records from the jobs' `company_url`; 1 of 3 mid-size | `linkedin_companies` v2, verified (coverage 0.85) |
+| Google Maps discover by location (REST) | `crawl_error` on 3 attempts (array and wrapped body, two keywords): a provider-side parse failure, no place record | `maps` v2 known fixes, still unverified |
+| Business Search companies and people (REST) | HTTP 403: the account is not on the Business Search allowlist (early access); not billed | `business_search_companies` v1, unverified |
+
+Until Business Search access is granted, phase 1 lands no company search and phase 3 finds no decision maker; until the Maps scraper works, phase 1 lands no place. Provider error records are never landed and are not billed (pay only for success).
+
+## 8. Troubleshooting
 
 - `BudgetExceededError` in the report: the call was not made. Raise `BD_IMPORT_MAX_USD` or the source cap only after checking the plan with `--dry-run`.
 - Snapshots land but no company appears: check `ingest.failed_record` for "no mapping source for dataset" (routing, section 3) and that the processor was rebuilt.
