@@ -27,7 +27,7 @@ DB_APIS = {"ingest": "ingest", "core": "core", "pulse": "pulse", "brief": "brief
 # Profile-gated helpers, outside the SPEC section 3.1 catalog.
 DEV_TOOLS = {"pgadmin", "drift-worker", "verify-live", "bd-import"}
 EXPECTED = (
-    {"postgres", "redis", "migrate", "bootstrap-roles", "streamlit", "mocks", "n8n"}
+    {"postgres", "redis", "migrate", "bootstrap-roles", "streamlit", "mocks", "n8n", "frontend"}
     | set(APIS)
     | set(WORKERS)
     | DEV_TOOLS
@@ -208,6 +208,31 @@ def test_streamlit_is_real_container(services: dict[str, Any]) -> None:
     assert "uvicorn" not in command
     assert "/_stcore/health" in " ".join(streamlit["healthcheck"]["test"])
     assert not any("DATABASE" in key for key in _env(streamlit))
+
+
+def test_frontend_is_a_static_loopback_proxy_to_the_gateway(services: dict[str, Any]) -> None:
+    frontend = services["frontend"]
+    assert frontend["image"].startswith("nginx:") and frontend["image"].endswith("-alpine")
+    assert "build" not in frontend and "env_file" not in frontend
+    assert frontend["ports"] == ["127.0.0.1:${FRONTEND_PORT:-3000}:80"]
+    mounts = frontend["volumes"]
+    assert "./frontend:/usr/share/nginx/html:ro" in mounts
+    template = "./deploy/nginx/frontend.conf.template"
+    assert f"{template}:/etc/nginx/templates/default.conf.template:ro" in mounts
+    assert all(str(m).endswith(":ro") for m in mounts)
+    env = _env(frontend)
+    # Only the edge secret reaches the proxy, and envsubst renders nothing else.
+    assert set(env) == {"NGINX_ENVSUBST_FILTER", "EDGE_SECRET"}
+    assert env["NGINX_ENVSUBST_FILTER"] == "^EDGE_SECRET$$"  # Compose turns $$ into $
+    assert env["EDGE_SECRET"] == "${EDGE_SECRET:-}"
+    assert _depends(frontend) == {"gateway": "service_started"}
+    assert "/healthz" in " ".join(frontend["healthcheck"]["test"])
+    conf = (COMPOSE.parent / template.removeprefix("./")).read_text(encoding="utf-8")
+    assert "set $gateway_upstream http://gateway:8000;" in conf
+    assert 'proxy_set_header X-Edge-Secret "${EDGE_SECRET}";' in conf
+    assert "location /api/ {" in conf
+    # Allowlist: anything that is not a dc component, api.js or support.js answers 404.
+    assert conf.rstrip().endswith("location / {\n        return 404;\n    }\n}")
 
 
 def test_gateway_has_no_credentials(services: dict[str, Any]) -> None:
