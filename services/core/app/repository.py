@@ -29,6 +29,7 @@ from libs.contracts.api import SignalCreate
 from libs.domain.event_chain import chain_events_after, stamp_payload
 from services.core.app.brief_facts import read_brief_facts
 from services.core.app.event_dimensions import clean
+from services.core.app.insights import read_insights
 from services.core.app.score_features import read_score_features
 from services.core.app.score_rules import read_score_rules
 
@@ -1463,7 +1464,12 @@ class CoreRepository:
     async def list_companies(
         self, limit: int, cursor: str | None = None, *, tenant_id: UUID | None = None
     ) -> tuple[list[dict[str, object]], str | None]:
-        """List companies newest first; without ``tenant_id`` row level security hides them all."""
+        """List companies newest first; without ``tenant_id`` row level security hides them all.
+
+        ``rues_status`` follows ``brief_facts.build_facts``: the ``source_flags`` value when it is
+        a known status, else ``matched`` with a NIT and ``pending`` without one (a company that
+        ingest delivered without a RUES match).
+        """
         if self.engine is None:
             raise RuntimeError("DATABASE_URL is required for core reads")
         page_cursor = decode_cursor(cursor) if cursor else None
@@ -1486,7 +1492,12 @@ class CoreRepository:
                 text(
                     f"""
                     SELECT id, slug, legal_name, trade_name, sector_code, employee_count,
-                           website, city, version, updated_at
+                           website, city, version, updated_at,
+                           CASE WHEN source_flags->>'rues_status'
+                                     IN ('matched', 'pending', 'unmatched', 'quarantined')
+                                THEN source_flags->>'rues_status'
+                                WHEN nit IS NOT NULL AND nit <> '' THEN 'matched'
+                                ELSE 'pending' END AS rues_status
                     FROM core.company
                     {where}
                     ORDER BY updated_at DESC, id DESC
@@ -1519,7 +1530,13 @@ class CoreRepository:
         min_score: int | None = None,
         tenant_id: UUID | None = None,
     ) -> tuple[list[dict[str, object]], str | None]:
-        """List leads newest first; ``segment`` is the company sector code."""
+        """List leads newest first; ``segment`` is the company sector code.
+
+        A lead without its own city (an automatic lead) shows and filters by the company city.
+        ``rues_status`` is derived as in ``list_companies``. ``decision_makers`` holds the latest
+        five ``decision_maker`` signals of the company with only name, title and public profile
+        URL (INV-12); an empty list when there is none.
+        """
         if self.engine is None:
             raise RuntimeError("DATABASE_URL is required for core reads")
         page_cursor = decode_cursor(cursor) if cursor else None
@@ -1528,7 +1545,7 @@ class CoreRepository:
         filters: dict[str, tuple[object, str]] = {
             "stage": (stage, "l.stage = :stage"),
             "service_line": (service_line, "l.service_line = :service_line"),
-            "city": (city, "l.city = :city"),
+            "city": (city, "COALESCE(l.city, c.city) = :city"),
             "segment": (segment, "c.sector_code = :segment"),
             "min_score": (min_score, "c.score >= :min_score"),
             "tenant_id": (tenant_id, "l.tenant_id = :tenant_id"),
@@ -1549,11 +1566,35 @@ class CoreRepository:
             result = await connection.execute(
                 text(
                     f"""
-                    SELECT l.id, l.company_id, c.legal_name, l.service_line, l.stage, l.city,
+                    SELECT l.id, l.company_id, c.legal_name, l.service_line, l.stage,
+                           COALESCE(l.city, c.city) AS city,
                            c.sector_code AS segment, c.score, l.version,
-                           l.created_at, l.updated_at
+                           l.created_at, l.updated_at,
+                           CASE WHEN c.source_flags->>'rues_status'
+                                     IN ('matched', 'pending', 'unmatched', 'quarantined')
+                                THEN c.source_flags->>'rues_status'
+                                WHEN c.nit IS NOT NULL AND c.nit <> '' THEN 'matched'
+                                ELSE 'pending' END AS rues_status,
+                           COALESCE(dm.people, '[]'::jsonb) AS decision_makers
                     FROM core.lead l
                     JOIN core.company c ON c.id = l.company_id
+                    LEFT JOIN LATERAL (
+                        SELECT jsonb_agg(
+                                   jsonb_build_object(
+                                       'name', d.payload->>'name',
+                                       'title', d.payload->>'title',
+                                       'profile_url', d.payload->>'profile_url'
+                                   ) ORDER BY d.observed_at DESC, d.id DESC
+                               ) AS people
+                        FROM (
+                            SELECT s.id, s.observed_at, s.payload
+                            FROM core.signal s
+                            WHERE s.company_id = l.company_id
+                              AND s.signal_type = 'decision_maker'
+                            ORDER BY s.observed_at DESC, s.id DESC
+                            LIMIT 5
+                        ) AS d
+                    ) AS dm ON true
                     {where}
                     ORDER BY l.updated_at DESC, l.id DESC
                     LIMIT :limit
@@ -1572,6 +1613,11 @@ class CoreRepository:
                 raise RuntimeError("database returned invalid lead cursor fields")
             next_cursor = encode_cursor(updated_at, item_id)
         return rows, next_cursor
+
+    async def insights(self, tenant_id: UUID | None) -> dict[str, object]:
+        if self.engine is None:
+            raise RuntimeError("DATABASE_URL is required for core reads")
+        return await read_insights(self.engine, tenant_id)
 
     async def brief_facts(
         self, company_id: UUID, tenant_id: UUID | None = None
