@@ -85,12 +85,32 @@ def test_build_insights_weights_averages_and_keeps_null_for_no_data() -> None:
     }
     assert by_city["Bogota"]["avg_rating"] == 4.3 and by_city["Bogota"]["avg_reviews"] is None
     assert "Cali" not in by_city  # no listing, no row
+    assert body["maps_available"] is True
     assert body["hiring"] == HIRING
     mid = body["mid_size"]
     assert (mid["min_employees"], mid["max_employees"]) == (11, 500)
     assert (mid["companies"], mid["companies_with_size"], mid["mid_size"]) == (7, 4, 2)
     assert mid["share"] == 0.5
     assert [row["share"] for row in mid["by_city"]] == [0.6667, 0.0, None]
+
+
+def test_maps_available_is_false_without_any_maps_listing() -> None:
+    # Maps is down on the provider side: companies come only from LinkedIn.
+    linkedin_only = [_group("Bogota", "Software Development", 2), _group("Cali", "Retail", 1)]
+    body = build_insights(linkedin_only, [], [], NOW)
+    assert body["maps_available"] is False and body["maps_by_city"] == []
+    assert [r["category"] for r in body["by_city_category"]] == ["Software Development", "Retail"]
+    assert build_insights([], [], [], NOW)["maps_available"] is False
+
+
+def test_category_falls_back_to_the_linkedin_industry_then_the_sector() -> None:
+    expected = "COALESCE(NULLIF(btrim(m.payload->>'category'), ''), li.industry, c.sector_code)"
+    assert expected in CITY_CATEGORY_SQL
+    linkedin = CITY_CATEGORY_SQL.split("linkedin AS (", 1)[1].split("SELECT c.city", 1)[0]
+    assert "s.source IN ('linkedin_companies', 'linkedin_jobs')" in linkedin
+    assert "s.payload->>'industry'" in linkedin
+    assert "ORDER BY s.company_id, s.observed_at DESC, s.id DESC" in linkedin  # the latest one
+    assert "LEFT JOIN linkedin li ON li.company_id = c.id" in CITY_CATEGORY_SQL
 
 
 def test_build_insights_renders_empty_data() -> None:
@@ -180,3 +200,9 @@ async def test_lead_list_carries_rues_status_and_public_decision_maker_fields() 
     assert "'name', d.payload->>'name', 'title', d.payload->>'title'" in sql
     assert "'profile_url', d.payload->>'profile_url'" in sql
     assert "found_at" not in sql
+    # Decision makers arrive from linkedin_profiles or business_search_people: no source filter.
+    assert "source" not in sql.split("LEFT JOIN LATERAL", 1)[1].split("AS dm ON true", 1)[0]
+    # One tenant-wide flag (row level security scopes core.signal), any source.
+    flag = sql.split("AS decision_makers,", 1)[1].split("AS decision_makers_available", 1)[0]
+    assert "EXISTS ( SELECT 1 FROM core.signal x WHERE x.signal_type = 'decision_maker' )" in flag
+    assert "source" not in flag and "l." not in flag  # uncorrelated: evaluated once

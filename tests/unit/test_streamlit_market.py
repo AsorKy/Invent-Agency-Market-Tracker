@@ -105,6 +105,57 @@ def test_market_page_shows_the_four_views_and_the_rues_pending_label() -> None:
     assert len(at.error) == 2
 
 
+def test_ratings_card_says_maps_unavailable_without_maps_signals() -> None:
+    no_maps = {"listings": 0, "rated": 0, "rating_sum": None, "reviewed": 0, "reviews_sum": None}
+    body = build_insights(
+        [{"city": "Bogota", "category": "Software Development", "companies": 2, **no_maps}],
+        [],
+        [],
+        NOW,
+    )
+    at = run("1_Market.py", {**FULL, "companies/insights": body})
+    assert not at.exception
+    assert [i.value for i in at.info] == ["Maps no disponible"]
+    frames = _frames(at)
+    assert not any("avg_rating" in f.columns for f in frames)
+    matrix = next(f for f in frames if "total" in f.columns)
+    assert matrix["category"].tolist() == ["Software Development"]
+
+
+def test_ratings_card_shows_ratings_when_maps_is_available() -> None:
+    at = run("1_Market.py", FULL)
+    assert "Maps no disponible" not in [i.value for i in at.info]
+
+
+def test_leads_page_shows_decision_makers_from_any_source() -> None:
+    profile = {"name": "Luis Gomez", "title": "CTO", "profile_url": "https://x.co/luis"}
+    lead = {**LEAD, "decision_makers": [profile, PERSON]}
+    at = run("2_Leads.py", {"leads": {"data": [lead], "next_cursor": None}})
+    assert not at.exception
+    shown = _frames(at)[0]["decision_makers"].tolist()
+    assert shown == ["Luis Gomez (CTO); Ana Restrepo (Gerente general)"]
+
+
+def test_leads_page_says_decision_makers_are_unavailable_for_the_tenant() -> None:
+    lead = {**LEAD, "decision_makers": [], "decision_makers_available": False}
+    at = run("2_Leads.py", {"leads": {"data": [lead, {**lead, "id": "l2"}], "next_cursor": None}})
+    assert not at.exception
+    assert market.DECISION_MAKERS_UNAVAILABLE in [c.value for c in at.caption]
+    leads = _frames(at)[0]
+    assert "decision_makers" not in leads.columns and "profiles" not in leads.columns
+    assert leads["rues"].tolist() == ["RUES pendiente", "RUES pendiente"]
+
+
+def test_leads_page_keeps_the_per_lead_column_when_decision_makers_exist() -> None:
+    with_people = {**LEAD, "decision_makers_available": True}
+    without = {**LEAD, "id": "l2", "decision_makers": [], "decision_makers_available": True}
+    at = run("2_Leads.py", {"leads": {"data": [with_people, without], "next_cursor": None}})
+    assert not at.exception
+    assert market.DECISION_MAKERS_UNAVAILABLE not in [c.value for c in at.caption]
+    shown = _frames(at)[0]["decision_makers"].tolist()
+    assert shown == ["Ana Restrepo (Gerente general)", "-"]
+
+
 def test_market_page_renders_with_empty_data() -> None:
     at = run("1_Market.py", EMPTY)
     assert not at.exception
@@ -112,6 +163,7 @@ def test_market_page_renders_with_empty_data() -> None:
     assert metrics["Companies"] == "0" and metrics["Mid-size share"] == "No data"
     assert any(t.value == "No data" for t in at.markdown)
     assert any(t.value == "No companies" for t in at.markdown)
+    assert [i.value for i in at.info] == ["Maps no disponible"]
 
 
 def test_market_page_applies_the_city_filter() -> None:
@@ -145,3 +197,6 @@ def test_market_helpers_tolerate_missing_and_malformed_values() -> None:
     rows = market.lead_rows([{"decision_makers": "oops"}, {"decision_makers": [PERSON, 3]}])
     assert [r["decision_makers"] for r in rows] == ["-", "Ana Restrepo (Gerente general)"]
     assert market.in_city([{"city": "Bogota"}, {"city": None}], "bogota") == [{"city": "Bogota"}]
+    assert market.decision_makers_available([]) is True
+    assert market.decision_makers_available([{"decision_makers_available": False}]) is False
+    assert market.decision_makers_available([{}]) is True  # an older core without the flag

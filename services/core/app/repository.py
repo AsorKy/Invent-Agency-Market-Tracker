@@ -1535,7 +1535,9 @@ class CoreRepository:
         A lead without its own city (an automatic lead) shows and filters by the company city.
         ``rues_status`` is derived as in ``list_companies``. ``decision_makers`` holds the latest
         five ``decision_maker`` signals of the company with only name, title and public profile
-        URL (INV-12); an empty list when there is none.
+        URL (INV-12); an empty list when there is none. ``decision_makers_available`` is false
+        when the tenant has no ``decision_maker`` signal at all (one uncorrelated check that row
+        level security limits to the tenant context), so a page need not infer it.
         """
         if self.engine is None:
             raise RuntimeError("DATABASE_URL is required for core reads")
@@ -1575,7 +1577,11 @@ class CoreRepository:
                                 THEN c.source_flags->>'rues_status'
                                 WHEN c.nit IS NOT NULL AND c.nit <> '' THEN 'matched'
                                 ELSE 'pending' END AS rues_status,
-                           COALESCE(dm.people, '[]'::jsonb) AS decision_makers
+                           COALESCE(dm.people, '[]'::jsonb) AS decision_makers,
+                           EXISTS (
+                               SELECT 1 FROM core.signal x
+                               WHERE x.signal_type = 'decision_maker'
+                           ) AS decision_makers_available
                     FROM core.lead l
                     JOIN core.company c ON c.id = l.company_id
                     LEFT JOIN LATERAL (
