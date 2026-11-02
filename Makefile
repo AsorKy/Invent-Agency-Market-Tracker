@@ -62,7 +62,7 @@ static:
 	python ops/check_workflows.py
 	python ops/check_five_questions.py
 	python -m compileall -q libs services datagen ops
-	ruff check libs services datagen ops
+	ruff check libs services datagen ops tests
 	ruff format --check libs services datagen ops
 	mypy libs services datagen ops
 
