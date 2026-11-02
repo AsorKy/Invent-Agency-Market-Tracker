@@ -109,6 +109,8 @@ async def test_seed_client_signs_as_seed_on_every_route() -> None:
     ]
     assert {_signer(r) for r in seen} == {"seed"}
     assert seen[2].headers["x-tenant-id"] == str(DEMO_TENANT_ID)
+    # Opt-out acts only inside the caller tenant: core answers 400 without it.
+    assert seen[3].headers["x-tenant-id"] == str(DEMO_TENANT_ID)
 
 
 def test_verify_live_signs_as_verify_live(monkeypatch: pytest.MonkeyPatch) -> None:

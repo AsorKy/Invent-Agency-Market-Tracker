@@ -77,10 +77,16 @@ class HttpSeedCore(HttpCoreClient):
         return list(body["data"]), body.get("next_cursor")
 
     async def opt_out(self, company_id: str) -> dict[str, Any]:
-        return await self._post(
+        # Opt-out acts only inside the caller tenant (D-36): core answers 400 without the header.
+        headers = {**self._auth_headers(), "X-Tenant-Id": str(DEMO_TENANT_ID)}
+        response = await self._client.post(
             "/internal/core/compliance/opt-out",
-            {"company_id": company_id, "requested_via": "demo_seed_clear"},
+            json={"company_id": company_id, "requested_via": "demo_seed_clear"},
+            headers=headers,
         )
+        response.raise_for_status()
+        data = response.json()
+        return data if isinstance(data, dict) else {}
 
 
 def _demo_city(value: Any) -> Any:
