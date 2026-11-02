@@ -112,20 +112,38 @@ DECISION_TITLES = (
     "Director Comercial",
     "Director de Mercadeo",
 )
-# Folded title words that prove a public business role (INV-12).
+# Folded title words that prove a public business role (INV-12), Spanish and English.
 DECISION_ROLE_WORDS = (
     "ceo",
-    "chief executive",
+    "chief executive officer",
     "gerente general",
+    "general manager",
     "fundador",
+    "fundadora",
     "cofundador",
+    "cofundadora",
     "founder",
+    "cofounder",
     "cto",
-    "chief technology",
+    "chief technology officer",
     "director comercial",
+    "directora comercial",
+    "commercial director",
+    "sales director",
     "director de mercadeo",
+    "directora de mercadeo",
     "director de marketing",
+    "directora de marketing",
+    "marketing director",
+    "cmo",
+    "chief marketing officer",
 )
+# A title with one of these words is not the role itself ("Assistant to the CEO").
+NOT_DECISION_WORDS = ("assistant", "asistente", "former", "ex", "intern", "practicante")
+# Fields of a LinkedIn company `employees` entry: the name, and the role when the dataset
+# has one (the Phase 0 sample had only img, link, and title = the person's name).
+EMPLOYEE_NAME_KEYS = ("title", "name")
+EMPLOYEE_ROLE_KEYS = ("subtitle", "position", "headline", "job_title", "role")
 JOB_LOCATIONS = {
     MEDELLIN: "Medell\u00edn, Antioquia, Colombia",
     BOGOTA: "Bogot\u00e1, D.C., Colombia",
@@ -217,11 +235,19 @@ PERSON_KEYS = frozenset(
         "recruiter",
     }
 )
-# Wider list used only to redact recorded fixtures.
-FIXTURE_PERSON_KEYS = PERSON_KEYS | {"posts", "owner", "user", "contacts", "email"}
+# Wider list used only to redact recorded fixtures (decision_makers holds persons too).
+FIXTURE_PERSON_KEYS = PERSON_KEYS | {
+    "posts",
+    "owner",
+    "user",
+    "contacts",
+    "email",
+    "decision_makers",
+}
 PERSON_SOURCES = frozenset({"business_search_people"})
-# E-mail addresses inside free text (job descriptions) are masked in recorded fixtures.
+# E-mail addresses in any landed text (job descriptions) are masked before mapping (INV-12).
 EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
+EMAIL_MASK = "[email removed]"
 
 
 class BudgetExceededError(RuntimeError):
@@ -230,6 +256,10 @@ class BudgetExceededError(RuntimeError):
 
 class ImportCallError(RuntimeError):
     """A provider call failed; the message carries no secret."""
+
+
+class AccessDeniedError(ImportCallError):
+    """The account may not use this endpoint (HTTP 401 or 403); the call is not billed."""
 
 
 @dataclass
@@ -261,6 +291,10 @@ class Budget:
             )
         self.spent[source] = used + cost
         return cost
+
+    def release(self, source: str, reserved: float) -> None:
+        """Give back a reservation for a call that was refused and not billed."""
+        self.spent[source] = max(0.0, self.spent.get(source, 0.0) - reserved)
 
     def settle(self, source: str, reserved: float, delivered: int) -> None:
         """Add the excess when the provider delivered more than requested."""
@@ -412,9 +446,18 @@ def redact_fixture(record: Any, *, person: bool) -> Any:
         }
     if isinstance(record, list):
         return [redact_fixture(v, person=False) for v in record]
-    if isinstance(record, str):
-        return EMAIL.sub("redacted@example.invalid", record)
-    return record
+    return mask_emails(record)
+
+
+def mask_emails(value: Any) -> Any:
+    """Replace every e-mail address inside ``value`` (any depth) with a fixed mask."""
+    if isinstance(value, str):
+        return EMAIL.sub(EMAIL_MASK, value) if "@" in value else value
+    if isinstance(value, list):
+        return [mask_emails(v) for v in value]
+    if isinstance(value, dict):
+        return {k: mask_emails(v) for k, v in value.items()}
+    return value
 
 
 def is_error_record(record: dict[str, Any]) -> bool:
@@ -457,7 +500,53 @@ def normalized_fields(source: str, record: dict[str, Any]) -> dict[str, Any] | N
 
 def is_decision_title(title: str) -> bool:
     folded = f" {fold(title)} "
+    if any(f" {word} " in folded for word in NOT_DECISION_WORDS):
+        return False
     return any(f" {word} " in folded for word in DECISION_ROLE_WORDS)
+
+
+def profile_url(value: Any) -> str | None:
+    """Return a public LinkedIn profile URL on www without query, else None."""
+    if not isinstance(value, str) or "linkedin.com/in/" not in value:
+        return None
+    slug = value.split("?")[0].rstrip("/").split("linkedin.com/in/", 1)[1]
+    return f"https://www.linkedin.com/in/{slug}"[:300] if slug else None
+
+
+def employee_decision_makers(employees: Any) -> list[dict[str, str]]:
+    """Keep name, role, and public profile of the decision makers of a company's
+    ``employees`` list; every other entry and field is dropped (INV-12)."""
+    found: list[dict[str, str]] = []
+    for entry in employees if isinstance(employees, list) else []:
+        if not isinstance(entry, dict):
+            continue
+        name = next((entry[k] for k in EMPLOYEE_NAME_KEYS if isinstance(entry.get(k), str)), "")
+        role = next((entry[k] for k in EMPLOYEE_ROLE_KEYS if isinstance(entry.get(k), str)), "")
+        url = profile_url(entry.get("link") or entry.get("url"))
+        if name.strip() and url and is_decision_title(role):
+            person = {"name": name.strip()[:200], "title": role.strip()[:200], "profile_url": url}
+            if all(p["profile_url"] != url for p in found):
+                found.append(person)
+    return found
+
+
+def with_decision_makers(record: dict[str, Any]) -> dict[str, Any]:
+    """Return a company profile whose ``employees`` list became ``decision_makers``."""
+    if "employees" not in record:
+        return record
+    return {**record, "decision_makers": employee_decision_makers(record["employees"])}
+
+
+def prepare_record(source: str, record: dict[str, Any]) -> dict[str, Any]:
+    """Shape one provider record before it is landed or read (INV-12).
+
+    Company profiles keep only the decision makers of their employee list; person lists
+    are dropped; e-mail addresses in any text are masked, so none reaches mapping or core.
+    """
+    if source == "linkedin_companies":
+        record = with_decision_makers(record)
+    prepared: dict[str, Any] = mask_emails(drop_person_keys(record))
+    return prepared
 
 
 def decision_makers(documents: Iterable[Any]) -> list[dict[str, str]]:
@@ -474,8 +563,8 @@ def decision_makers(documents: Iterable[Any]) -> list[dict[str, str]]:
         if not name.strip() or not is_decision_title(title):
             continue
         person: dict[str, str] = {"name": name.strip()[:200], "title": title.strip()[:200]}
-        if isinstance(url, str) and url.startswith("https://") and "linkedin.com/in/" in url:
-            person["profile_url"] = url.split("?")[0][:300]
+        if public := profile_url(url):
+            person["profile_url"] = public
         elif isinstance(document.get("bright_id"), str):
             person["public_profile_id"] = str(document["bright_id"])[:120]
         else:
@@ -488,7 +577,11 @@ def decision_makers(documents: Iterable[Any]) -> list[dict[str, str]]:
 
 
 def decision_maker_signal(
-    company_id: str, person: Mapping[str, str], tenant_id: UUID, found_at: datetime
+    company_id: str,
+    person: Mapping[str, str],
+    tenant_id: UUID,
+    found_at: datetime,
+    source: str = "business_search_people",
 ) -> tuple[dict[str, Any], str]:
     """Return the core signal body of one decision maker and its idempotency key."""
     identity = person.get("profile_url") or person.get("public_profile_id") or person["name"]
@@ -501,12 +594,12 @@ def decision_maker_signal(
             for k in ("name", "title", "profile_url", "public_profile_id")
             if k in person
         },
-        "source": "business_search_people",
+        "source": source,
         "found_at": found_at.isoformat(),
     }
     body = {
         "company_id": company_id,
-        "source": "business_search_people",
+        "source": source,
         "signal_type": "decision_maker",
         "observed_at": found_at.isoformat(),
         "payload": payload,
@@ -562,6 +655,7 @@ class SourceStats:
     companies_with_dm: int = 0
     signals: int = 0
     failures: list[str] = field(default_factory=list)
+    notes: list[str] = field(default_factory=list)
 
     def add_records(self, source: str, records: Sequence[dict[str, Any]]) -> None:
         low, high = MID_SIZE
@@ -582,7 +676,7 @@ def _percent(part: int, whole: int) -> str:
 
 def print_report(stats: Mapping[str, SourceStats], budget: Budget) -> None:
     print("\nsource                     calls skip records phone|web mid-size  with-DM  est USD")
-    for source in SOURCES:
+    for source in (*SOURCES, "decision_makers"):
         item = stats.get(source)
         if item is None:
             continue
@@ -597,6 +691,8 @@ def print_report(stats: Mapping[str, SourceStats], budget: Budget) -> None:
             print(f"  {item.errors} provider error records were not landed")
         if item.signals:
             print(f"  {item.signals} decision_maker signals sent to core")
+        for note in item.notes:
+            print(f"  note: {note}")
         for failure in item.failures:
             print(f"  failed: {failure}")
     print(f"estimated total ${budget.total:.4f} (run cap ${budget.max_usd:.2f})")
@@ -766,6 +862,8 @@ class BrightDataRest:
         try:
             answer = await asyncio.to_thread(connector.post_json, f"/search/{entity}", body)
         except ConnectorError as exc:
+            if exc.status_code in (401, 403):
+                raise AccessDeniedError(f"business search {entity}: {exc}") from exc
             raise ImportCallError(f"business search {entity}: {exc}") from exc
         if not isinstance(answer, dict) or not isinstance(answer.get("documents"), list):
             raise ImportCallError(f"business search {entity}: unexpected answer")
@@ -917,6 +1015,8 @@ class Run:
     timeout_seconds: int = 1800
     clock: Callable[[], datetime] = lambda: datetime.now(UTC)
     stats: dict[str, SourceStats] = field(default_factory=dict)
+    # Sources whose endpoint answered 401/403: their remaining calls are skipped.
+    blocked: set[str] = field(default_factory=set)
 
     def stat(self, source: str) -> SourceStats:
         return self.stats.setdefault(source, SourceStats())
@@ -937,7 +1037,7 @@ class Run:
         """
         stats = self.stat(source)
         key = call_key(source, request)
-        if self.ledger.done(key):
+        if self.ledger.done(key) or source in self.blocked:
             stats.skipped += 1
             return None
         reserved = self.budget.reserve(source, records_requested)
@@ -949,8 +1049,18 @@ class Run:
         )
         if self.dry_run:
             return None
-        result = await call()
-        records = [drop_person_keys(r) for r in result.records if not is_error_record(r)]
+        try:
+            result = await call()
+        except AccessDeniedError:
+            # Not billed: give the reservation back and skip the rest of this source.
+            self.budget.release(source, reserved)
+            stats.calls -= 1
+            stats.skipped += 1
+            if source not in self.blocked:
+                self.blocked.add(source)
+                stats.notes.append("no access (HTTP 401/403): calls skipped, nothing billed")
+            return None
+        records = [prepare_record(source, r) for r in result.records if not is_error_record(r)]
         stats.errors += len(result.records) - len(records)
         self.budget.settle(source, reserved, billed_records or len(records))
         if source in LANDED_DATASETS:
@@ -1082,9 +1192,26 @@ class Run:
         scored = await self._core().scored_companies()
         return [c for c in scored if fold(c.name) in names][:TOP_COMPANIES]
 
-    async def people_call(self, company: ScoredCompany, semaphore: asyncio.Semaphore) -> None:
+    async def profile_decision_makers(self) -> dict[str, list[dict[str, str]]]:
+        """Decision makers kept from the landed company profiles, by folded company name."""
+        found: dict[str, list[dict[str, str]]] = {}
+        for record in await self.landing.landed_records("linkedin_companies"):
+            name = (normalized_fields("linkedin_companies", record) or {}).get("name")
+            for person in record.get("decision_makers") or []:
+                if not isinstance(person, dict) or not isinstance(name, str):
+                    continue
+                kept = {
+                    k: str(person[k]) for k in ("name", "title", "profile_url") if person.get(k)
+                }
+                if len(kept) == 3 and is_decision_title(kept["title"]):
+                    found.setdefault(fold(name), []).append(kept)
+        return found
+
+    async def search_people(
+        self, company: ScoredCompany, semaphore: asyncio.Semaphore
+    ) -> list[dict[str, str]]:
+        """Business Search people for one company; empty when skipped or refused (403)."""
         source = "business_search_people"
-        stats = self.stat(source)
         body = people_search_body(company.name, PEOPLE_LIMIT)
         async with semaphore:
             result = await self.paid_call(
@@ -1095,28 +1222,61 @@ class Run:
                 billed_records=PEOPLE_LIMIT,
             )
         if result is None:
-            return
-        stats.companies_searched += 1
+            return []
+        stats = self.stat(source)
         people = decision_makers(result.records)
+        stats.companies_searched += 1
         stats.companies_with_dm += int(bool(people))
+        return people
+
+    async def send_decision_maker(
+        self, company: ScoredCompany, person: Mapping[str, str], source: str
+    ) -> None:
         tenant_id = self.tenant_id
         if tenant_id is None:
             raise ImportCallError("INGEST_TENANT_ID is required for phase 3")
-        for person in people:
-            signal, key = decision_maker_signal(company.company_id, person, tenant_id, self.clock())
-            await self._core().create_signal(signal, idempotency_key=key)
-            stats.signals += 1
+        signal, key = decision_maker_signal(
+            company.company_id, person, tenant_id, self.clock(), source=source
+        )
+        await self._core().create_signal(signal, idempotency_key=key)
+        self.stat(source).signals += 1
+        self.stat("decision_makers").signals += 1
+
+    async def company_decision_makers(
+        self,
+        company: ScoredCompany,
+        profiles: Mapping[str, list[dict[str, str]]],
+        semaphore: asyncio.Semaphore,
+    ) -> None:
+        """Profile employees first; Business Search people only when they gave nobody."""
+        summary = self.stat("decision_makers")
+        summary.companies_searched += 1
+        people = list(profiles.get(fold(company.name), []))
+        source = "linkedin_companies"
+        if not people:
+            people, source = await self.search_people(company, semaphore), "business_search_people"
+        summary.records += len(people)
+        summary.companies_with_dm += int(bool(people))
+        if not self.dry_run:
+            for person in people:
+                await self.send_decision_maker(company, person, source)
 
     async def phase3(self) -> None:
-        source = "business_search_people"
+        source = "decision_makers"
         try:
             companies = await self.top_companies()
+            profiles = {} if self.dry_run else await self.profile_decision_makers()
         except (ImportCallError, httpx.HTTPError) as exc:
             self.stat(source).failures.append(f"{type(exc).__name__}: {exc}"[:400])
             return
-        print(f"  {source}: {len(companies)} scored imported companies")
+        print(
+            f"  {source}: {len(companies)} scored imported companies, "
+            f"{len(profiles)} profiles with decision makers"
+        )
         semaphore = asyncio.Semaphore(CONCURRENCY)
-        await self.gather(source, (self.people_call(c, semaphore) for c in companies))
+        await self.gather(
+            source, (self.company_decision_makers(c, profiles, semaphore) for c in companies)
+        )
 
     # ------------------------------------------------------------ accessors
 
@@ -1147,6 +1307,7 @@ async def probe(run: Run, fixtures: Path) -> dict[str, list[dict[str, Any]]]:
     """
     city = MEDELLIN
     raw: dict[str, list[dict[str, Any]]] = {}
+    prepared: dict[str, list[dict[str, Any]]] = {}
 
     async def attempt(source: str, call: Awaitable[CallResult | None]) -> None:
         try:
@@ -1155,7 +1316,7 @@ async def probe(run: Run, fixtures: Path) -> dict[str, list[dict[str, Any]]]:
             run.stat(source).failures.append(f"{type(exc).__name__}: {exc}"[:400])
             return
         if result is not None:
-            raw[source] = result.raw
+            raw[source], prepared[source] = result.raw, result.records
 
     await attempt("maps", run.maps_call(city, MAPS_KEYWORDS[:1], PROBE_LIMIT))
     await attempt("linkedin_jobs", run.jobs_call(city, JOB_KEYWORDS[:1], PROBE_LIMIT))
@@ -1175,7 +1336,7 @@ async def probe(run: Run, fixtures: Path) -> dict[str, list[dict[str, Any]]]:
         str(d["data"]["name"])
         for d in raw.get("business_search_companies", [])
         if isinstance(d.get("data"), dict) and d["data"].get("name")
-    ]
+    ] or [str(r["name"]) for r in raw.get("linkedin_companies", []) if r.get("name")]
     if names:
         body = people_search_body(names[0], PROBE_LIMIT)
         await attempt(
@@ -1200,6 +1361,10 @@ async def probe(run: Run, fixtures: Path) -> dict[str, list[dict[str, Any]]]:
         print(f"\n{source}: {len(records)} records -> {target}")
         for path in sorted(coverage):
             print(f"  {path}: {coverage[path]}/{len(records)}")
+    profiles = prepared.get("linkedin_companies", [])
+    if profiles:
+        found = sum(len(r.get("decision_makers") or []) for r in profiles)
+        print(f"\nlinkedin_companies: {found} decision makers in {len(profiles)} employee lists")
     return raw
 
 

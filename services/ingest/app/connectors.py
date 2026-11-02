@@ -34,11 +34,17 @@ from services.ingest.app.mapping import (
 
 
 class ConnectorError(RuntimeError):
-    """Raised when the provider call fails; ``retryable`` marks transient errors."""
+    """Raised when the provider call fails; ``retryable`` marks transient errors.
 
-    def __init__(self, message: str, *, retryable: bool = False) -> None:
+    ``status_code`` is the HTTP status of a rejected request, when there was one.
+    """
+
+    def __init__(
+        self, message: str, *, retryable: bool = False, status_code: int | None = None
+    ) -> None:
         super().__init__(message)
         self.retryable = retryable
+        self.status_code = status_code
 
 
 @dataclass(frozen=True)
@@ -182,9 +188,9 @@ class BrightDataConnector(SourceConnector):
             raise ConnectorError("Bright Data unreachable", retryable=True) from exc
         status = response.status_code
         if status in RETRYABLE_STATUS:
-            raise ConnectorError(f"Bright Data error {status}", retryable=True)
+            raise ConnectorError(f"Bright Data error {status}", retryable=True, status_code=status)
         if status >= 400:
-            raise ConnectorError(f"Bright Data rejected request {status}")
+            raise ConnectorError(f"Bright Data rejected request {status}", status_code=status)
         return response
 
     def _send_idempotent(self, method: str, url: str, **kwargs: Any) -> httpx.Response:

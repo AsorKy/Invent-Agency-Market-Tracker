@@ -226,12 +226,16 @@ class FakeCore:
         return {"status": "created"}
 
 
-def provider(requests: list[httpx.Request]) -> httpx.MockTransport:
+def provider(
+    requests: list[httpx.Request], forbidden: frozenset[str] = frozenset()
+) -> httpx.MockTransport:
     """Datasets API plus Business Search, answering like Bright Data does."""
 
     def handler(request: httpx.Request) -> httpx.Response:
         requests.append(request)
         path = request.url.path
+        if path in forbidden:
+            return httpx.Response(403, json={"error": "not on the allowlist"})
         if path == "/datasets/v3/trigger":
             return httpx.Response(200, json={"snapshot_id": f"s_{len(requests)}"})
         if path.startswith("/datasets/v3/progress/"):
@@ -255,6 +259,25 @@ def provider(requests: list[httpx.Request]) -> httpx.MockTransport:
     return httpx.MockTransport(handler)
 
 
+EMPLOYEES = [
+    {
+        "title": "Ana Ruiz",
+        "subtitle": "CEO en Acme",
+        "link": "https://co.linkedin.com/in/ana-ruiz?trk=x",
+        "img": "https://media.example/ana.jpg",
+    },
+    {"title": "Bo Diaz", "subtitle": "Asistente del CEO", "link": "https://www.linkedin.com/in/bo"},
+    {"title": "Cy Paz", "subtitle": "Ingeniera de datos", "link": "https://www.linkedin.com/in/cy"},
+    {"title": "Dee Ro", "subtitle": "Directora Comercial"},
+    {"title": "Eli Mar", "link": "https://www.linkedin.com/in/eli"},
+]
+ANA = {
+    "name": "Ana Ruiz",
+    "title": "CEO en Acme",
+    "profile_url": "https://www.linkedin.com/in/ana-ruiz",
+}
+
+
 def sdk_client(calls: list[str]) -> Any:
     async def execute(**kwargs: Any) -> Any:
         calls.append(f"jobs:{kwargs['limit_per_input']}:{kwargs['extra_params']['discover_by']}")
@@ -274,7 +297,7 @@ def sdk_client(calls: list[str]) -> Any:
         return [
             SimpleNamespace(
                 success=True,
-                data={"name": "Acme SAS", "url": u, "employees": [{"name": "x"}]},
+                data={"name": "Acme SAS", "url": u, "employees": EMPLOYEES},
                 snapshot_id="sc",
                 status="ready",
             )
@@ -304,10 +327,11 @@ def make_run(
     core: FakeCore | None = None,
     max_usd: float = 25.0,
     dry_run: bool = False,
+    forbidden: frozenset[str] = frozenset(),
 ) -> tuple[bd.Run, list[httpx.Request], list[str]]:
     requests: list[httpx.Request] = []
     sdk_calls: list[str] = []
-    http = httpx.Client(transport=provider(requests), base_url="https://bd.test")
+    http = httpx.Client(transport=provider(requests, forbidden), base_url="https://bd.test")
     rest = bd.BrightDataRest(http, "token", settings(), sleep=no_sleep)
     run = bd.Run(
         budget=bd.Budget(max_usd=max_usd, caps=dict(bd.SOURCE_CAPS_USD)),
@@ -384,6 +408,10 @@ def test_phase2_scrapes_new_company_urls_once(tmp_path: Path) -> None:
     assert sdk_calls == ["companies:1"]
     landed = landing.landed["linkedin_companies"][-1]
     assert landed["url"] == "https://www.linkedin.com/company/acme" and "employees" not in landed
+    # Only the decision maker survives, with name, title, and public profile (INV-12).
+    assert landed["decision_makers"] == [ANA]
+    text = json.dumps(landing.landed)
+    assert all(other not in text for other in ("Bo Diaz", "Cy Paz", "Dee Ro", "Eli Mar", "img"))
 
 
 def test_phase3_creates_decision_maker_signals_for_imported_companies(tmp_path: Path) -> None:
@@ -505,3 +533,75 @@ def test_http_core_pages_leads_and_writes_keyed_signals() -> None:
     assert write.url.path == "/internal/core/signals"
     assert write.headers["Idempotency-Key"] == "k" * 64
     assert write.headers["X-Service-Token"].startswith("v1.ingest.")
+
+
+def test_employee_titles_cover_spanish_and_english_variants() -> None:
+    for title in (
+        "CEO",
+        "Chief Executive Officer",
+        "Gerente General",
+        "General Manager",
+        "Co-Founder & CTO",
+        "Cofundadora",
+        "Fundador y Director",
+        "Directora Comercial",
+        "Sales Director",
+        "Directora de Mercadeo",
+        "Marketing Director",
+        "Chief Technology Officer",
+    ):
+        assert bd.is_decision_title(title), title
+    for title in ("Asistente del CEO", "Former CEO", "Ingeniera", "Director de Proyectos", ""):
+        assert not bd.is_decision_title(title), title
+
+
+def test_phase3_takes_decision_makers_from_profiles_first(tmp_path: Path) -> None:
+    profile = {
+        "company_id": "7",
+        "name": "Acme SAS",
+        "url": "https://www.linkedin.com/company/acme",
+        "decision_makers": [
+            ANA,
+            {"name": "Xi", "title": "Analyst", "profile_url": "https://www.linkedin.com/in/xi"},
+            {"name": "Yu", "title": "CTO"},
+        ],
+    }
+    landing = FakeLanding({"linkedin_companies": [profile]})
+    core = FakeCore([bd.ScoredCompany("c-1", "Acme SAS", 80)])
+    run, requests, _sdk = make_run(tmp_path, landing=landing, core=core)
+    asyncio.run(run.phase3())
+    assert not any(r.url.path == "/search/people" for r in requests)
+    assert len(core.signals) == 1
+    body, _key = core.signals[0]
+    assert body["source"] == "linkedin_companies" and body["signal_type"] == "decision_maker"
+    assert set(body["payload"]) == {"name", "title", "profile_url", "source", "found_at"}
+    summary = run.stats["decision_makers"]
+    assert summary.companies_searched == summary.companies_with_dm == 1
+
+
+def test_business_search_403_is_skipped_cleanly_and_not_billed(tmp_path: Path) -> None:
+    forbidden = frozenset({"/search/company", "/search/people"})
+    core = FakeCore([bd.ScoredCompany("c-1", "Acme SAS", 80), bd.ScoredCompany("c-2", "Beta", 70)])
+    landing = FakeLanding(
+        {
+            "maps": [{"place_id": "p", "name": "Acme SAS"}],
+            "linkedin_jobs": [{"job_posting_id": "j", "job_title": "D", "company_name": "Beta"}],
+        }
+    )
+    run, requests, _sdk = make_run(tmp_path, landing=landing, core=core, forbidden=forbidden)
+    asyncio.run(run.phase1())
+    asyncio.run(run.phase3())
+    company, people = run.stats["business_search_companies"], run.stats["business_search_people"]
+    assert (
+        company.failures == []
+        and people.failures == []
+        and run.stats["decision_makers"].failures == []
+    )
+    assert "HTTP 401/403" in company.notes[0] and "HTTP 401/403" in people.notes[0]
+    assert run.budget.spent["business_search_companies"] == 0.0
+    assert run.budget.spent["business_search_people"] == 0.0
+    # Searches already in flight may also get the 403; after it, none is sent.
+    assert 1 <= sum(r.url.path == "/search/people" for r in requests) <= bd.CONCURRENCY
+    summary = run.stats["decision_makers"]
+    assert summary.companies_searched == 2 and summary.companies_with_dm == 0
+    assert core.signals == []
