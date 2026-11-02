@@ -1,10 +1,13 @@
-# LinkedIn company profiles (Bright Data dataset) to canonical company fields.
-# unverified: field names come from the public Bright Data documentation, not
-# from a recorded sample (no tests/fixtures/brightdata/ samples exist, D-13).
-# Nested values such as headquarters are not mapped; only scalar fields are.
-version: 1
+# LinkedIn company profiles (Bright Data dataset gd_l1vikfnt1wgvvqz95w) to canonical
+# company fields.
+# Verified against tests/fixtures/brightdata/recorded/linkedin_companies.json (D-13).
+# headquarters is free text ("Medellin, Antioquia", "Global"), so city keeps only a target
+# city. The similar and affiliated arrays (companies: title, subtitle, Links) are carried
+# whole into the signal payload; employees and updates (people) are dropped before landing.
+# linkedin_company_id is the identity core shares with the job postings of the company.
+version: 2
 source: linkedin_companies
-unverified: true
+unverified: false
 entity: company
 signal_type: linkedin_company
 external_id: [company_id, id, url]
@@ -13,9 +16,12 @@ fields:
     from: [name]
     transform: strip
     required: true
+  linkedin_company_id:
+    from: [company_id]
+    transform: strip
   city:
     from: [headquarters, city]
-    transform: strip
+    transform: city
   country_code:
     from: [country_code]
     transform: strip
@@ -37,3 +43,7 @@ fields:
   linkedin_url:
     from: [url]
     transform: url
+  similar:
+    from: [similar]
+  affiliated:
+    from: [affiliated]

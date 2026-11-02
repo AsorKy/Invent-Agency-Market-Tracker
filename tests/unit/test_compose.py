@@ -25,7 +25,7 @@ WORKERS = {
 }
 DB_APIS = {"ingest": "ingest", "core": "core", "pulse": "pulse", "brief": "brief", "ml": "ml"}
 # Profile-gated helpers, outside the SPEC section 3.1 catalog.
-DEV_TOOLS = {"pgadmin", "drift-worker", "verify-live"}
+DEV_TOOLS = {"pgadmin", "drift-worker", "verify-live", "bd-import"}
 EXPECTED = (
     {"postgres", "redis", "migrate", "bootstrap-roles", "streamlit", "mocks", "n8n"}
     | set(APIS)

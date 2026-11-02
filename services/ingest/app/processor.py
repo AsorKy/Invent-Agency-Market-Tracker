@@ -18,6 +18,7 @@ from libs.common.settings import get_settings
 from libs.domain.entity_resolution import EntityResolver, MockRuesLookup
 from services.ingest.app.repository import IngestRepository
 from services.ingest.app.rues_queue import RuesQueueWorker, run_forever
+from services.ingest.app.source_config import dataset_sources
 from services.ingest.app.tenant import load_ingest_tenant_id
 from services.ingest.app.to_core import (
     HttpCoreClient,
@@ -60,11 +61,7 @@ async def main() -> None:
             resolve=lambda candidate: EntityResolver(
                 rues, store, now=datetime.now(UTC), quarantine=RUES_LIVE
             ).resolve(candidate),
-            dataset_sources={
-                str(dataset_id): source
-                for source in settings.enabled_sources()
-                if (dataset_id := getattr(settings, f"source_{source}_dataset_id", None))
-            },
+            dataset_sources=dataset_sources(settings),
             tenant_id=load_ingest_tenant_id(),
             retry_attempts=settings.upstream_retry_attempts,
             retry_base_delay_seconds=settings.upstream_retry_base_delay_seconds,

@@ -606,6 +606,39 @@ services:
         condition: service_healthy
     restart: "no"
 
+  bd-import:
+    # One-shot Bright Data importer (ops/bd_import.py), outside the default stack:
+    # `make bd-import PHASE=...` runs it with `docker compose --profile tools run --rm --no-deps`.
+    # It lands raw snapshots as ingest (ingest_app role, invent.ingest stream) and calls core
+    # by service name; its ledger lives in the bd_import_state volume. Runbook:
+    # docs/runbooks/bright-data-import.md.
+    profiles: ["tools"]
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.python
+      args:
+        PIP_EXTRAS: streamlit,brightdata
+    env_file:
+      - path: .env
+        required: false
+    command: ["python", "ops/bd_import.py", "--help"]
+    environment:
+      <<: *app_env
+      DATABASE_URL: "postgresql+asyncpg://ingest_app:${BOOTSTRAP_PASSWORD_INGEST:-CHANGE_ME_INGEST}@postgres:5432/${POSTGRES_DB:-invent_market_tracker}"
+      BD_IMPORT_CORE_URL: http://core:8000
+      BD_IMPORT_STATE_DIR: /state
+    volumes:
+      - ./tests/fixtures/brightdata:/app/tests/fixtures/brightdata
+      - bd_import_state:/state
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      core:
+        condition: service_healthy
+    restart: "no"
+
   mocks:
     build:
       context: .
@@ -665,4 +698,5 @@ volumes:
   postgres_data:
   n8n_data:
   pgadmin_data:
+  bd_import_state:
 

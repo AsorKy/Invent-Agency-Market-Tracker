@@ -335,7 +335,10 @@ async def test_processor_acks_only_successful_messages(monkeypatch: pytest.Monke
     assert repo.processed == [UUID(good)]
     assert repo.closed and _ProcCore.closed
     flow = repo.flow  # type: ignore[attr-defined]
-    assert flow.dataset_sources == {"ds-maps": "maps"}
+    assert flow.dataset_sources == {
+        "ds-maps": "maps",
+        "bd_search_company": "business_search_companies",
+    }
     assert repo.resolution_store is not None  # type: ignore[attr-defined]
     # The mock RUES never quarantines: a repeated candidate stays a new company.
     repeat = Candidate("c1", "Logistica Andina", "Medellin", None, attempts=3)

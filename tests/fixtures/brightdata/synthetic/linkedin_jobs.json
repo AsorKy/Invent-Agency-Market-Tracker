@@ -3,6 +3,14 @@
     "job_posting_id": "syn-lij-1",
     "job_title": "Data Engineer",
     "company_name": "Compania Uno",
+    "company_id": "syn-lic-1",
+    "company_url": "https://www.linkedin.com/company/syn-1",
+    "job_industries": "Software Development",
+    "discovery_input": {
+      "keyword": "desarrollador",
+      "location": "Bogota",
+      "country": "CO"
+    },
     "job_location": "Bogota, Colombia",
     "job_base_pay_range": "$3M-$5M",
     "job_summary": "Synthetic summary.",
@@ -18,6 +26,14 @@
     "job_posting_id": "syn-lij-2",
     "job_title": "Sales Lead",
     "company_name": "Compania Dos",
+    "company_id": "syn-lic-2",
+    "company_url": "https://www.linkedin.com/company/syn-2",
+    "job_industries": "Software Development",
+    "discovery_input": {
+      "keyword": "desarrollador",
+      "location": "Bogota",
+      "country": "CO"
+    },
     "job_location": "Medellin, Colombia",
     "job_base_pay_range": "$2M-$3M",
     "job_summary": "Synthetic summary.",

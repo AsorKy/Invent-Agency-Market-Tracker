@@ -20,7 +20,9 @@ COPY migrations ./migrations
 # PYTHONPATH=/app makes /app/libs win over the site-packages copy, so the files read by
 # repository path (config/funnel/*.yaml, libs/domain/validation_thresholds.yaml) resolve.
 # psycopg is needed only by ops/bootstrap_roles.py (bootstrap-roles service).
-RUN pip install --no-cache-dir ".[streamlit]" "psycopg[binary]>=3.2,<4"
+# PIP_EXTRAS selects the optional extras; the bd-import tool image adds brightdata.
+ARG PIP_EXTRAS=streamlit
+RUN pip install --no-cache-dir ".[${PIP_EXTRAS}]" "psycopg[binary]>=3.2,<4"
 
 EXPOSE 8000
 

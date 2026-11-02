@@ -1,9 +1,9 @@
 """Unit tests for source connectors and YAML mappings (REQ-ING-004).
 
 Covers mapping validation, record normalization for maps and computrabajo,
-the shipped mapping files (all flagged ``unverified`` until recorded samples
-exist, D-13), and the mock connector driven against the Flask mock through a
-WSGI transport. No network is used.
+the shipped mapping files (flagged ``unverified`` until a real recorded or
+captured sample of the source exists, D-13), and the mock connector driven
+against the Flask mock through a WSGI transport. No network is used.
 """
 
 from pathlib import Path
@@ -37,14 +37,19 @@ def make_connector(source: str, **app_options: Any) -> MockConnector:
     return MockConnector(source, client, dataset_id=f"mock-{source}")
 
 
+def has_real_samples(source: str) -> bool:
+    fixtures = MAPPINGS_DIR.parents[2] / "tests" / "fixtures" / "brightdata"
+    return any((fixtures / folder / f"{source}.json").is_file() for folder in REAL_FOLDERS)
+
+
+REAL_FOLDERS = ("captured", "recorded")
+
+
 @pytest.mark.parametrize("source", ["maps", "computrabajo"])
-def test_shipped_mappings_load_and_are_marked_unverified(source: str) -> None:
+def test_shipped_mappings_load_and_are_unverified_until_real_samples(source: str) -> None:
     mapping = load_mapping(source)
     assert mapping.source == source and mapping.version >= 1
-    has_samples = (
-        MAPPINGS_DIR.parents[2] / "tests" / "fixtures" / "brightdata" / "captured"
-    ).is_dir()
-    assert mapping.unverified is not has_samples
+    assert mapping.unverified is not has_real_samples(source)
 
 
 def test_maps_normalization() -> None:
@@ -66,7 +71,7 @@ def test_maps_normalization() -> None:
     assert out.fields["review_count"] == 1200
     assert out.fields["lng"] == -75.5
     assert out.fields["phone"] is None
-    assert out.mapping_version == 1
+    assert out.mapping_version == load_mapping("maps").version
 
 
 def test_missing_required_field_or_id_is_rejected() -> None:

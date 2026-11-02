@@ -1,7 +1,10 @@
-# Google Maps (Bright Data scraper) to canonical company fields.
-# unverified: field names come from the public Bright Data documentation, not
-# from a recorded sample (no tests/fixtures/brightdata/ samples exist, D-13).
-version: 1
+# Google Maps (Bright Data dataset gd_m8ebnr0q2qlklc02fz, discover by location) to
+# canonical company fields.
+# unverified: field names come from the public Bright Data documentation; the phase 0
+# probe got only a provider crawl_error record (D-13). Coordinates also read
+# latitude/longitude, the website never falls back to the Google Maps url, and city keeps
+# only a target city (from city or the address).
+version: 2
 source: maps
 unverified: true
 entity: company
@@ -16,8 +19,8 @@ fields:
     from: [address, full_address]
     transform: strip
   city:
-    from: [city, address_city]
-    transform: strip
+    from: [city, address_city, address]
+    transform: city
   category:
     from: [category, main_category]
     transform: lower
@@ -25,7 +28,7 @@ fields:
     from: [phone_number, phone]
     transform: strip
   website:
-    from: [open_website, website, url]
+    from: [open_website, website]
     transform: url
   rating:
     from: [rating]
@@ -34,8 +37,8 @@ fields:
     from: [reviews_count, review_count]
     transform: int
   lat:
-    from: [lat, location.lat]
+    from: [lat, latitude, location.lat]
     transform: float
   lng:
-    from: [lon, lng, location.lng]
+    from: [lon, lng, longitude, location.lng]
     transform: float

@@ -4,7 +4,9 @@ Mapping files live in ``libs/domain/source_mappings/<source>.yaml`` and turn
 provider fields into canonical fields (REQ-ING-004); the format is described
 in that folder's README. ``normalize_record`` is pure: it reads a provider
 record and returns a ``NormalizedRecord`` or raises ``MappingError``. It is
-used by ``services/ingest/app/connectors.py`` and, later, the processor.
+used by ``services/ingest/app/connectors.py`` and, later, the processor. The
+``city`` transform maps a provider location to one of the canonical target
+cities of ``libs/domain/cities.py``.
 """
 
 import re
@@ -14,8 +16,10 @@ from typing import Any
 
 import yaml  # type: ignore[import-untyped]
 
+from libs.domain.cities import normalize_city
+
 MAPPINGS_DIR = Path(__file__).resolve().parents[3] / "libs" / "domain" / "source_mappings"
-TRANSFORMS = frozenset({"strip", "lower", "int", "float", "digits", "url"})
+TRANSFORMS = frozenset({"strip", "lower", "int", "float", "digits", "url", "city"})
 ENTITIES = frozenset({"company", "job_posting"})
 
 
@@ -160,6 +164,11 @@ def _transform(value: Any, name: str | None) -> Any:
             return float(str(value).replace(",", ".").strip())
         if name == "digits":
             return re.sub(r"\D", "", str(value))
+        if name == "city":
+            city = normalize_city(value)
+            if city is None:
+                raise ValueError("not a target city")
+            return city
         text = str(value).strip()  # url
         if not re.match(r"https?://", text, re.IGNORECASE):
             raise ValueError("not an http url")
