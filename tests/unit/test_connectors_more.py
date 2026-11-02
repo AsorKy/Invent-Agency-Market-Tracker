@@ -1,7 +1,7 @@
 """Unit tests for the LinkedIn and Instagram source mappings (REQ-ING-004, T-048).
 
-Checks that each mapping loads, is flagged ``unverified`` while no recorded
-provider sample exists (D-13), normalizes a documented-shape record, and that
+Checks that each mapping loads, is flagged ``unverified`` while no real recorded
+or captured provider sample exists (D-13), normalizes a documented-shape record, and that
 ``build_connector`` builds mock and live connectors for these sources. No
 network is used.
 """
@@ -44,12 +44,13 @@ RECORDS = {
 
 
 @pytest.mark.parametrize("source", SOURCES)
-def test_mapping_loads_and_is_unverified(source: str) -> None:
+def test_mapping_loads_and_is_unverified_until_real_samples(source: str) -> None:
     mapping = load_mapping(source)
     assert mapping.source == source and mapping.version >= 1
-    has_samples = (
-        MAPPINGS_DIR.parents[2] / "tests" / "fixtures" / "brightdata" / "captured"
-    ).is_dir()
+    fixtures = MAPPINGS_DIR.parents[2] / "tests" / "fixtures" / "brightdata"
+    has_samples = any(
+        (fixtures / folder / f"{source}.json").is_file() for folder in ("captured", "recorded")
+    )
     assert mapping.unverified is not has_samples
 
 

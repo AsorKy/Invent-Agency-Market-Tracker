@@ -10,6 +10,7 @@ logging, and versions outside business code.
 from functools import lru_cache
 from typing import Any, Literal, Self
 from urllib.parse import urlsplit
+from uuid import UUID
 
 from pydantic import Field, ValidationInfo, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -18,6 +19,7 @@ SOURCE_NAMES = ("maps", "computrabajo", "linkedin_companies", "linkedin_jobs", "
 BLANK_IS_UNSET = frozenset(
     {
         "database_url",
+        "dev_default_tenant_id",
         "edge_secret",
         "bright_data_webhook_secret",
         "bright_data_api_token",
@@ -50,6 +52,8 @@ class Settings(BaseSettings):
     edge_secret_required: bool = False
     csrf_required: bool = False
     identity_validation_enabled: bool = False
+    # Local demos only: tenant the gateway forwards while identity validation is off.
+    dev_default_tenant_id: UUID | None = None
     bright_data_webhook_secret: str | None = None
     bright_data_replay_window_seconds: int = Field(default=300, ge=1)
     rate_limit_requests: int = Field(default=60, ge=1)
@@ -149,6 +153,21 @@ class Settings(BaseSettings):
             if not getattr(self, f"source_{source}_dataset_id"):
                 missing.append(f"SOURCE_{source.upper()}_DATASET_ID")
         return missing
+
+    @model_validator(mode="after")
+    def refuse_dev_tenant_in_production(self) -> Self:
+        """Refuse ``DEV_DEFAULT_TENANT_ID`` in production, with the D-28 production rule."""
+        if self.dev_default_tenant_id is None:
+            return self
+        # Imported here because internal_auth imports this module.
+        from libs.common.internal_auth import LOCAL_ENVIRONMENTS
+
+        if (
+            self.app_profile == "production"
+            or self.environment.strip().lower() not in LOCAL_ENVIRONMENTS
+        ):
+            raise ValueError("DEV_DEFAULT_TENANT_ID is refused in production")
+        return self
 
     @model_validator(mode="after")
     def validate_runtime_intervals(self) -> Self:

@@ -311,6 +311,14 @@ def _build() -> tuple[PublicRoute, ...]:
             errors=(*c, 400),
         ),
         PublicRoute(
+            "GET",
+            "/companies/insights",
+            "Companies by city and category, Maps ratings, hiring demand and mid-size share",
+            "companies",
+            response=JsonObject,
+            errors=c,
+        ),
+        PublicRoute(
             "POST",
             "/companies/upsert",
             "Create or update a company",

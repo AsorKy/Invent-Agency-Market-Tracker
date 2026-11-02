@@ -15,6 +15,7 @@ from libs.domain.entity_resolution import (
     Resolution,
     RuesRecord,
 )
+from services.ingest.app.mapping import parse_mapping
 from services.ingest.app.to_core import (
     HttpCoreClient,
     Registered,
@@ -175,21 +176,69 @@ async def test_skipped_candidate_makes_no_core_call() -> None:
     assert core.companies == [] and failures.rows == []
 
 
-async def test_unavailable_rues_after_two_attempts_is_quarantined_as_failure() -> None:
+async def second_try(name: str, city: str | None, nit: str | None) -> Registered:
+    # The same company again in one snapshot: its candidate already had one attempt.
+    return Registered(id="c1", attempts=1, status="pending_rues")
+
+
+async def test_quarantine_after_two_attempts_is_skipped_not_an_import_failure() -> None:
     core, failures = FakeCore(), FakeFailures()
     flow = make_flow(core, failures, MockRuesLookup(fail=True))
-
-    async def second_try(name: str, city: str | None, nit: str | None) -> Registered:
-        return Registered(id="c1", attempts=1)
 
     first = await run(flow, "maps", MAPS_OK)
     second = await flow.process_record(
         source="maps", snapshot_id="s1", record=MAPS_OK, register=second_try
     )
     assert first.status == "pending"
-    assert second.status == "failed"
+    assert (second.status, second.reason) == ("skipped", "quarantined")
     assert core.companies == []
-    assert len(failures.rows) == 1
+    assert failures.rows == []
+
+
+async def test_mock_rues_never_quarantines_so_repeats_reach_core_as_rues_pending() -> None:
+    # Real Bright Data companies never match the mock RUES: every record of the same
+    # company (several job postings, several decision makers) must still reach core.
+    core, failures = FakeCore(), FakeFailures()
+    store = InMemoryResolutionStore()
+    resolver = EntityResolver(MockRuesLookup(), store, now=NOW, quarantine=False)
+    flow = make_flow(core, failures)
+    flow.resolve = resolver.resolve
+    first = await run(flow, "maps", MAPS_OK)
+    second = await flow.process_record(
+        source="maps", snapshot_id="s1", record=MAPS_OK, register=second_try
+    )
+    assert first.status == second.status == "delivered"
+    assert failures.rows == [] and store.quarantined == []
+    assert store.states["c1"] == ("pending_rues", 2)
+    # No NIT is sent: core derives rues_status "pending" from the missing NIT.
+    assert all("nit" not in body for body in core.companies)
+    assert len(core.signals) == 2
+
+
+async def test_company_record_forwards_employee_count_to_core() -> None:
+    mapping = parse_mapping(
+        {
+            "version": 1,
+            "source": "business_search_companies",
+            "entity": "company",
+            "signal_type": "company_profile",
+            "external_id": ["id"],
+            "fields": {
+                "name": {"from": ["name"], "required": True},
+                "city": {"from": ["city"]},
+                "employee_count": {"from": ["employees"], "transform": "int"},
+            },
+        }
+    )
+    core, failures = FakeCore(), FakeFailures()
+    flow = make_flow(core, failures)
+    flow._mappings["business_search_companies"] = mapping
+    record = {"id": "b1", "name": "Logistica Andina SAS", "city": "Medellin", "employees": "120"}
+    outcome = await run(flow, "business_search_companies", record)
+    assert outcome.status == "delivered"
+    assert core.companies[0]["employee_count"] == 120
+    without = await run(flow, "business_search_companies", {**record, "employees": None})
+    assert without.status == "delivered" and "employee_count" not in core.companies[1]
 
 
 async def test_http_client_sends_service_token_and_routes() -> None:

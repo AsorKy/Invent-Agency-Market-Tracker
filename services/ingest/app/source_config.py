@@ -4,10 +4,17 @@
 for every enabled source. ``validate_live_credentials`` fails fast at startup
 with a ``SettingsError`` that names the missing variables and never shows a
 value. ``notify_url`` builds the webhook URL from ``PUBLIC_WEBHOOK_BASE_URL``.
-Sources without a mapping file yet (added by later tasks) and ``rues`` (lookup
-interface only) get no connector. It relates to ``connectors.py``, ``poll.py``,
-and ``libs/common/settings.py``.
+Sources without a mapping file yet (added by later tasks), ``rues`` (lookup
+interface only), and ``business_search_companies`` (a search, landed by
+``ops/bd_import.py``) get no connector. ``build_connector`` accepts optional extra
+trigger query parameters for a live connector (discovery datasets need
+``type`` and ``discover_by``). ``dataset_sources`` is the processor's dataset id
+to source routing: the configured id of every enabled source plus the fixed ids
+of imported sources without a settings slot. It relates to ``connectors.py``,
+``poll.py``, ``processor.py``, ``ops/bd_import.py``, and ``libs/common/settings.py``.
 """
+
+from collections.abc import Mapping
 
 import httpx
 
@@ -20,8 +27,22 @@ from services.ingest.app.connectors import (
 from services.ingest.app.mapping import MAPPINGS_DIR, load_mapping
 
 WEBHOOK_PATH = "/internal/ingest/webhook/bd"
-NO_CONNECTOR_SOURCES = frozenset({"rues"})
+# rues is a lookup interface; Business Search is a billed search, not a trigger (bd_import).
+NO_CONNECTOR_SOURCES = frozenset({"rues", "business_search_companies"})
 MOCK_BASE_URL = "http://mocks:8000"
+# Business Search results landed by ops/bd_import.py; not a Datasets API id.
+BUSINESS_SEARCH_COMPANIES_DATASET_ID = "bd_search_company"
+IMPORT_DATASET_SOURCES = {BUSINESS_SEARCH_COMPANIES_DATASET_ID: "business_search_companies"}
+
+
+def dataset_sources(settings: Settings) -> dict[str, str]:
+    """Return the dataset id to source routing of the snapshot processor."""
+    routes = dict(IMPORT_DATASET_SOURCES)
+    for source in settings.enabled_sources():
+        dataset_id = getattr(settings, f"source_{source}_dataset_id", None)
+        if dataset_id:
+            routes[str(dataset_id)] = source
+    return routes
 
 
 def notify_url(settings: Settings) -> str | None:
@@ -49,12 +70,17 @@ def validate_live_credentials(settings: Settings) -> None:
 
 
 def build_connector(
-    settings: Settings, source: str, *, client: httpx.Client | None = None
+    settings: Settings,
+    source: str,
+    *,
+    client: httpx.Client | None = None,
+    extra_params: Mapping[str, str] | None = None,
 ) -> SourceConnector:
     """Build the connector of one source for the configured mode.
 
     ``client`` is injectable for tests; by default a client with the configured
     timeout is created against the mock service or the Bright Data API.
+    ``extra_params`` are added to every live trigger of this connector.
     """
     if source in NO_CONNECTOR_SOURCES:
         raise ValueError(f"source {source} has no connector")
@@ -74,6 +100,7 @@ def build_connector(
             retry_attempts=settings.upstream_retry_attempts,
             retry_base_delay_seconds=settings.upstream_retry_base_delay_seconds,
             retry_max_delay_seconds=settings.upstream_retry_max_delay_seconds,
+            extra_params=extra_params,
         )
     http = client or httpx.Client(base_url=MOCK_BASE_URL, timeout=settings.upstream_timeout_seconds)
     return MockConnector(source, http, dataset_id=dataset_id, mapping=mapping)

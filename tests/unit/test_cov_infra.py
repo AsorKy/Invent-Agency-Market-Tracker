@@ -858,7 +858,9 @@ async def test_list_companies_paginates_with_cursor() -> None:
     assert page == rows[:2]
     assert next_cursor == encode_cursor(rows[1]["updated_at"], rows[1]["id"])
     assert engine.connection.calls[0][1]["limit"] == 3
-    assert "WHERE" not in engine.connection.calls[0][0]
+    # No outer filter without a tenant or cursor (the signal_count subquery has its own WHERE).
+    assert "FROM core.company WHERE" not in engine.connection.calls[0][0]
+    assert "AS signal_count" in engine.connection.calls[0][0]
 
     repository, engine = _repository([FakeResult(rows[:1])])
     page, next_cursor = await repository.list_companies(2, next_cursor)
@@ -923,6 +925,8 @@ async def test_list_leads_applies_all_filters() -> None:
     assert "c.score >= :min_score" in sql
     for clause in ("l.stage = :stage", "l.tenant_id = :tenant_id"):
         assert clause in sql
+    # An automatic lead has no city of its own: it is filtered by the company city.
+    assert "COALESCE(l.city, c.city) = :city" in sql
     assert params["stage"] == "hot"
     assert params["min_score"] == 50
     assert params["cursor_id"] == ID
@@ -931,7 +935,8 @@ async def test_list_leads_applies_all_filters() -> None:
 async def test_list_leads_without_filters_and_invalid_rows() -> None:
     repository, engine = _repository([FakeResult([])])
     assert await repository.list_leads(5) == ([], None)
-    assert "WHERE" not in engine.connection.calls[0][0]
+    # Only the decision maker subquery filters; the lead query itself has no WHERE.
+    assert "AS dm ON true ORDER BY l.updated_at" in engine.connection.calls[0][0]
     repository, _ = _repository([FakeResult([{"id": 1, "updated_at": NOW}] * 2)])
     with pytest.raises(RuntimeError, match="lead cursor"):
         await repository.list_leads(1)

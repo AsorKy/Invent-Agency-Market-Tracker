@@ -26,6 +26,7 @@ pytest.importorskip("pydantic_settings")
 from datagen.builder import build_dataset  # noqa: E402
 from libs.common.internal_auth import sign_service_token  # noqa: E402
 from libs.common.settings import get_settings  # noqa: E402
+from libs.domain.entity_resolution import Candidate  # noqa: E402
 from services.core.app import dead_letter, republish  # noqa: E402
 from services.ingest.app import main as ingest_main  # noqa: E402
 from services.ingest.app import processor  # noqa: E402
@@ -334,8 +335,14 @@ async def test_processor_acks_only_successful_messages(monkeypatch: pytest.Monke
     assert repo.processed == [UUID(good)]
     assert repo.closed and _ProcCore.closed
     flow = repo.flow  # type: ignore[attr-defined]
-    assert flow.dataset_sources == {"ds-maps": "maps"}
+    assert flow.dataset_sources == {
+        "ds-maps": "maps",
+        "bd_search_company": "business_search_companies",
+    }
     assert repo.resolution_store is not None  # type: ignore[attr-defined]
+    # The mock RUES never quarantines: a repeated candidate stays a new company.
+    repeat = Candidate("c1", "Logistica Andina", "Medellin", None, attempts=3)
+    assert flow.resolve(repeat).decision == "new_company"
 
 
 async def test_processor_leaves_failed_message_pending(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -73,6 +73,11 @@ streamlit = [
   "streamlit>=1.40,<2",
 ]
 
+# Official Bright Data SDK for ops/bd_import.py (pinned; signatures checked against 2.5.2).
+brightdata = [
+  "brightdata-sdk==2.5.2",
+]
+
 [tool.setuptools.packages.find]
 include = ["datagen*", "libs*", "services*"]
 
@@ -95,6 +100,10 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = ["django.*", "rest_framework.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["brightdata", "brightdata.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]

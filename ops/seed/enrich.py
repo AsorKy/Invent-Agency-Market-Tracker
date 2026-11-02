@@ -147,11 +147,18 @@ async def enrich(
     *,
     sleep: Any,
     base_delay: float = 1.0,
+    only: set[str] | None = None,
 ) -> EnrichResult:
-    """Score then brief every profiled company; one failure never stops the others."""
+    """Score then brief every profiled company; one failure never stops the others.
+
+    ``only`` limits the calls to those company ids; the features are still derived from every
+    profile, so the territory share stays relative to the whole tenant (the seed passes none).
+    """
     result = EnrichResult()
     for features in score_features(profiles):
         company_id = str(features["company_id"])
+        if only is not None and company_id not in only:
+            continue
         step = "score"
         try:
             await _attempt(port.score, features, sleep, base_delay)

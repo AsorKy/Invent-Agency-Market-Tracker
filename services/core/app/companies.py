@@ -1,11 +1,13 @@
 """Create or update a company with SCD2 history and a transactional outbox event.
 
-``upsert_company`` resolves the company by NIT or by canonical key (normalized name, city, source
-IDs), compares the tracked attributes, and only when something changed it closes the previous
-version into history, bumps ``version``, and writes the ``company.updated`` event, all inside one
-``CompanyUnitOfWork`` transaction. It relates to ``main.py`` (route), ``repository.py`` (SQL unit
-of work), and ``libs/contracts/events.py``. Repeating the same payload writes nothing, which keeps
-ingest retries idempotent (REQ-COR-007). Complexity is O(fields) per call.
+``upsert_company`` resolves the company by NIT, else by its LinkedIn company id (the
+``linkedin_company_id`` source id, shared by a job posting and the company profile), else by
+canonical key (normalized name, city, source IDs), compares the tracked attributes, and only
+when something changed it closes the previous version into history, bumps ``version``, and
+writes the ``company.updated`` event, all inside one ``CompanyUnitOfWork`` transaction. It
+relates to ``main.py`` (route), ``repository.py`` (SQL unit of work), and
+``libs/contracts/events.py``. Repeating the same payload writes nothing, which keeps ingest
+retries idempotent (REQ-COR-007). Complexity is O(fields) per call.
 """
 
 import hashlib
@@ -29,6 +31,8 @@ TRACKED_FIELDS = (
     "source_ids",
 )
 EVENT_TYPE = "company.updated"
+# Source id that names one LinkedIn company in every source that carries it.
+LINKEDIN_COMPANY_ID = "linkedin_company_id"
 
 
 class CompanyUpsert(BaseModel):
@@ -93,10 +97,13 @@ def _fold(value: str | None) -> str:
 
 
 def company_slug(payload: CompanyUpsert) -> str:
-    """Return the deterministic identity key: NIT when present, else the canonical key."""
+    """Return the identity key: NIT, else LinkedIn company id, else the canonical key."""
     nit = normalize_nit(payload.nit)
     if nit:
         return f"nit-{nit.lower()}"
+    linkedin_id = _fold(payload.source_ids.get(LINKEDIN_COMPANY_ID))
+    if linkedin_id:
+        return "li-" + hashlib.sha256(linkedin_id.encode()).hexdigest()[:24]
     canonical = "|".join(
         [
             _fold(payload.legal_name),

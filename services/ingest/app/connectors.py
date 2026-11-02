@@ -7,7 +7,11 @@ injectable ``httpx.Client`` (tests pass a WSGI transport, so no network is
 used). ``BrightDataConnector`` is the live implementation of the Datasets API
 (Bearer token, trigger with a notify URL, progress, snapshot download). Only
 idempotent calls (progress, download) are retried with exponential backoff; a
-trigger is never retried because it spends budget. ``source_config.py``
+trigger is never retried because it spends budget. A live connector may carry
+extra trigger query parameters per source (for example ``type=discover_new`` and
+``discover_by=location`` for a discovery dataset), and ``post_json`` reaches the
+other Bright Data JSON endpoints (Business Search) with the same auth and error
+mapping, never retried because a search is billed. ``source_config.py``
 selects between the two by ``INGEST_MODE``. Methods are synchronous; async
 callers wrap them with ``asyncio.to_thread``. Secrets are never logged or put
 in error messages.
@@ -15,7 +19,7 @@ in error messages.
 
 import time
 from abc import ABC, abstractmethod
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
@@ -30,11 +34,17 @@ from services.ingest.app.mapping import (
 
 
 class ConnectorError(RuntimeError):
-    """Raised when the provider call fails; ``retryable`` marks transient errors."""
+    """Raised when the provider call fails; ``retryable`` marks transient errors.
 
-    def __init__(self, message: str, *, retryable: bool = False) -> None:
+    ``status_code`` is the HTTP status of a rejected request, when there was one.
+    """
+
+    def __init__(
+        self, message: str, *, retryable: bool = False, status_code: int | None = None
+    ) -> None:
         super().__init__(message)
         self.retryable = retryable
+        self.status_code = status_code
 
 
 @dataclass(frozen=True)
@@ -156,12 +166,14 @@ class BrightDataConnector(SourceConnector):
         retry_base_delay_seconds: float = 0.5,
         retry_max_delay_seconds: float = 8.0,
         sleep: Callable[[float], None] = time.sleep,
+        extra_params: Mapping[str, str] | None = None,
     ) -> None:
         super().__init__(source, mapping)
         if retry_attempts < 1:
             raise ValueError("retry_attempts must be at least 1")
         self._client = client
         self.dataset_id = dataset_id
+        self.extra_params = dict(extra_params or {})
         self._headers = {"Authorization": f"Bearer {api_token}"}
         self._attempts = retry_attempts
         self._base_delay = retry_base_delay_seconds
@@ -176,9 +188,9 @@ class BrightDataConnector(SourceConnector):
             raise ConnectorError("Bright Data unreachable", retryable=True) from exc
         status = response.status_code
         if status in RETRYABLE_STATUS:
-            raise ConnectorError(f"Bright Data error {status}", retryable=True)
+            raise ConnectorError(f"Bright Data error {status}", retryable=True, status_code=status)
         if status >= 400:
-            raise ConnectorError(f"Bright Data rejected request {status}")
+            raise ConnectorError(f"Bright Data rejected request {status}", status_code=status)
         return response
 
     def _send_idempotent(self, method: str, url: str, **kwargs: Any) -> httpx.Response:
@@ -202,7 +214,7 @@ class BrightDataConnector(SourceConnector):
     def trigger(
         self, inputs: list[dict[str, Any]], *, notify_url: str | None = None
     ) -> TriggerResult:
-        params = {"dataset_id": self.dataset_id, "include_errors": "true"}
+        params = {**self.extra_params, "dataset_id": self.dataset_id, "include_errors": "true"}
         if notify_url:
             params["notify"] = notify_url
         body = self._json(self._send("POST", "/datasets/v3/trigger", params=params, json=inputs))
@@ -233,3 +245,7 @@ class BrightDataConnector(SourceConnector):
         if not isinstance(body, list):
             raise ConnectorError("snapshot is not a JSON array")
         return [record for record in body if isinstance(record, dict)]
+
+    def post_json(self, path: str, body: Any) -> Any:
+        """POST ``body`` to another Bright Data JSON endpoint; never retried (it may be billed)."""
+        return self._json(self._send("POST", path, json=body))
