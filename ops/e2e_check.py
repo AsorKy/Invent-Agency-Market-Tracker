@@ -181,8 +181,9 @@ def backfill_in_ml(tenant_id: str, limit: int) -> None:
 async def drive_chain(client: httpx.AsyncClient, secret: str) -> dict[str, str]:
     """Create one signal and move one lead to the next stage through core's internal API.
 
-    Runs inside the gateway container. The signal uses the ``seed`` service identity and the lead
-    calls use the ``gateway`` one, as in the allow lists of ``services/core/app/main.py``. Raises
+    Runs inside the gateway container. The signal uses the ``seed`` service identity and the
+    company list and lead calls use the ``gateway`` one with the demo tenant, as in the allow lists
+    of ``services/core/app/main.py``. Raises
     ``RuntimeError`` when core refuses a step. Returns the ids it created (no secrets).
     """
     from libs.common.internal_auth import GATEWAY_SERVICE, service_token_header
@@ -196,7 +197,7 @@ async def drive_chain(client: httpx.AsyncClient, secret: str) -> dict[str, str]:
         **service_token_header(GATEWAY_SERVICE, secret),
         "X-Tenant-Id": str(DEMO_TENANT_ID),
     }
-    listed = await client.get("/internal/core/companies", params={"limit": 1}, headers=seed)
+    listed = await client.get("/internal/core/companies", params={"limit": 1}, headers=gateway)
     if listed.status_code != 200 or not listed.json().get("data"):
         raise fail("company list", listed)
     company_id = str(listed.json()["data"][0]["id"])

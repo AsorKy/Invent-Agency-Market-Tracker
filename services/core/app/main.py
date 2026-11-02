@@ -104,7 +104,8 @@ from services.core.app.validation_reads import (
 # Per-route-group allow lists of calling services (REQ-SEC-005). Routes that
 # trust the X-Tenant-Id header accept only the gateway, which derives it from
 # verified claims, unless another service is named here. Ingest and the seed
-# send the tenant in the request body instead.
+# send the tenant in the request body instead, except the seed's company list
+# (a GET), which sends the header.
 GATEWAY_ONLY = Depends(require_service_token(GATEWAY_SERVICE))
 INGEST_WRITE = Depends(require_service_token(GATEWAY_SERVICE, "ingest", "seed"))
 ML_READ = Depends(require_service_token("ml"))
@@ -201,10 +202,11 @@ async def companies(
     request: Request,
     limit: int = Query(default=50, ge=1, le=200),
     cursor: str | None = Query(default=None),
+    x_tenant_id: Annotated[UUID | None, Header()] = None,
 ) -> dict[str, object]:
     try:
         repository: CoreRepository = request.app.state.repository
-        data, next_cursor = await repository.list_companies(limit, cursor)
+        data, next_cursor = await repository.list_companies(limit, cursor, tenant_id=x_tenant_id)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail="invalid_cursor") from exc
     except RuntimeError as exc:

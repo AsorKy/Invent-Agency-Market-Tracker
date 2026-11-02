@@ -1457,26 +1457,34 @@ class CoreRepository:
         return hashlib.sha256(fingerprint).hexdigest()
 
     async def list_companies(
-        self, limit: int, cursor: str | None = None
+        self, limit: int, cursor: str | None = None, *, tenant_id: UUID | None = None
     ) -> tuple[list[dict[str, object]], str | None]:
+        """List companies newest first; without ``tenant_id`` row level security hides them all."""
         if self.engine is None:
             raise RuntimeError("DATABASE_URL is required for core reads")
         page_cursor = decode_cursor(cursor) if cursor else None
-        cursor_filter = ""
+        clauses: list[str] = []
         parameters: dict[str, object] = {"limit": limit + 1}
+        if tenant_id is not None:
+            clauses.append("tenant_id = :tenant_id")
+            parameters["tenant_id"] = tenant_id
         if page_cursor:
-            cursor_filter = "WHERE (updated_at, id) < (:cursor_updated_at, :cursor_id)"
+            clauses.append("(updated_at, id) < (:cursor_updated_at, :cursor_id)")
             parameters.update(
                 {"cursor_updated_at": page_cursor.updated_at, "cursor_id": page_cursor.item_id}
             )
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
         async with self.engine.connect() as connection:
+            if tenant_id is not None:
+                # Row level security on core.company checks app.tenant_id (REQ-SEC tenancy).
+                await set_tenant_context(connection, tenant_id)
             result = await connection.execute(
                 text(
                     f"""
                     SELECT id, slug, legal_name, trade_name, sector_code, employee_count,
                            website, city, version, updated_at
                     FROM core.company
-                    {cursor_filter}
+                    {where}
                     ORDER BY updated_at DESC, id DESC
                     LIMIT :limit
                     """

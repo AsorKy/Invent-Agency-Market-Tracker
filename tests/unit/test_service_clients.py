@@ -20,7 +20,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 from libs.common.internal_auth import sign_service_token, verify_service_token  # noqa: E402
 from libs.common.settings import get_settings  # noqa: E402
 from ops import verify_live  # noqa: E402
-from ops.seed.loader import HttpSeedCore  # noqa: E402
+from ops.seed.loader import DEMO_TENANT_ID, HttpSeedCore  # noqa: E402
 from services.brief.app.core_source import HttpCoreSource  # noqa: E402
 from services.core.app import main as core_main  # noqa: E402
 from services.identity.iam import permissions  # noqa: E402
@@ -108,6 +108,7 @@ async def test_seed_client_signs_as_seed_on_every_route() -> None:
         "/internal/core/compliance/opt-out",
     ]
     assert {_signer(r) for r in seen} == {"seed"}
+    assert seen[2].headers["x-tenant-id"] == str(DEMO_TENANT_ID)
 
 
 def test_verify_live_signs_as_verify_live(monkeypatch: pytest.MonkeyPatch) -> None:

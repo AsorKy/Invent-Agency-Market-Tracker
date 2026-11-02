@@ -67,8 +67,10 @@ class HttpSeedCore(HttpCoreClient):
         params: dict[str, Any] = {"limit": limit}
         if cursor:
             params["cursor"] = cursor
+        # A GET has no body: the tenant goes in the header so row level security shows its rows.
+        headers = {**self._auth_headers(), "X-Tenant-Id": str(DEMO_TENANT_ID)}
         response = await self._client.get(
-            "/internal/core/companies", params=params, headers=self._auth_headers()
+            "/internal/core/companies", params=params, headers=headers
         )
         response.raise_for_status()
         body = response.json()
