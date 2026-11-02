@@ -205,17 +205,21 @@ class SqlCompanyUnitOfWork:
         self._context = engine.begin()
         self._tenant_id = tenant_id
 
-    async def __aenter__(self) -> SqlCompanyTransaction:
+    async def _open(self) -> AsyncConnection:
         connection = await self._context.__aenter__()
         if self._tenant_id is not None:
-            # Row level security on core.company checks app.tenant_id: set it before any read
-            # or write so a tenant-owned company is visible and insertable (REQ-SEC tenancy).
+            # Row level security on core.company and core.lead checks app.tenant_id: set it
+            # before any read or write so a tenant-owned row is visible and insertable
+            # (REQ-SEC tenancy).
             try:
                 await set_tenant_context(connection, self._tenant_id)
             except BaseException:
                 await self._context.__aexit__(*sys.exc_info())
                 raise
-        return SqlCompanyTransaction(connection)
+        return connection
+
+    async def __aenter__(self) -> SqlCompanyTransaction:
+        return SqlCompanyTransaction(await self._open())
 
     async def __aexit__(
         self,
@@ -1217,7 +1221,7 @@ class SqlLeadUnitOfWork(SqlCompanyUnitOfWork):
     """Same commit-or-rollback boundary, yielding lead operations."""
 
     async def __aenter__(self) -> SqlLeadTransaction:  # type: ignore[override]
-        return SqlLeadTransaction(await self._context.__aenter__())
+        return SqlLeadTransaction(await self._open())
 
 
 class CoreRepository:
@@ -1229,10 +1233,10 @@ class CoreRepository:
             raise RuntimeError("DATABASE_URL is required for core writes")
         return SqlCompanyUnitOfWork(self.engine, tenant_id)
 
-    def lead_unit_of_work(self) -> SqlLeadUnitOfWork:
+    def lead_unit_of_work(self, tenant_id: UUID | None = None) -> SqlLeadUnitOfWork:
         if self.engine is None:
             raise RuntimeError("DATABASE_URL is required for core writes")
-        return SqlLeadUnitOfWork(self.engine)
+        return SqlLeadUnitOfWork(self.engine, tenant_id)
 
     def action_unit_of_work(self, tenant_id: UUID | None = None) -> SqlActionUnitOfWork:
         if self.engine is None:
