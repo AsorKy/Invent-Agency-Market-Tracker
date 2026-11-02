@@ -3,6 +3,7 @@
 It relates to ``ops/e2e_check.py`` and the e2e job in ``.github/workflows/ci.yml``.
 """
 
+import json
 from collections.abc import Callable
 
 import httpx
@@ -316,6 +317,7 @@ def test_driver_creates_one_signal_and_moves_one_lead() -> None:
     listing = seen[0]
     assert listing.headers["x-service-token"].split(".")[1] == "gateway"
     assert listing.headers["x-tenant-id"] == str(DEMO_TENANT_ID)
+    assert json.loads(seen[1].content)["tenant_id"] == str(DEMO_TENANT_ID)
     assert seen[2].headers["x-tenant-id"] and seen[2].headers["idempotency-key"]
     assert b'"expected_version":1' in seen[3].content.replace(b" ", b"")
 
