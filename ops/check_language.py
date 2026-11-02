@@ -5,7 +5,10 @@ characters, and rejects a curated list of Spanish words and legacy identifiers.
 It relates to ``Makefile`` and ``.github/workflows/ci.yml`` and complements
 ``ops/check_script_docs.py``. Its purpose is to keep docstrings, comments,
 configuration descriptions, messages, and code conventions in English. The Spanish
-ADR exports under ``docs/adr`` are the only excluded files.
+ADR exports under ``docs/adr`` are the only excluded files. The frontend design components
+(``frontend/*.dc.html``) and the generated dc runtime (``frontend/support.js``) may hold
+non-ASCII text, because they carry the Spanish UI copy and a vendored file that must not be
+edited; the legacy-identifier check still applies to them.
 """
 
 import re
@@ -16,6 +19,8 @@ from pathlib import Path
 EXCLUDED_PARTS = {".git", "__pycache__", ".mypy_cache", ".ruff_cache"}
 # The architecture decision records are exported verbatim from the project vault in Spanish.
 EXCLUDED_DIRECTORIES = (Path("docs") / "adr",)
+# Spanish UI copy and the generated dc runtime; frontend/api.js and the tests stay ASCII.
+NON_ASCII_ALLOWED = re.compile(r"^frontend/(?:[^/]+\.dc\.html|support\.js)$")
 LEGACY_IDENTIFIER_HEX = (
     "636f6e73756c746f7269615f7377",
     "616e616c69746963615f6264",
@@ -65,8 +70,9 @@ def main() -> int:
         relative = path.relative_to(repository)
         if any(relative.is_relative_to(excluded) for excluded in EXCLUDED_DIRECTORIES):
             continue
+        ascii_only = not NON_ASCII_ALLOWED.match(relative.as_posix())
         for line_number, line in enumerate(content.splitlines(), 1):
-            if any(ord(character) > 127 for character in line):
+            if ascii_only and any(ord(character) > 127 for character in line):
                 failures.append(f"{relative}:{line_number}: non-ASCII text")
             if MARKER_PATTERN.search(line):
                 failures.append(f"{relative}:{line_number}: non-English marker")

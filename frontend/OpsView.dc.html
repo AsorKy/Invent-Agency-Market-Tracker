@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="display:flex;flex-direction:column;gap:24px;font-family:Inter,sans-serif;color:#0A0A0A;font-variant-numeric:tabular-nums">
+  <div><h1 style="margin:0;font-size:28px;line-height:32px;font-weight:500;letter-spacing:-.03em">Ops</h1><div style="font-size:14px;color:#3D3D3D;margin-top:4px">Salud del sistema y de los modelos. Cada bloque falla por separado.</div></div>
+  <div style="display:flex;flex-wrap:wrap;gap:24px">
+    <section data-testid="ops-sources" style="flex:7 1 448px;min-width:0;overflow-x:auto;background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:24px"><div style="font-size:15px;line-height:22px;font-weight:500;color:#0A0A0A;margin-bottom:12px">Frescura por fuente</div>
+      <div style="display:grid;grid-template-columns:minmax(0,1.2fr) 80px 90px 90px 110px;gap:12px;font-size:11px;font-weight:500;letter-spacing:.16em;color:#525252;padding:0 0 8px"><span>FUENTE</span><span>OBJETIVO</span><span>ÚLT. SNAPSHOT</span><span>ERRORES</span><span>ESTADO</span></div>
+      <sc-for list="{{ sources }}" as="s" hint-placeholder-count="5"><div style="display:grid;grid-template-columns:minmax(0,1.2fr) 80px 90px 90px 110px;gap:12px;align-items:center;padding:10px 0;border-top:1px solid rgba(10,10,10,.14);font-size:14px"><span style="font-weight:500">{{ s.n }}</span><span style="color:#666666">{{ s.t }}</span><span>{{ s.age }}</span><span style="color:{{ s.ec }}">{{ s.err }} %</span><span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:500;color:{{ s.fg }}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{ s.icon }}"></path></svg>{{ s.st }}</span></div></sc-for></section>
+    <section style="flex:5 1 320px;min-width:0;background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:24px"><div style="font-size:15px;line-height:22px;font-weight:500;color:#0A0A0A;margin-bottom:12px">Servicios y outbox</div>
+      <sc-for list="{{ services }}" as="s" hint-placeholder-count="5"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0;border-top:1px solid rgba(10,10,10,.14);font-size:14px"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:{{ s.c }};margin-right:8px"></span>{{ s.n }}</span><span style="font-size:12px;color:#666666;text-align:right">{{ s.note }}</span></div></sc-for>
+      <div style="margin-top:12px;font-size:13px;color:#3D3D3D">Outbox: 12 pendientes · dead letter 0</div></section>
+    <section style="flex:5 1 320px;min-width:0;background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:24px"><div style="font-size:15px;line-height:22px;font-weight:500;color:#0A0A0A;margin-bottom:12px">Bright Data · Presupuesto</div>
+      <sc-for list="{{ budget }}" as="b" hint-placeholder-count="3"><div style="margin-bottom:14px"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><span>{{ b.n }}</span><span style="font-weight:500">US$ {{ b.u }} / {{ b.cap }}</span></div><div style="height:8px;background:#F5F5F5;border-radius:4px;position:relative;display:block"><span style="position:absolute;left:0;top:0;bottom:0;width:{{ b.w }};background:{{ b.c }};border-radius:4px"></span></div><sc-if value="{{ b.warn }}" hint-placeholder-val="{{ false }}"><div style="font-size:12px;color:#A1460A;margin-top:4px">{{ b.pct }} % del tope: supera el 80 %</div></sc-if></div></sc-for></section>
+    <section style="flex:7 1 448px;min-width:0;background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:24px"><div style="font-size:15px;line-height:22px;font-weight:500;color:#0A0A0A;margin-bottom:12px">Tests de DBT</div>
+      <sc-if value="{{ testsErr }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px;text-align:center"><div style="font-size:14px;font-weight:500;color:#B42318">No pudimos cargar esto</div><button onClick="{{ retry }}" style="height:32px;padding:0 16px;border:1px solid #0A0A0A;border-radius:999px;background:#0A0A0A;color:#FAFAFA;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap">Reintentar</button></div></sc-if>
+      <sc-if value="{{ testsOk }}" hint-placeholder-val="{{ true }}"><sc-for list="{{ tests }}" as="t" hint-placeholder-count="4"><div style="display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid rgba(10,10,10,.14);font-size:14px"><span style="font-family:ui-monospace,Menlo,monospace;font-size:13px">{{ t.n }}</span><span style="font-size:12px;font-weight:500;color:{{ t.c }}">{{ t.s }}</span></div></sc-for><button onClick="{{ failTests }}" style="margin-top:8px;border:0;background:transparent;padding:0;font-family:inherit;font-size:12px;color:#006A99;text-decoration:underline;cursor:pointer">Simular error de carga</button></sc-if></section>
+    <section data-testid="ops-components" style="flex:12 1 100%;min-width:0;overflow-x:auto;background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:24px"><div style="font-size:15px;line-height:22px;font-weight:500;color:#0A0A0A;margin-bottom:12px">Salud de los componentes analíticos</div>
+      <div style="display:grid;grid-template-columns:minmax(0,1.3fr) 110px minmax(0,1.3fr) 110px 130px;gap:12px;font-size:11px;font-weight:500;letter-spacing:.16em;color:#525252;padding-bottom:8px"><span>COMPONENTE</span><span>VEREDICTO</span><span>VALIDADOR</span><span>FALLBACK</span><span>PRÓX. EVALUACIÓN</span></div>
+      <sc-for list="{{ comps }}" as="c" hint-placeholder-count="5"><div style="display:grid;grid-template-columns:minmax(0,1.3fr) 110px minmax(0,1.3fr) 110px 130px;gap:12px;align-items:center;padding:10px 0;border-top:1px solid rgba(10,10,10,.14);font-size:14px"><span style="font-weight:500">{{ c.n }}</span><span title="Evaluado {{ c.when }}" style="display:inline-flex;align-items:center;height:24px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:500;background:{{ c.bg }};color:{{ c.fg }};border:1px solid {{ c.bd }};width:fit-content;white-space:nowrap">{{ c.v }}</span><span style="font-size:13px;color:#3D3D3D">{{ c.val }}</span><span style="font-size:13px;color:{{ c.fc }}">{{ c.fb }} %{{ c.fbw }}</span><span style="font-size:13px;color:#666666">{{ c.next }}</span></div></sc-for></section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1136,&quot;height&quot;:900}}">
+class Component extends DCLogic {
+  state = { err: false };
+  renderVals() {
+    const ST = { ok: ['Al día', '#067647', 'M20 6 9 17l-5-5'], late: ['Atrasada', '#A1460A', 'm21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3M12 9v4M12 17h.01'], bad: ['Con errores', '#B42318', 'M7.86 2h8.28L22 7.86v8.28L16.14 22H7.86L2 16.14V7.86zM12 8v4M12 16h.01'] };
+    const src = [['Google Maps', '24 h', '6 h', 1.2, 'ok'], ['Computrabajo (vacantes)', '12 h', '9 h', 3.4, 'ok'], ['LinkedIn', '7 d', '9 d', 2.1, 'late'], ['Instagram', '7 d', '3 d', 11.8, 'bad'], ['RUES', '24 h', '5 h', 0.4, 'ok']];
+    const V = { ADOPT: ['#ECFAF3', '#067647', '#A9E9C9'], ITERATE: ['#FFF8EB', '#A1460A', '#FCDDA0'], KILL: ['#FEF3F2', '#B42318', '#FECDCA'] };
+    const comps = [['Score de leads (regla v0)', 'ADOPT', 'Brier 0,14 · umbral 0,20', 3, '15 ene'], ['Pirámide ICP', 'ADOPT', 'kappa 0,71 · umbral 0,60', 0, '15 ene'], ['Segmentación (arquetipos)', 'ITERATE', 'ARI 0,52 · umbral 0,70', 6, '15 ene'], ['Pronóstico de cierres', 'ITERATE', 'MASE 1,08 · cobertura 74 %', 0, '15 ene'], ['Índice IOZ', 'KILL', "Moran's I 0,04 · umbral 0,20", 12, '15 ene']].map(([n, v, val, fb, next]) => ({ n, v, val, fb, next, when: '18 oct', bg: V[v][0], fg: V[v][1], bd: V[v][2], fc: fb > 10 ? '#A1460A' : '#3D3D3D', fbw: fb > 10 ? ' · revisar' : '' }));
+    const bud = [['Google Maps', 62, 100], ['Vacantes', 41, 60], ['LinkedIn', 88, 100]].map(([n, u, cap]) => { const pc = Math.round(u / cap * 100); return { n, u, cap, w: pc + '%', pct: pc, warn: pc >= 80, c: pc >= 80 ? '#C77C0E' : '#0077AA' }; });
+    return {
+      sources: src.map(([n, t, age, e, s]) => ({ n, t, age, err: String(e).replace('.', ','), ec: e > 10 ? '#B42318' : '#0A0A0A', st: ST[s][0], fg: ST[s][1], icon: ST[s][2] })),
+      services: [['API', 'ok', ''], ['Worker de ingesta', 'ok', ''], ['Base de datos', 'ok', ''], ['Bright Data', 'warn', 'se degrada: enriquecimiento (reintento)'], ['Telegram / n8n', 'ok', '']].map(([n, s, note]) => ({ n, note, c: s === 'ok' ? '#1F9A6E' : '#C77C0E' })),
+      budget: bud, comps, testsErr: this.state.err, testsOk: !this.state.err, retry: () => this.setState({ err: false }), failTests: () => this.setState({ err: true }),
+      tests: [['not_null_leads_nit', 'pasa'], ['unique_company_nit', 'pasa'], ['accepted_values_status', 'pasa'], ['freshness_signals', 'pasa'], ['relationships_score_lead', 'falla']].map(([n, s]) => ({ n, s, c: s === 'pasa' ? '#067647' : '#B42318' }))
+    };
+  }
+}
+</script>
+</body>
+</html>

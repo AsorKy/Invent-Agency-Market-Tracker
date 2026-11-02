@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="display:flex;flex-direction:column;gap:24px;font-family:Inter,sans-serif;color:#0A0A0A;font-variant-numeric:tabular-nums">
+  <div><h1 style="margin:0;font-size:28px;line-height:32px;font-weight:500;letter-spacing:-.03em">Bandeja</h1><div style="font-size:14px;color:#3D3D3D;margin-top:4px">Lo que entró y hay que curar. Una empresa en cuarentena no cuenta como lead.</div></div>
+  <div data-testid="inbox-counters" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:24px">
+    <sc-for list="{{ counters }}" as="c" hint-placeholder-count="4"><button onClick="{{ c.go }}" aria-pressed="{{ c.on }}" style="text-align:left;background:#FAFAFA;border:1px solid {{ c.bd }};border-radius:12px;padding:20px 24px;font-family:inherit;color:#0A0A0A;cursor:pointer" style-hover="border-color:rgba(10,10,10,.26)"><div style="font-size:13px;line-height:20px;color:#525252">{{ c.l }}</div><div style="font-size:36px;line-height:40px;font-weight:300;letter-spacing:-.03em;margin-top:12px">{{ c.n }}</div></button></sc-for>
+  </div>
+  <div style="display:grid;grid-template-columns:minmax(0,1fr) {{ sideW }};gap:24px;align-items:start">
+    <div data-testid="{{ listTid }}" style="background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;overflow:hidden">
+      <div style="padding:12px 24px;background:#F5F5F5;border-bottom:1px solid rgba(10,10,10,.14);font-size:11px;font-weight:500;letter-spacing:.16em;color:#525252;display:flex;justify-content:space-between"><span>{{ listTitle }}</span><span>{{ rows.length }}</span></div>
+      <sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}"><div style="padding:48px 24px;text-align:center"><div style="font-size:16px;font-weight:500">No hay nada pendiente.</div><div style="font-size:14px;color:#666666;margin-top:4px">Las empresas nuevas aparecen aquí al entrar.</div></div></sc-if>
+      <sc-for list="{{ rows }}" as="r" hint-placeholder-count="5">
+        <div style="display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1.3fr) auto;gap:16px;align-items:center;padding:12px 24px;border-bottom:1px solid rgba(10,10,10,.14)">
+          <div style="min-width:0"><a href="#" onClick="{{ r.open }}" style="color:#0A0A0A;font-weight:500;font-size:14px;text-decoration:none">{{ r.n }}</a><div style="font-family:ui-monospace,Menlo,monospace;font-size:12px;color:#666666">{{ r.nit }}</div></div>
+          <div style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:#3D3D3D"><span style="display:inline-flex;gap:6px;align-items:center"><span style="font-weight:500">{{ r.src }}</span><span style="color:#666666">· {{ r.sig }}</span></span><span style="color:#666666">{{ r.meta }}</span></div>
+          <div style="display:flex;gap:8px;align-items:center;justify-content:flex-end"><dc-import name="RuesStatus" state="{{ r.ru }}" hint-size="100px,24px"></dc-import>
+            <sc-if value="{{ r.isLead }}" hint-placeholder-val="{{ false }}"><sc-if value="{{ canAct }}" hint-placeholder-val="{{ true }}"><button onClick="{{ r.qualify }}" style="height:32px;padding:0 14px;border:1px solid #0A0A0A;border-radius:999px;background:#0A0A0A;color:#FAFAFA;font-family:inherit;font-size:13px;font-weight:500;letter-spacing:.02em;cursor:pointer;white-space:nowrap">Calificar</button><button onClick="{{ r.discard }}" style="height:32px;padding:0 14px;border:1px solid rgba(10,10,10,.26);border-radius:999px;background:transparent;color:#0A0A0A;font-family:inherit;font-size:13px;font-weight:500;letter-spacing:.02em;cursor:pointer;white-space:nowrap">Descartar</button></sc-if></sc-if>
+            <sc-if value="{{ r.isQ }}" hint-placeholder-val="{{ false }}"><sc-if value="{{ canAct }}" hint-placeholder-val="{{ true }}"><button onClick="{{ r.retry }}" style="height:32px;padding:0 14px;border:1px solid rgba(10,10,10,.26);border-radius:999px;background:transparent;color:#0A0A0A;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap">Reintentar búsqueda</button><button onClick="{{ r.nit2 }}" style="height:32px;padding:0 14px;border:1px solid #0A0A0A;border-radius:999px;background:#0A0A0A;color:#FAFAFA;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap">Ingresar NIT</button></sc-if></sc-if>
+            <sc-if value="{{ r.isM }}" hint-placeholder-val="{{ false }}"><button onClick="{{ r.compare }}" style="height:32px;padding:0 14px;border:1px solid #0A0A0A;border-radius:999px;background:#0A0A0A;color:#FAFAFA;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap">Comparar</button></sc-if>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+    <sc-if value="{{ hasCompare }}" hint-placeholder-val="{{ false }}">
+      <aside data-testid="inbox-match-compare" style="background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:16px" aria-label="Comparación RUES">
+        <div style="display:flex;justify-content:space-between;align-items:center"><div style="font-size:15px;line-height:22px;font-weight:500;color:#0A0A0A">Coincidencia dudosa</div><button onClick="{{ closeCompare }}" aria-label="Cerrar" style="width:28px;height:28px;border:0;border-radius:50%;background:transparent;cursor:pointer;font-size:16px">×</button></div>
+        <div style="font-size:36px;line-height:40px;font-weight:300;letter-spacing:-.03em">{{ cmp.sim }}<span style="font-size:14px;color:#666666"> similitud</span></div>
+        <div style="display:grid;grid-template-columns:90px 1fr 1fr;gap:8px 12px;font-size:13px;align-items:baseline"><span></span><b style="font-weight:500;font-size:11px;letter-spacing:.16em;color:#666666">FUENTE</b><b style="font-weight:500;font-size:11px;letter-spacing:.16em;color:#666666">RUES</b>
+          <sc-for list="{{ cmpRows }}" as="f" hint-placeholder-count="4"><span style="color:#666666">{{ f.k }}</span><span style="font-family:{{ f.ff }};padding:2px 6px;border-radius:4px;background:{{ f.bg }}">{{ f.a }}</span><span style="font-family:{{ f.ff }};padding:2px 6px;border-radius:4px;background:{{ f.bg }}">{{ f.b }}</span></sc-for></div>
+        <div style="font-size:12px;color:#666666">Marcado: campos que coinciden.</div>
+        <sc-if value="{{ canAct }}" hint-placeholder-val="{{ true }}"><div style="display:flex;gap:8px"><button onClick="{{ same }}" style="flex:1;height:40px;border:1px solid #0A0A0A;border-radius:999px;background:#0A0A0A;color:#FAFAFA;font-family:inherit;font-size:13px;font-weight:500;letter-spacing:.02em;cursor:pointer;white-space:nowrap">Es la misma</button><button onClick="{{ other }}" style="flex:1;height:40px;border:1px solid rgba(10,10,10,.26);border-radius:999px;background:transparent;color:#0A0A0A;font-family:inherit;font-size:13px;font-weight:500;letter-spacing:.02em;cursor:pointer;white-space:nowrap">Es otra</button></div></sc-if>
+      </aside>
+    </sc-if>
+  </div>
+
+  <dialog ref="{{ dRef }}" onClose="{{ onDlgClose }}" aria-label="{{ dlgTitle }}" style="border:0;padding:0;border-radius:12px;width:calc(100% - 32px);max-width:480px;background:#FAFAFA;color:#0A0A0A"><sc-if value="{{ dlg }}" hint-placeholder-val="{{ false }}"><div style="padding:24px;display:flex;flex-direction:column;gap:16px">
+      <h3 style="margin:0;font-size:20px;line-height:28px;font-weight:500;letter-spacing:-.02em">{{ dlgTitle }}</h3>
+      <sc-if value="{{ isDiscard }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;gap:8px"><sc-for list="{{ motives }}" as="m" hint-placeholder-count="4"><label style="display:flex;align-items:center;gap:12px;min-height:44px;padding:0 16px;border:1px solid {{ m.bd }};border-radius:12px;background:{{ m.bg }};font-size:14px;cursor:pointer"><input type="radio" name="motive" checked="{{ m.on }}" onChange="{{ m.go }}" style="accent-color:#0A0A0A">{{ m.l }}</label></sc-for></div></sc-if>
+      <sc-if value="{{ isNit }}" hint-placeholder-val="{{ false }}"><label style="display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:500;color:#3D3D3D">NIT<input value="{{ nitVal }}" onInput="{{ setNit }}" placeholder="900.000.000-0" style="height:40px;box-sizing:border-box;padding:0 12px;border:1px solid {{ nitBd }};border-radius:8px;background:#FAFAFA;font-family:ui-monospace,Menlo,monospace;font-size:13px;color:#0A0A0A"></label><sc-if value="{{ nitErr }}" hint-placeholder-val="{{ false }}"><div style="font-size:12px;color:#B42318">Formato esperado: 900.000.001-1</div></sc-if></sc-if>
+      <div style="display:flex;gap:12px;justify-content:flex-end"><button onClick="{{ closeDlg }}" style="height:40px;padding:0 20px;border:1px solid rgba(10,10,10,.26);border-radius:999px;background:transparent;font-family:inherit;font-size:13px;font-weight:500;letter-spacing:.02em;cursor:pointer;white-space:nowrap">Cancelar</button><button onClick="{{ okDlg }}" style="height:40px;padding:0 20px;border:1px solid #0A0A0A;border-radius:999px;background:#0A0A0A;color:#FAFAFA;font-family:inherit;font-size:13px;font-weight:500;letter-spacing:.02em;cursor:pointer;white-space:nowrap">{{ okLabel }}</button></div>
+    </div></sc-if></dialog>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1136,&quot;height&quot;:700}}">
+class Component extends DCLogic {
+  componentDidUpdate() { const d = this.d; if (!d) return; if (this.state.dlg && !d.open) d.showModal(); else if (!this.state.dlg && d.open) d.close(); }
+  state = { f: 'new', cmp: null, dlg: null, id: null, motive: 'Fuera del ICP', nit: '', nitErr: false };
+  renderVals() {
+    const p = this.props, st = this.state, set = o => this.setState(o);
+    const leads = (p.leads || []).filter(l => l.st === 'descubierto');
+    const retry = (p.leads || []).filter(l => l.enrich === 'retry');
+    const ms = p.matches || [], qs = p.quarantine || [];
+    const canAct = p.role === 'admin' || p.role === 'intake';
+    const f = st.f;
+    const counters = [['01', 'Nuevos sin curar', leads.length, 'new'], ['02', 'Cuarentena', qs.length, 'quarantine'], ['03', 'Coincidencias dudosas', ms.length, 'matches'], ['04', 'Enriquecimiento en reintento', retry.length, 'retry']].map(([i, l, n, k]) => ({ i: '[ ' + i + ' ]', l, n, on: f === k, bd: f === k ? '#0A0A0A' : 'rgba(10,10,10,.14)', go: () => set({ f: k, cmp: null }) }));
+    const open = id => e => { e && e.preventDefault && e.preventDefault(); p.onOpen && p.onOpen(id); };
+    const base = (l, extra) => ({ id: l.id, n: l.n, nit: l.nit, src: l.src, sig: l.sig, ru: l.ru, open: open(l.id), isLead: false, isQ: false, isM: false, meta: '', ...extra });
+    let rows = [];
+    const lead2row = l => base(l, { isLead: true, meta: 'hace ' + l.d + ' d · score ' + l.s + (l.flags ? ' · ' + l.flags : ''), qualify: () => { p.onQualify && p.onQualify(l.id); }, discard: () => set({ dlg: 'discard', id: l.id, motive: 'Fuera del ICP' }) });
+    if (f === 'new') rows = leads.map(lead2row);
+    if (f === 'retry') rows = retry.map(l => base(l, { meta: 'Reintentando enriquecimiento' }));
+    if (f === 'quarantine') rows = qs.map(q => ({ id: q.id, n: q.n, nit: q.nit || 'sin NIT', src: q.src, sig: 'sin match RUES', ru: 'cuarentena', open: e => e && e.preventDefault && e.preventDefault(), isLead: false, isQ: true, isM: false, meta: q.days + ' días en cuarentena' + (q.days > 14 ? ' · supera el máximo' : ''), retry: () => p.onRetryQ && p.onRetryQ(q.id), nit2: () => set({ dlg: 'nit', id: q.id, nit: '', nitErr: false }) }));
+    if (f === 'matches') rows = ms.map(m => ({ id: m.id, n: m.n, nit: m.nit, src: m.src, sig: 'similitud ' + m.sim, ru: 'borderline', open: e => e && e.preventDefault && e.preventDefault(), isLead: false, isQ: false, isM: true, meta: m.city, compare: () => set({ cmp: m.id }) }));
+    const cmp = ms.find(m => m.id === st.cmp);
+    const eq = (a, b) => (a || '').toLowerCase() === (b || '').toLowerCase();
+    const cmpRows = cmp ? [['Nombre', cmp.n, cmp.rn, 'inherit'], ['NIT', cmp.nit, cmp.rnit, 'ui-monospace,Menlo,monospace'], ['Dirección', cmp.addr, cmp.raddr, 'inherit'], ['Ciudad', cmp.city, cmp.rcity, 'inherit']].map(([k, a, b, ff]) => ({ k, a, b, ff, bg: eq(a, b) ? '#ECFAF3' : 'transparent' })) : [];
+    const motives = ['Fuera del ICP', 'Duplicado', 'Sin actividad', 'Otro'].map(m => ({ l: m, on: st.motive === m, bd: st.motive === m ? '#0A0A0A' : 'rgba(10,10,10,.14)', bg: st.motive === m ? '#F5F5F5' : '#FAFAFA', go: () => set({ motive: m }) }));
+    const nitOk = /^\d{3}\.\d{3}\.\d{3}-\d$/.test(st.nit);
+    return {
+      dRef: el => { this.d = el; }, onDlgClose: () => { if (this.state.dlg) set({ dlg: null }); },
+      listTid: f === 'quarantine' ? 'inbox-quarantine' : 'inbox-list', counters, rows, canAct, empty: rows.length === 0, listTitle: { new: 'LEADS DESCUBIERTOS', quarantine: 'EMPRESAS EN CUARENTENA', matches: 'COINCIDENCIAS RUES DUDOSAS (0,6–0,9)', retry: 'ENRIQUECIMIENTOS EN REINTENTO' }[f],
+      hasCompare: !!cmp, sideW: cmp ? '360px' : '0px', cmp: cmp || {}, cmpRows, closeCompare: () => set({ cmp: null }),
+      same: () => { p.onResolveMatch && p.onResolveMatch(cmp.id, true); set({ cmp: null }); }, other: () => { p.onResolveMatch && p.onResolveMatch(cmp.id, false); set({ cmp: null }); },
+      dlg: !!st.dlg, isDiscard: st.dlg === 'discard', isNit: st.dlg === 'nit', dlgTitle: st.dlg === 'discard' ? 'Descartar lead' : 'Ingresar NIT', okLabel: st.dlg === 'discard' ? 'Descartar' : 'Guardar NIT',
+      motives, nitVal: st.nit, setNit: e => set({ nit: e.target.value, nitErr: false }), nitErr: st.nitErr, nitBd: st.nitErr ? '#D92D20' : '#767676', closeDlg: () => set({ dlg: null }),
+      okDlg: () => { if (st.dlg === 'discard') { p.onDiscard && p.onDiscard(st.id, st.motive); set({ dlg: null }); } else if (nitOk) { p.onNit && p.onNit(st.id, st.nit); set({ dlg: null }); } else set({ nitErr: true }); }
+    };
+  }
+}
+</script>
+</body>
+</html>

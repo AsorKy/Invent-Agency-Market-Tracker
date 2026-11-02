@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="display:flex;flex-direction:column;gap:24px;font-family:Inter,sans-serif;color:#0A0A0A;font-variant-numeric:tabular-nums">
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap"><div><h1 style="margin:0;font-size:28px;line-height:32px;font-weight:500;letter-spacing:-.03em">Territorio</h1><div style="font-size:14px;color:#3D3D3D;margin-top:4px">Dónde hay poder de compra y poca competencia. <abbr title="Índice de Oportunidad por Zona">IOZ</abbr> (z dentro de {{ city }}).</div></div>
+    <div style="display:flex;gap:12px;align-items:center"><div data-testid="territory-granularity" role="group" aria-label="Granularidad" style="display:flex;border:1px solid #767676;border-radius:999px;padding:2px;background:#FAFAFA"><sc-for list="{{ grans }}" as="g" hint-placeholder-count="3"><button onClick="{{ g.go }}" aria-pressed="{{ g.on }}" style="height:30px;padding:0 14px;border:0;border-radius:999px;background:{{ g.bg }};color:{{ g.c }};font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap">{{ g.l }}</button></sc-for></div>
+    <div role="group" aria-label="Capa" style="display:flex;border:1px solid #767676;border-radius:999px;padding:2px;background:#FAFAFA"><sc-for list="{{ modes }}" as="g" hint-placeholder-count="2"><button onClick="{{ g.go }}" aria-pressed="{{ g.on }}" style="height:30px;padding:0 14px;border:0;border-radius:999px;background:{{ g.bg }};color:{{ g.c }};font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap">{{ g.l }}</button></sc-for></div>
+    <label style="position:relative;display:block"><span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Línea</span><select value="{{ line }}" onChange="{{ setLine }}" style="appearance:none;height:36px;box-sizing:border-box;padding:0 32px 0 12px;border:1px solid #767676;border-radius:8px;background:#FAFAFA;font-family:inherit;font-size:14px;color:#0A0A0A;cursor:pointer"><option>SaaS</option><option>AaaS</option><option>Catering + eventos</option></select><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3D3D3D" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="position:absolute;right:10px;top:11px;pointer-events:none"><path d="m6 9 6 6 6-6"></path></svg></label></div></div>
+  <div style="display:flex;flex-wrap:wrap;gap:24px;align-items:start">
+    <section style="flex:8 1 512px;min-width:0;background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:24px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><div style="font-size:15px;line-height:22px;font-weight:500;color:#0A0A0A">Mapa bivariado · Poder × saturación</div><button onClick="{{ toggleTable }}" style="height:28px;padding:0 12px;border:1px solid rgba(10,10,10,.26);border-radius:999px;background:transparent;font-family:inherit;font-size:12px;font-weight:500;color:#0A0A0A;cursor:pointer;white-space:nowrap">{{ tableLabel }}</button></div>
+      <sc-if value="{{ showMap }}" hint-placeholder-val="{{ true }}">
+        <svg data-testid="territory-map" viewBox="0 0 640 300" width="100%" role="img" aria-label="Mapa de {{ gran }} (marcador de posición)" style="display:block;border:1px solid rgba(10,10,10,.14);border-radius:8px;background:#F5F5F5"><defs><pattern id="qp1" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" stroke="#A1460A" stroke-width="1.5"></line></pattern><pattern id="qp2" width="6" height="6" patternUnits="userSpaceOnUse"><path d="M0 3h6M3 0v6" stroke="#B42318" stroke-width="1"></path></pattern><pattern id="qp3" width="6" height="6" patternUnits="userSpaceOnUse"><circle cx="3" cy="3" r="1.2" fill="#067647"></circle></pattern></defs>
+          <sc-for list="{{ cells }}" as="c" hint-placeholder-count="12"><g onClick="{{ c.go }}" style="cursor:pointer"><rect x="{{ c.x }}" y="{{ c.y }}" width="{{ c.w }}" height="{{ c.h }}" fill="{{ c.fill }}" fill-opacity="{{ c.op }}" stroke="{{ c.stroke }}" stroke-width="{{ c.sw }}" stroke-dasharray="{{ c.dash }}"></rect><rect x="{{ c.x }}" y="{{ c.y }}" width="{{ c.w }}" height="{{ c.h }}" fill="{{ c.pat }}"></rect><foreignObject x="{{ c.tx }}" y="{{ c.ty }}" width="1" height="1" style="overflow:visible"><div style="width:max-content;white-space:nowrap;transform:translate(-50%,-80%);font-size:11px;line-height:1.2;color:{{ c.tc }};font-weight:400;font-family:Inter,sans-serif;font-variant-numeric:tabular-nums;pointer-events:none">{{ c.n }}</div></foreignObject></g></sc-for>
+        </svg>
+        <div style="font-size:12px;color:#666666;margin-top:8px">Marcador de posición del mapa (react-leaflet en la entrega). Opacidad y borde discontinuo = confianza baja.</div>
+      </sc-if>
+      <sc-if value="{{ showTable }}" hint-placeholder-val="{{ false }}"><div style="border:1px solid rgba(10,10,10,.14);border-radius:8px;overflow:hidden"><div style="display:grid;grid-template-columns:1.4fr .7fr 1fr 1fr;padding:8px 16px;background:#F5F5F5;font-size:11px;font-weight:500;letter-spacing:.16em;color:#525252"><span>ZONA</span><span>IOZ</span><span>CUADRANTE</span><span>CONFIANZA</span></div><sc-for list="{{ rows }}" as="r" hint-placeholder-count="8"><div onClick="{{ r.go }}" style="display:grid;grid-template-columns:1.4fr .7fr 1fr 1fr;padding:8px 16px;border-top:1px solid rgba(10,10,10,.14);font-size:13px;cursor:pointer;background:{{ r.bg }}"><span style="font-weight:500">{{ r.n }}</span><span>{{ r.ioz }}</span><span>{{ r.q }}</span><span style="color:{{ r.cc }}">{{ r.conf }}</span></div></sc-for></div></sc-if>
+      <sc-if value="{{ showQuad }}" hint-placeholder-val="{{ false }}"><div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:12px;font-size:12px;color:#3D3D3D"><sc-for list="{{ legend }}" as="l" hint-placeholder-count="4"><span style="display:flex;gap:6px;align-items:center"><svg width="14" height="14" aria-hidden="true"><rect width="14" height="14" fill="{{ l.c }}" fill-opacity=".25" stroke="{{ l.c }}"></rect><rect width="14" height="14" fill="{{ l.pat }}"></rect></svg>{{ l.t }}</span></sc-for></div></sc-if>
+      <sc-if value="{{ showRamp }}" hint-placeholder-val="{{ true }}"><div style="display:flex;gap:4px;align-items:center;margin-top:8px;font-size:12px;color:#666666">IOZ bajo<sc-for list="{{ ramp }}" as="r" hint-placeholder-count="5"><span style="width:24px;height:10px;background:{{ r }};display:block"></span></sc-for>alto</div></sc-if>
+    </section>
+    <section style="flex:4 1 256px;min-width:0;background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:16px"><div style="font-size:15px;line-height:22px;font-weight:500;color:#0A0A0A">Ficha de zona</div>
+      <div><div style="font-size:20px;line-height:28px;font-weight:500;letter-spacing:-.02em">{{ z.n }}</div><div style="font-family:ui-monospace,Menlo,monospace;font-size:12px;color:#666666">/territory/{{ z.code }}</div></div>
+      <div style="display:flex;align-items:baseline;gap:8px"><span data-testid="territory-ioz" style="font-size:36px;line-height:40px;font-weight:300;letter-spacing:-.03em">{{ z.ioz }}</span><span style="font-size:12px;color:#666666">IOZ (z dentro de {{ city }})</span></div>
+      <sc-if value="{{ z.low }}" hint-placeholder-val="{{ false }}"><span style="align-self:flex-start;display:inline-flex;align-items:center;height:24px;padding:0 10px;border-radius:999px;background:#FFF8EB;border:1px solid #FCDDA0;font-size:12px;font-weight:500;color:#A1460A;white-space:nowrap">Muestra baja (n &lt; 5)</span></sc-if>
+      <sc-for list="{{ factors }}" as="f" hint-placeholder-count="3"><div><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><span>{{ f.l }}</span><span style="font-weight:500">{{ f.v }}</span></div><div style="height:6px;background:#F5F5F5;border-radius:3px;position:relative;display:block"><span style="position:absolute;left:0;top:0;bottom:0;width:{{ f.w }};background:#0077AA;border-radius:3px"></span></div></div></sc-for>
+      <div style="font-size:13px;color:#3D3D3D;line-height:20px">{{ z.pros }} prospectos en la zona · win rate {{ z.win }}</div>
+      <div data-testid="territory-similar"><div style="font-size:12px;font-weight:500;color:#666666;margin-bottom:6px">Zonas similares</div><sc-for list="{{ similar }}" as="s" hint-placeholder-count="3"><div style="display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid rgba(10,10,10,.14);font-size:13px"><span>{{ s.n }}</span><span style="color:#666666">distancia {{ s.d }}</span></div></sc-for></div>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1136,&quot;height&quot;:700},&quot;city&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Medellín&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  state = { mode: 'ioz', gran: 'Comuna', line: 'SaaS', sel: 0, table: false };
+  renderVals() {
+    const st = this.state, set = o => this.setState(o);
+    const city = this.props.city || 'Medellín';
+    const zones = [['Comuna 14', 1.8, 'gold', 120], ['Comuna 10', 1.4, 'gold', 96], ['Comuna 11', 0.9, 'war', 74], ['Comuna 16', 0.6, 'war', 51], ['Comuna 12', 0.3, 'seed', 22], ['Comuna 15', 0.1, 'seed', 4], ['Comuna 3', -0.5, 'avoid', 38], ['Comuna 1', -1.1, 'avoid', 3]];
+    const lf = { SaaS: 1, AaaS: .85, 'Catering + eventos': .6 }[st.line];
+    const Q = { gold: ['Oro (entrar ya)', '#C77C0E', 'url(#qp1)'], war: ['Guerra (solo con diferenciador)', '#D92D20', 'url(#qp2)'], seed: ['Siembra (monitorear)', '#1F9A6E', 'url(#qp3)'], avoid: ['Evitar', '#85857F', 'none'] };
+    const ramp = ['#E5F8FD', '#9BE3F7', '#33B5DB', '#0077AA', '#00405C'];
+    const rampOf = v => ramp[Math.max(0, Math.min(4, Math.round((v + 1.5) / 3.5 * 4)))];
+    const z = zones.map(([n, ioz, q, cnt], i) => ({ n, ioz: +(ioz * lf).toFixed(1), q, cnt, i }));
+    const cur = z[st.sel] || z[0];
+    const cols = 4, cw = 150, ch = 130;
+    const cells = z.map((c, i) => { const col = i % cols, row = Math.floor(i / cols), low = c.cnt < 5; return { x: 10 + col * (cw + 6), y: 10 + row * (ch + 6), w: cw, h: ch, fill: st.mode === 'ioz' ? rampOf(c.ioz) : Q[c.q][1], op: st.mode === 'ioz' ? (low ? .45 : 1) : (low ? .15 : .25), stroke: i === st.sel ? '#0A0A0A' : low ? '#525252' : 'rgba(10,10,10,.26)', sw: i === st.sel ? 3 : 1, dash: low ? '4 3' : '0', pat: st.mode === 'ioz' ? 'none' : Q[c.q][2], tx: 10 + col * (cw + 6) + cw / 2, ty: 10 + row * (ch + 6) + ch / 2 + 4, tc: st.mode === 'ioz' && c.ioz > 0.5 ? '#FAFAFA' : '#0A0A0A', n: st.mode === 'ioz' ? c.n + ' · ' + c.ioz : c.n + ' · ' + Q[c.q][0].split(' (')[0], go: () => set({ sel: i }) }; });
+    const grans = ['Ciudad', 'Comuna', 'Celda H3'].map(l => ({ l, on: l === st.gran, bg: l === st.gran ? '#0A0A0A' : 'transparent', c: l === st.gran ? '#FAFAFA' : '#0A0A0A', go: () => set({ gran: l }) }));
+    return { city, grans, modes: [['ioz', 'IOZ (coropleta)'], ['quad', 'Poder × Saturación']].map(([k, l]) => ({ l, on: st.mode === k, bg: st.mode === k ? '#0A0A0A' : 'transparent', c: st.mode === k ? '#FAFAFA' : '#0A0A0A', go: () => set({ mode: k }) })), showQuad: st.mode === 'quad', showRamp: st.mode === 'ioz', gran: st.gran, line: st.line, setLine: e => set({ line: e.target.value }), cells, ramp, table: st.table, showMap: !st.table, showTable: st.table, tableLabel: st.table ? 'Ver mapa' : 'Ver como tabla', toggleTable: () => set({ table: !st.table }),
+      rows: z.map((c, i) => ({ n: c.n, ioz: c.ioz, q: Q[c.q][0].split(' (')[0], conf: c.cnt < 5 ? 'Baja · n ' + c.cnt : 'Alta · n ' + c.cnt, cc: c.cnt < 5 ? '#A1460A' : '#3D3D3D', bg: i === st.sel ? '#F5F5F5' : '#FAFAFA', go: () => set({ sel: i }) })),
+      legend: Object.values(Q).map(q => ({ t: q[0], c: q[1], pat: q[2] })),
+      z: { n: cur.n + ' · ' + Q[cur.q][0].split(' (')[0], code: 'c' + cur.n.split(' ')[1], ioz: cur.ioz, low: cur.cnt < 5, pros: cur.cnt, win: cur.cnt < 5 ? '—' : (18 + cur.i * 2) + ' %' },
+      factors: [{ l: 'Poder de compra', v: (60 + cur.i * 3) + ' / 100', w: (60 + cur.i * 3) + '%' }, { l: 'Demanda', v: (70 - cur.i * 4) + ' / 100', w: (70 - cur.i * 4) + '%' }, { l: 'Saturación', v: (30 + cur.i * 8) + ' / 100', w: (30 + cur.i * 8) + '%' }],
+      similar: [{ n: 'Chapinero · Bogotá', d: (0.12 + cur.i * .02).toFixed(2).replace('.', ',') }, { n: 'Granada · Cali', d: (0.19 + cur.i * .02).toFixed(2).replace('.', ',') }, { n: 'El Prado · Barranquilla', d: (0.26 + cur.i * .02).toFixed(2).replace('.', ',') }] };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<span style="display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 10px;box-sizing:border-box;border-radius:999px;font-size:12px;line-height:16px;font-weight:500;white-space:nowrap;background:{{ bg }};color:{{ fg }};border:1px solid {{ bd }}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{ icon }}"></path></svg>{{ label }}</span>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const M = {
+      match: ['Match', '#ECFAF3', '#067647', '#A9E9C9', 'M20 6 9 17l-5-5'],
+      borderline: ['Borderline', '#FFF8EB', '#A1460A', '#FCDDA0', 'm21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3M12 9v4M12 17h.01'],
+      cuarentena: ['Cuarentena', '#FEF3F2', '#B42318', '#FECDCA', 'M7.86 2h8.28L22 7.86v8.28L16.14 22H7.86L2 16.14V7.86zM12 8v4M12 16h.01'],
+      pendiente: ['Pendiente', '#F5F5F5', '#525252', 'rgba(10,10,10,.14)', 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 6v6l4 2']
+    };
+    const m = M[(this.props.state || 'pendiente').toLowerCase()] || M.pendiente;
+    return { label: m[0], bg: m[1], fg: m[2], bd: m[3], icon: m[4] };
+  }
+}
+</script>
+</body>
+</html>

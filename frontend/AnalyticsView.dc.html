@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="display:flex;flex-direction:column;gap:24px;font-family:Inter,sans-serif;color:#0A0A0A;font-variant-numeric:tabular-nums">
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap"><div><h1 style="margin:0;font-size:28px;line-height:32px;font-weight:500;letter-spacing:-.03em">Centro de reportería</h1><div style="font-size:12px;font-weight:500;color:#3D3D3D;margin-top:8px">Datos al 18 oct, 09:05 COT</div></div>
+    <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap"><sc-for list="{{ filters }}" as="f" hint-placeholder-count="2"><label style="display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:500;color:#3D3D3D">{{ f.l }}<select value="{{ f.v }}" onChange="{{ f.change }}" style="height:36px;box-sizing:border-box;padding:0 10px;border:1px solid #767676;border-radius:8px;background:#FAFAFA;font-family:inherit;font-size:14px;color:#0A0A0A"><sc-for list="{{ f.opts }}" as="o" hint-placeholder-count="4"><option value="{{ o }}">{{ o }}</option></sc-for></select></label></sc-for>
+      <sc-if value="{{ canStudy }}" hint-placeholder-val="{{ false }}"><button onClick="{{ openStudy }}" style="height:40px;padding:0 20px;border:1px solid #0A0A0A;border-radius:999px;background:#0A0A0A;color:#FAFAFA;font-family:inherit;font-size:13px;font-weight:500;letter-spacing:.02em;cursor:pointer;white-space:nowrap">Nuevo estudio causal</button></sc-if></div></div>
+  <div style="font-size:12px;color:#666666">Los filtros viajan a Streamlit en la URL: <span style="font-family:ui-monospace,Menlo,monospace">{{ qs }}</span></div>
+  <sc-for list="{{ groups }}" as="g" hint-placeholder-count="6">
+    <section><div style="font-size:15px;line-height:22px;font-weight:500;color:#0A0A0A;margin-bottom:12px">{{ g.t }}</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px"><sc-for list="{{ g.cards }}" as="c" hint-placeholder-count="3">
+        <div style="background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:8px"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px"><div style="font-size:16px;font-weight:500">{{ c.n }}</div><span style="display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:999px;font-size:11px;font-weight:500;background:{{ c.bg }};color:{{ c.fg }};border:1px solid {{ c.bd }};white-space:nowrap">{{ c.st }}</span></div>
+          <div style="font-size:13px;line-height:20px;color:#3D3D3D">{{ c.q }}</div>
+          <div style="font-family:ui-monospace,Menlo,monospace;font-size:12px;color:#666666">{{ c.file }}</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;color:#666666;margin-top:4px"><span>{{ c.fresh }}</span><span style="font-weight:500;color:#0A0A0A">{{ c.quality }}</span></div>
+          <sc-if value="{{ c.link }}" hint-placeholder-val="{{ false }}"><button onClick="{{ c.go }}" style="align-self:flex-start;margin-top:4px;height:32px;padding:0 14px;border:1px solid rgba(10,10,10,.26);border-radius:999px;background:transparent;font-family:inherit;font-size:13px;font-weight:500;color:#0A0A0A;cursor:pointer;white-space:nowrap" style-hover="background:#F5F5F5">{{ c.open }}</button></sc-if></div></sc-for></div></section>
+  </sc-for>
+  <dialog ref="{{ dRef }}" onClose="{{ onDlgClose }}" aria-label="Nuevo estudio causal" style="border:0;padding:0;border-radius:12px;width:calc(100% - 32px);max-width:560px;background:#FAFAFA;color:#0A0A0A">
+    <sc-if value="{{ dlg }}" hint-placeholder-val="{{ false }}"><div style="padding:24px;display:flex;flex-direction:column;gap:16px"><h3 style="margin:0;font-size:20px;line-height:28px;font-weight:500;letter-spacing:-.02em">Nuevo estudio causal</h3><div style="font-size:13px;color:#3D3D3D">Queda en la cola del worker de ml. No es un chat: define la pregunta, el tratamiento y el método.</div>
+      <sc-for list="{{ fields }}" as="f" hint-placeholder-count="5"><label style="display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:500;color:#3D3D3D">{{ f.l }}
+        <sc-if value="{{ f.isSel }}" hint-placeholder-val="{{ false }}"><select value="{{ f.v }}" onChange="{{ f.set }}" style="height:40px;padding:0 8px;border:1px solid #767676;border-radius:8px;background:#FAFAFA;font-family:inherit;font-size:14px"><sc-for list="{{ f.opts }}" as="o" hint-placeholder-count="4"><option value="{{ o }}">{{ o }}</option></sc-for></select></sc-if>
+        <sc-if value="{{ f.isText }}" hint-placeholder-val="{{ false }}"><input value="{{ f.v }}" onInput="{{ f.set }}" style="height:40px;box-sizing:border-box;padding:0 12px;border:1px solid {{ f.bd }};border-radius:8px;background:#FAFAFA;font-family:inherit;font-size:14px;color:#0A0A0A"></sc-if>
+        <sc-if value="{{ f.err }}" hint-placeholder-val="{{ false }}"><span style="font-weight:400;color:#B42318">{{ f.err }}</span></sc-if></label></sc-for>
+      <div style="display:flex;gap:12px;justify-content:flex-end"><button onClick="{{ closeStudy }}" style="height:40px;padding:0 20px;border:1px solid rgba(10,10,10,.26);border-radius:999px;background:transparent;font-family:inherit;font-size:13px;font-weight:500;letter-spacing:.02em;cursor:pointer;white-space:nowrap">Cancelar</button><button onClick="{{ sendStudy }}" style="height:40px;padding:0 20px;border:1px solid #0A0A0A;border-radius:999px;background:#0A0A0A;color:#FAFAFA;font-family:inherit;font-size:13px;font-weight:500;letter-spacing:.02em;cursor:pointer;white-space:nowrap">Enviar a la cola</button></div></div></sc-if>
+  </dialog>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1136,&quot;height&quot;:900},&quot;role&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;analyst&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  state = { city: 'Medellín', range: '30 d', dlg: false, fd: { q: '', t: '', m: '', w: '90 días', me: 'Diferencia en diferencias' }, errs: {} };
+  componentDidUpdate() { const d = this.d; if (!d) return; if (this.state.dlg && !d.open) d.showModal(); else if (!this.state.dlg && d.open) d.close(); }
+  renderVals() {
+    const p = this.props, st = this.state, set = o => this.setState(o);
+    const S = { ok: ['Disponible', '#ECFAF3', '#067647', '#A9E9C9'], old: ['Desactualizada', '#FFF8EB', '#A1460A', '#FCDDA0'], soon: null };
+    const card = (n, q, file, fresh, quality, state, route, soon) => { const s = soon ? ['Llega en ' + soon, '#F5F5F5', '#525252', 'rgba(10,10,10,.14)'] : S[state]; return { n, q, file, fresh: soon ? '—' : fresh, quality, st: s[0], bg: s[1], fg: s[2], bd: s[3], link: !soon, open: 'Abrir ↗', go: () => p.onGo && p.onGo(route) }; };
+    const groups = [
+      { t: 'D · Descriptiva', cards: [card('Mercado', '¿Cómo va la prospección hoy?', '1_Market', 'hace 5 min', '1.284 señales', 'ok', 'market'), card('Segmentos', '¿Qué tipos de empresa hay?', '3_Segmentos', 'hace 1 d', 'ARI 0,78', 'ok', 'st-segmentos'), card('Territorio', '¿Dónde hay dinero y poca competencia?', '4_Territorios', '', '', 'ok', 'territory', 'F4')] },
+      { t: 'Dx · Diagnóstica', cards: [card('Atribución', '¿Qué fuente trajo los cierres?', '10_Analitica', 'hace 6 h', 'n = 118 cierres', 'ok', 'st-analitica'), card('Causalidad', '¿Qué efecto real tuvo una acción?', '10_Analitica', 'hace 2 d', '2 estudios', 'ok', 'st-analitica'), card('Drift', '¿Cambió el comportamiento de las variables?', '11_Modelos', 'hace 5 min', 'PSI 0,08', 'ok', 'st-modelos'), card('Anomalías', '¿Qué cambió bruscamente en los datos?', '10_Analitica', 'hace 3 d', '2 cambios', 'old', 'st-analitica')] },
+      { t: 'P · Predictiva', cards: [card('Scoring', '¿Qué tan bien ordena el modelo a los leads?', '11_Modelos', 'hace 1 d', 'AUC 0,81', 'ok', 'st-modelos'), card('Forecast', '¿Cuántos cierres esperamos?', '11_Modelos', 'hace 1 d', 'MASE 0,98', 'ok', 'st-modelos'), card('Uplift', '¿Contactar cambia el resultado?', '11_Modelos', '', '', 'ok', 'st-modelos', 'F6')] },
+      { t: 'Prescriptiva', cards: [card('Perfiles ICP', '¿Qué empresas encajan con cada perfil?', '11_Modelos', 'hace 1 d', 'precision@K 0,38', 'ok', 'st-modelos'), card('Pipeline', '¿Dónde se atasca el negocio?', '5_Pipeline', 'hace 12 min', 'n = 96', 'ok', 'pipeline')] },
+      { t: 'V · Validación', cards: [card('Validación y portafolio', '¿Funcionó el proyecto?', '9_Validation', 'hace 2 h', 'V1–V6', 'ok', 'validation'), card('Experimentos', '¿Qué dicen las fichas experimentales?', '12_Experimentos', 'hace 3 d', '4 fichas', 'old', 'st-experimentos')] },
+      { t: 'Redes', cards: [card('Redes', '¿Cómo se conectan las empresas?', '8_Redes', 'hace 1 d', 'Modularidad 0,41', 'ok', 'st-redes')] }
+    ];
+    const fd = st.fd, errs = st.errs;
+    const sf = k => e => set({ fd: { ...fd, [k]: e.target.value }, errs: { ...errs, [k]: '' } });
+    const fl = (l, k, kind, opts) => ({ l, v: fd[k], isSel: kind === 'sel', isText: kind === 'text', opts: opts || [], set: sf(k), err: errs[k] || '', bd: errs[k] ? '#D92D20' : '#767676' });
+    return { groups: this.props.layer ? groups.filter((g, i) => i === this.props.layer - 1) : groups, canStudy: p.role === 'admin' || p.role === 'analyst', qs: '?ciudad=' + encodeURIComponent(st.city) + '&rango=' + st.range.replace(' ', ''),
+      filters: [{ l: 'Ciudad', v: st.city, opts: ['Medellín', 'Bogotá', 'Cali', 'Barranquilla'], change: e => set({ city: e.target.value }) }, { l: 'Rango', v: st.range, opts: ['7 d', '30 d', '90 d', '12 m'], change: e => set({ range: e.target.value }) }],
+      dRef: el => { this.d = el; }, onDlgClose: () => { if (this.state.dlg) set({ dlg: false }); }, dlg: st.dlg, openStudy: () => set({ dlg: true, errs: {} }), closeStudy: () => set({ dlg: false }),
+      fields: [fl('Pregunta', 'q', 'text'), fl('Tratamiento', 't', 'text'), fl('Métrica de resultado', 'm', 'text'), fl('Ventana', 'w', 'sel', ['30 días', '60 días', '90 días', '180 días']), fl('Método', 'me', 'sel', ['Diferencia en diferencias', 'Control sintético', 'PSM', 'Variable instrumental'])],
+      sendStudy: () => { const e = {}; ['q', 't', 'm'].forEach(k => { if (!(fd[k] || '').trim()) e[k] = 'Completa este campo.'; }); if (Object.keys(e).length) return set({ errs: e }); set({ dlg: false, fd: { q: '', t: '', m: '', w: '90 días', me: 'Diferencia en diferencias' } }); p.onNotify && p.onNotify('Estudio causal en la cola del worker de ml'); } };
+  }
+}
+</script>
+</body>
+</html>

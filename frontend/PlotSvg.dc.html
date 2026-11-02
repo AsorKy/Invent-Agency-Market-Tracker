@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<figure ref="{{ figRef }}" style="margin:0;font-family:Inter,sans-serif">
+  <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:8px"><figcaption style="font-size:13px;font-weight:500;color:#0A0A0A">{{ title }}</figcaption><sc-if value="{{ hasTbl }}" hint-placeholder-val="{{ false }}"><button onClick="{{ toggle }}" style="height:26px;padding:0 10px;border:1px solid rgba(10,10,10,.26);border-radius:999px;background:transparent;font-family:inherit;font-size:12px;font-weight:500;color:#0A0A0A;cursor:pointer;white-space:nowrap">{{ btn }}</button></sc-if></div>
+  <sc-if value="{{ showChart }}" hint-placeholder-val="{{ true }}">
+    <div style="padding:4px 4px 12px 20px"><svg viewBox="0 0 {{ w }} {{ h }}" width="100%" role="img" aria-label="{{ label }}" style="display:block;overflow:visible">
+      <sc-for list="{{ grid }}" as="g" hint-placeholder-count="4"><g><line x1="{{ g.x1 }}" x2="{{ g.x2 }}" y1="{{ g.y }}" y2="{{ g.y }}" stroke="rgba(10,10,10,.14)"></line><foreignObject x="{{ g.tx }}" y="{{ g.ty }}" width="1" height="1" style="overflow:visible"><div style="width:max-content;white-space:nowrap;transform:translate(-100%,-80%);font-size:{{ g.fs }}px;line-height:1.2;color:#666666;font-weight:400;font-family:Inter,sans-serif;font-variant-numeric:tabular-nums;pointer-events:none">{{ g.t }}</div></foreignObject></g></sc-for>
+      <sc-for list="{{ bands }}" as="b" hint-placeholder-count="1"><polygon points="{{ b.pts }}" fill="{{ b.c }}" fill-opacity="{{ b.o }}"></polygon></sc-for>
+      <sc-for list="{{ bars }}" as="b" hint-placeholder-count="6"><rect x="{{ b.x }}" y="{{ b.y }}" width="{{ b.w }}" height="{{ b.h }}" rx="2" fill="{{ b.c }}"></rect></sc-for>
+      <sc-for list="{{ lines }}" as="l" hint-placeholder-count="2"><polyline points="{{ l.pts }}" fill="none" stroke="{{ l.c }}" stroke-width="{{ l.sw }}" stroke-dasharray="{{ l.dash }}" stroke-linejoin="round" stroke-linecap="round"></polyline></sc-for>
+      <sc-for list="{{ refs }}" as="r" hint-placeholder-count="1"><line x1="{{ r.x1 }}" x2="{{ r.x2 }}" y1="{{ r.y1 }}" y2="{{ r.y2 }}" stroke="{{ r.c }}" stroke-width="1.5" stroke-dasharray="{{ r.dash }}"></line></sc-for>
+      <sc-for list="{{ dots }}" as="d" hint-placeholder-count="6"><circle cx="{{ d.x }}" cy="{{ d.y }}" r="{{ d.r }}" fill="{{ d.c }}" fill-opacity="{{ d.o }}"></circle></sc-for>
+      <sc-for list="{{ texts }}" as="t" hint-placeholder-count="4"><foreignObject x="{{ t.x }}" y="{{ t.y }}" width="1" height="1" style="overflow:visible"><div style="width:max-content;white-space:nowrap;transform:{{ t.tf }};font-size:{{ t.fs }}px;line-height:1.2;color:{{ t.c }};font-weight:400;font-family:Inter,sans-serif;font-variant-numeric:tabular-nums;pointer-events:none">{{ t.t }}</div></foreignObject></sc-for>
+    </svg></div>
+    <sc-if value="{{ hasLegend }}" hint-placeholder-val="{{ false }}"><div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:6px;font-size:12px;color:#3D3D3D"><sc-for list="{{ legend }}" as="l" hint-placeholder-count="3"><span style="display:flex;gap:6px;align-items:center"><svg width="14" height="8" aria-hidden="true"><line x1="0" x2="14" y1="4" y2="4" stroke="{{ l.c }}" stroke-width="3" stroke-dasharray="{{ l.dash }}"></line></svg>{{ l.t }}</span></sc-for></div></sc-if>
+  </sc-if>
+  <sc-if value="{{ showTable }}" hint-placeholder-val="{{ false }}"><div style="border:1px solid rgba(10,10,10,.14);border-radius:8px;overflow:auto;max-height:260px"><table style="width:100%;border-collapse:collapse;font-size:12px;font-variant-numeric:tabular-nums"><thead><tr><sc-for list="{{ head }}" as="h" hint-placeholder-count="3"><th style="text-align:left;padding:6px 10px;background:#F5F5F5;font-weight:500;color:#525252">{{ h }}</th></sc-for></tr></thead><tbody><sc-for list="{{ trows }}" as="r" hint-placeholder-count="4"><tr><sc-for list="{{ r }}" as="c" hint-placeholder-count="3"><td style="padding:6px 10px;border-top:1px solid rgba(10,10,10,.14)">{{ c }}</td></sc-for></tr></sc-for></tbody></table></div></sc-if>
+  <div style="margin-top:6px;font-size:12px;color:#666666">{{ meta }}</div>
+</figure>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:640,&quot;height&quot;:300},&quot;spec&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;object&quot;}}">
+class Component extends DCLogic {
+  state = { tbl: false, k: 1 };
+  componentWillUnmount() { this.ro && this.ro.disconnect(); }
+  renderVals() {
+    const s = this.props.spec || {}, tb = s.tbl || null;
+    const nz = (a, d) => (a || []).map(x => ({ ...d, ...x }));
+    return {
+      title: s.title || '', label: s.label || s.title || 'Gráfico', w: s.w || 640, h: s.h || 240, meta: s.meta || '',
+      figRef: this.figRef || (this.figRef = el => { if (el === this.fig) return; this.ro && this.ro.disconnect(); this.fig = el; if (el && window.ResizeObserver) { this.ro = new ResizeObserver(() => { const w = el.clientWidth || 1, k = Math.max(1, ((this.props.spec || {}).w || 640) / w); if (Math.abs(k - this.state.k) > .02) this.setState({ k }); }); this.ro.observe(el); } }), grid: nz(s.grid, { x1: 40, x2: (s.w || 640) - 8, tx: 34 }).map(g => ({ ...g, ty: g.y + 4, fs: +(11 * Math.min(this.state.k, 1.9)).toFixed(1) })),
+      bands: nz(s.bands, { o: 0.12, c: '#0077AA' }), bars: nz(s.bars, { c: '#0077AA' }), lines: nz(s.lines, { c: '#0077AA', sw: 2, dash: '0' }),
+      refs: nz(s.refs, { c: '#0A0A0A', dash: '0' }), dots: nz(s.dots, { r: 3, c: '#0077AA', o: 1 }), texts: nz(s.texts, { a: 'middle', s: 11, c: '#666666' }).map(t => ({ ...t, fs: +(t.s * Math.min(this.state.k, 1.9)).toFixed(1), tf: t.a === 'end' ? 'translate(-100%,-80%)' : t.a === 'start' ? 'translate(0,-80%)' : 'translate(-50%,-80%)' })),
+      legend: nz(s.legend, { dash: '0' }), hasLegend: !!(s.legend && s.legend.length),
+      hasTbl: !!tb, btn: this.state.tbl ? 'Ver gráfico' : 'Ver como tabla', toggle: () => this.setState({ tbl: !this.state.tbl }),
+      showChart: !(tb && this.state.tbl), showTable: !!tb && this.state.tbl, head: tb ? tb.head : [], trows: tb ? tb.rows : []
+    };
+  }
+}
+</script>
+</body>
+</html>
