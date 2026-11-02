@@ -2,7 +2,8 @@
 # configuration. Relates to ops/check_*.py, pyproject.toml, and
 # docker-compose.yml.
 .PHONY: up down datagen openapi static compose-config test test-integration test-sql coverage \
-	invent-tracker invent-tracker-down invent-tracker-reset db-ui seed seed-clear doctor verify-live
+	invent-tracker invent-tracker-down invent-tracker-reset db-ui seed seed-clear doctor verify-live \
+	bd-import
 
 up:
 	docker compose up --build
@@ -51,6 +52,12 @@ doctor:
 
 verify-live:
 	docker compose --profile tools run --rm $(if $(INPUTS),-v "$(abspath $(INPUTS)):/tmp/verify_inputs.json:ro") verify-live python ops/verify_live.py --source "$(SOURCE)" $(if $(INPUTS),--inputs /tmp/verify_inputs.json)
+
+# Bright Data importer (docs/runbooks/bright-data-import.md): PHASE=0|1|2|3|all, optional
+# CITIES=Medellin,Bogota (default: the five cities) and ARGS=--dry-run. Runs in the Compose
+# network of a running stack; --no-deps never starts, rebuilds, or recreates another service.
+bd-import:
+	docker compose --profile tools run --rm --no-deps --build bd-import python ops/bd_import.py --phase "$(PHASE)" $(if $(CITIES),--cities "$(CITIES)") $(ARGS)
 
 static:
 	python ops/check_migrations.py

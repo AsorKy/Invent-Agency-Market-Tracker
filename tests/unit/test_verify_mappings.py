@@ -9,14 +9,33 @@ import pytest
 from ops import verify_mappings as vm
 from services.ingest.app.mapping import MAPPINGS_DIR, load_mapping
 
-SYNTHETIC = Path(__file__).resolve().parents[1] / "fixtures" / "brightdata" / "synthetic"
-SOURCES = ["computrabajo", "instagram", "linkedin_companies", "linkedin_jobs", "maps"]
+FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "brightdata"
+SYNTHETIC = FIXTURES / "synthetic"
+SOURCES = [
+    "business_search_companies",
+    "computrabajo",
+    "instagram",
+    "linkedin_companies",
+    "linkedin_jobs",
+    "maps",
+]
+
+
+def has_real_samples(source: str) -> bool:
+    return any(
+        (FIXTURES / folder / f"{source}.json").is_file() for folder in ("captured", "recorded")
+    )
 
 
 @pytest.fixture
 def mappings(tmp_path: Path) -> Path:
+    """Copy the shipped mappings, all reset to unverified, so harness tests start clean."""
     target = tmp_path / "mappings"
     shutil.copytree(MAPPINGS_DIR, target)
+    for source in vm.list_sources(target):
+        path = target / f"{source}.yaml"
+        text = path.read_text(encoding="utf-8")
+        path.write_text(text.replace("unverified: false\n", "unverified: true\n"), "utf-8")
     return target
 
 
@@ -25,13 +44,13 @@ def _write(directory: Path, source: str, records: list[dict]) -> None:
     (directory / f"{source}.json").write_text(json.dumps(records), encoding="utf-8")
 
 
-def test_all_sources_have_synthetic_fixture_and_stay_unverified() -> None:
+def test_all_sources_have_synthetic_fixture_and_verification_follows_real_samples() -> None:
     assert vm.list_sources(MAPPINGS_DIR) == SOURCES
     for source in SOURCES:
         records, synthetic = vm.load_records(SYNTHETIC / f"{source}.json")
         assert synthetic and records
         assert all(r["_synthetic"] is True for r in records)
-        assert load_mapping(source).unverified is True
+        assert load_mapping(source).unverified is not has_real_samples(source)
         report = vm.check_source(load_mapping(source), records)
         assert report.coverage >= 0.8
         assert report.unmapped and not report.missing_required and not report.type_failures

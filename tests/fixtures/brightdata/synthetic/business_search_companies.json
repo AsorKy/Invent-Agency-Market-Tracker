@@ -1,0 +1,38 @@
+[
+  {
+    "bright_id": "syn-bs-1",
+    "data": {
+      "name": "Compania Sintetica Uno",
+      "industry": "Software Development",
+      "headquarters_location": "Medellin, Antioquia",
+      "headquarters_country_code": "CO",
+      "employees_in_linkedin": 45,
+      "company_size_from": 11,
+      "company_size_to": 50,
+      "linkedin_followers": 1200,
+      "website": "https://uno.example.com",
+      "url": "https://www.linkedin.com/company/syn-uno",
+      "domain": "uno.example.com",
+      "slogan": "Synthetic"
+    },
+    "_synthetic": true
+  },
+  {
+    "bright_id": "syn-bs-2",
+    "data": {
+      "name": "Compania Sintetica Dos",
+      "industry": "Events Services",
+      "headquarters_location": "Bogota, Bogota D.C.",
+      "headquarters_country_code": "CO",
+      "employees_in_linkedin": 120,
+      "company_size_from": 51,
+      "company_size_to": 200,
+      "linkedin_followers": 800,
+      "website": "https://dos.example.com",
+      "url": "https://www.linkedin.com/company/syn-dos",
+      "domain": "dos.example.com",
+      "slogan": "Synthetic"
+    },
+    "_synthetic": true
+  }
+]

@@ -1,0 +1,43 @@
+# Bright Data Business Search companies (POST /search/company, view summary) to canonical
+# company fields. ops/bd_import.py lands each returned document ({bright_id, data}) under
+# the routing dataset id bd_search_company.
+# unverified: field names come from the public Business Search documentation until a
+# recorded sample proves them (D-13).
+version: 1
+source: business_search_companies
+unverified: true
+entity: company
+signal_type: business_search_company
+external_id: [bright_id]
+fields:
+  name:
+    from: [data.name]
+    transform: strip
+    required: true
+  city:
+    from: [data.headquarters_city, data.headquarters_location]
+    transform: city
+  country_code:
+    from: [data.headquarters_country_code]
+    transform: strip
+  industry:
+    from: [data.industry]
+    transform: strip
+  employee_count:
+    from: [data.employees_in_linkedin]
+    transform: int
+  company_size_from:
+    from: [data.company_size_from]
+    transform: int
+  company_size_to:
+    from: [data.company_size_to]
+    transform: int
+  follower_count:
+    from: [data.linkedin_followers]
+    transform: int
+  website:
+    from: [data.website]
+    transform: url
+  linkedin_url:
+    from: [data.url]
+    transform: url
