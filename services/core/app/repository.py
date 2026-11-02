@@ -1468,7 +1468,8 @@ class CoreRepository:
 
         ``rues_status`` follows ``brief_facts.build_facts``: the ``source_flags`` value when it is
         a known status, else ``matched`` with a NIT and ``pending`` without one (a company that
-        ingest delivered without a RUES match).
+        ingest delivered without a RUES match). ``signal_count`` counts the company's signals of
+        the same tenant (the score step of ``ops/bd_import.py`` builds its profiles from it).
         """
         if self.engine is None:
             raise RuntimeError("DATABASE_URL is required for core reads")
@@ -1493,6 +1494,9 @@ class CoreRepository:
                     f"""
                     SELECT id, slug, legal_name, trade_name, sector_code, employee_count,
                            website, city, version, updated_at,
+                           (SELECT count(*) FROM core.signal s
+                            WHERE s.company_id = core.company.id
+                              AND s.tenant_id = core.company.tenant_id) AS signal_count,
                            CASE WHEN source_flags->>'rues_status'
                                      IN ('matched', 'pending', 'unmatched', 'quarantined')
                                 THEN source_flags->>'rues_status'

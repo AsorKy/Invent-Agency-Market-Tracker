@@ -53,7 +53,7 @@ doctor:
 verify-live:
 	docker compose --profile tools run --rm $(if $(INPUTS),-v "$(abspath $(INPUTS)):/tmp/verify_inputs.json:ro") verify-live python ops/verify_live.py --source "$(SOURCE)" $(if $(INPUTS),--inputs /tmp/verify_inputs.json)
 
-# Bright Data importer (docs/runbooks/bright-data-import.md): PHASE=0|1|2|3|all, optional
+# Bright Data importer (docs/runbooks/bright-data-import.md): PHASE=0|1|2|score|3|all, optional
 # CITIES=Medellin,Bogota (default: the five cities) and ARGS=--dry-run. Runs in the Compose
 # network of a running stack; --no-deps never starts, rebuilds, or recreates another service.
 bd-import:

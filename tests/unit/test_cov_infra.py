@@ -858,7 +858,9 @@ async def test_list_companies_paginates_with_cursor() -> None:
     assert page == rows[:2]
     assert next_cursor == encode_cursor(rows[1]["updated_at"], rows[1]["id"])
     assert engine.connection.calls[0][1]["limit"] == 3
-    assert "WHERE" not in engine.connection.calls[0][0]
+    # No outer filter without a tenant or cursor (the signal_count subquery has its own WHERE).
+    assert "FROM core.company WHERE" not in engine.connection.calls[0][0]
+    assert "AS signal_count" in engine.connection.calls[0][0]
 
     repository, engine = _repository([FakeResult(rows[:1])])
     page, next_cursor = await repository.list_companies(2, next_cursor)

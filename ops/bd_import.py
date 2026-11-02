@@ -27,6 +27,7 @@ nothing. Secrets are never printed: the token goes straight to the clients.
 
 import argparse
 import asyncio
+import contextlib
 import hashlib
 import json
 import math
@@ -60,6 +61,7 @@ from libs.domain.cities import (  # noqa: E402
     fold,
     normalize_city,
 )
+from ops.seed.enrich import CompanyProfile, HttpScoreBrief, ScoreBriefPort, enrich  # noqa: E402
 from services.ingest.app.connectors import BrightDataConnector, ConnectorError  # noqa: E402
 from services.ingest.app.mapping import (  # noqa: E402
     MAPPINGS_DIR,
@@ -691,7 +693,7 @@ def _percent(part: int, whole: int) -> str:
 
 def print_report(stats: Mapping[str, SourceStats], budget: Budget) -> None:
     print("\nsource                     calls skip records phone|web mid-size  with-DM  est USD")
-    for source in (*SOURCES, "decision_makers"):
+    for source in (*SOURCES, "decision_makers", "score"):
         item = stats.get(source)
         if item is None:
             continue
@@ -1033,6 +1035,71 @@ class HttpCore:
         return await self._writer.create_signal(body, idempotency_key=idempotency_key)
 
 
+class TenantCompanies:
+    """The tenant's companies as score profiles, read from core's own API (INV-01).
+
+    ``/internal/core/companies`` (paged, ``X-Tenant-Id``) gives city, website, RUES status,
+    and ``signal_count``; ML says which companies already have a stored score. Both calls sign
+    as the local ``seed`` caller, like the seed's ``HttpScoreBrief``. Real companies have no
+    NIT, so ``has_nit`` is false for them.
+    """
+
+    CALLER = "seed"
+    PAGE = 200
+    MAX_PAGES = 1000
+
+    def __init__(
+        self,
+        core_client: httpx.AsyncClient,
+        ml_client: httpx.AsyncClient,
+        secret: str,
+        tenant_id: UUID,
+    ) -> None:
+        self._core = core_client
+        self._ml = ml_client
+        self._secret = secret
+        self._tenant = str(tenant_id)
+
+    def _headers(self) -> dict[str, str]:
+        return service_token_header(self.CALLER, self._secret) | {"X-Tenant-Id": self._tenant}
+
+    async def profiles(self) -> dict[str, CompanyProfile]:
+        profiles: dict[str, CompanyProfile] = {}
+        cursor: str | None = None
+        for _page in range(self.MAX_PAGES):
+            params: dict[str, Any] = {"limit": self.PAGE}
+            if cursor:
+                params["cursor"] = cursor
+            response = await self._core.get(
+                "/internal/core/companies", params=params, headers=self._headers()
+            )
+            response.raise_for_status()
+            body = response.json()
+            for row in body.get("data", []):
+                if "signal_count" not in row:
+                    raise ImportCallError(
+                        "core does not serve signal_count: rebuild it "
+                        "(docker compose up -d --build core)"
+                    )
+                profiles[str(row["id"])] = CompanyProfile(
+                    city=row.get("city") or None,
+                    has_website=bool(row.get("website")),
+                    has_nit=row.get("rues_status") == "matched",
+                    signals=int(row.get("signal_count") or 0),
+                )
+            cursor = body.get("next_cursor")
+            if not cursor:
+                break
+        return profiles
+
+    async def has_score(self, company_id: str) -> bool:
+        response = await self._ml.get(f"/internal/ml/scores/{company_id}", headers=self._headers())
+        if response.status_code == 404:
+            return False
+        response.raise_for_status()
+        return True
+
+
 # ---------------------------------------------------------------- the run
 
 
@@ -1054,6 +1121,11 @@ class Run:
     stats: dict[str, SourceStats] = field(default_factory=dict)
     # Sources whose endpoint answered 401/403: their remaining calls are skipped.
     blocked: set[str] = field(default_factory=set)
+    # The score step (no Bright Data call): core companies, ML scores, the seed's scorer.
+    companies: TenantCompanies | None = None
+    scorer: ScoreBriefPort | None = None
+    rescore: bool = False
+    sleep: Callable[[float], Awaitable[None]] = asyncio.sleep
 
     def stat(self, source: str) -> SourceStats:
         return self.stats.setdefault(source, SourceStats())
@@ -1315,6 +1387,50 @@ class Run:
             source, (self.company_decision_makers(c, profiles, semaphore) for c in companies)
         )
 
+    # ------------------------------------------------------------ score step
+
+    async def phase_score(self) -> None:
+        """Score the tenant's unscored companies with the seed heuristic, then read briefs.
+
+        ML stores each score and publishes ``lead.score_updated``, so core's automatic
+        qualification creates the leads. ``--rescore`` scores every company again.
+        """
+        stats = self.stat("score")
+        if self.dry_run:
+            print(
+                "  plan score: core companies to ML scores and Brief digests, $0 (no Bright Data)"
+            )
+            return
+        if self.companies is None or self.scorer is None:
+            raise ImportCallError("the score step needs core, ML, and Brief clients")
+        try:
+            profiles = await self.companies.profiles()
+            todo = set(profiles) if self.rescore else await self._unscored(profiles)
+        except (ImportCallError, httpx.HTTPError) as exc:
+            stats.failures.append(f"{type(exc).__name__}: {exc}"[:400])
+            return
+        stats.records, stats.skipped = len(profiles), len(profiles) - len(todo)
+        print(f"  score: {len(todo)} of {len(profiles)} companies to score")
+        outcome = await enrich(self.scorer, profiles, sleep=self.sleep, only=todo)
+        stats.calls = outcome.scored
+        stats.notes.append(
+            f"scored {outcome.scored}, briefed {outcome.briefed}, failed {outcome.failed}"
+        )
+        for reason, count in sorted(outcome.reasons.items()):
+            stats.failures.append(f"{reason} x{count}")
+
+    async def _unscored(self, profiles: Mapping[str, CompanyProfile]) -> set[str]:
+        companies, semaphore = self.companies, asyncio.Semaphore(10)
+        if companies is None:
+            return set()
+
+        async def check(company_id: str) -> str | None:
+            async with semaphore:
+                return None if await companies.has_score(company_id) else company_id
+
+        found = await asyncio.gather(*(check(c) for c in profiles))
+        return {c for c in found if c is not None}
+
     # ------------------------------------------------------------ accessors
 
     def _rest(self) -> BrightDataRest:
@@ -1426,24 +1542,40 @@ async def probe(run: Run, fixtures: Path) -> dict[str, list[dict[str, Any]]]:
 # ---------------------------------------------------------------- entry point
 
 
+PHASE_PLAN = {
+    "0": ("0",),
+    "1": ("1",),
+    "2": ("2",),
+    "3": ("3",),
+    "score": ("score",),
+    # Scores before phase 3: its decision makers go to the best scored companies.
+    "all": ("1", "2", "score", "3"),
+}
+PAID_PHASES = frozenset({"0", "1", "2", "3"})
+
+
 async def run_phases(run: Run, phase: str, fixtures: Path) -> None:
-    if phase == "0":
-        await probe(run, fixtures)
-        return
-    for number in [1, 2, 3] if phase == "all" else [int(phase)]:
-        print(f"phase {number}")
-        await getattr(run, f"phase{number}")()
+    for step in PHASE_PLAN[phase]:
+        if step == "0":
+            await probe(run, fixtures)
+        elif step == "score":
+            print("score step")
+            await run.phase_score()
+        else:
+            print(f"phase {step}")
+            await getattr(run, f"phase{step}")()
 
 
 async def execute(args: argparse.Namespace, settings: Settings) -> int:
     phase: str = args.phase
+    steps = PHASE_PLAN[phase]
     budget = budget_from_env(os.environ, max_usd=args.max_usd, phase=phase)
     state_dir = Path(
         args.state_dir
         or os.environ.get("BD_IMPORT_STATE_DIR")
         or Path.home() / ".cache" / "invent-bd-import"
     )
-    phases = [1, 2, 3] if phase == "all" else ([] if phase == "0" else [int(phase)])
+    landing_phases = [int(step) for step in steps if step in ("1", "2", "3")]
     run = Run(
         budget=budget,
         # The probe always calls; a dry run reads the ledger but never writes it.
@@ -1452,6 +1584,7 @@ async def execute(args: argparse.Namespace, settings: Settings) -> int:
         cities=parse_cities(args.cities),
         dry_run=args.dry_run,
         timeout_seconds=args.timeout,
+        rescore=getattr(args, "rescore", False),
     )
     if args.dry_run:
         run.ledger.path = None
@@ -1461,11 +1594,12 @@ async def execute(args: argparse.Namespace, settings: Settings) -> int:
         print_report(run.stats, budget)
         return 0
 
+    paid = any(step in PAID_PHASES for step in steps)
     token = settings.bright_data_api_token
-    if not token:
+    if paid and not token:
         print("BRIGHT_DATA_API_TOKEN is not set (value not shown)", file=sys.stderr)
         return 2
-    needed = [s for n in phases for s in PHASE_SOURCES[n] if s in LANDED_DATASETS]
+    needed = [s for n in landing_phases for s in PHASE_SOURCES[n] if s in LANDED_DATASETS]
     problems = routing_problems(settings, needed)
     if problems:
         print("The ingest processor would not route these snapshots. Set in .env:", file=sys.stderr)
@@ -1476,43 +1610,54 @@ async def execute(args: argparse.Namespace, settings: Settings) -> int:
         )
         return 2
 
-    http = httpx.Client(base_url=settings.bright_data_api_url, timeout=60.0)
-    run.rest = BrightDataRest(http, token, settings, timeout_seconds=float(args.timeout))
-    repository: IngestRepository | None = None
-    core_client: httpx.AsyncClient | None = None
-    try:
-        if phases:
+    async with contextlib.AsyncExitStack() as stack:
+        timeout = settings.upstream_timeout_seconds
+        if paid:
+            http = stack.enter_context(
+                httpx.Client(base_url=settings.bright_data_api_url, timeout=60.0)
+            )
+            run.rest = BrightDataRest(
+                http, token or "", settings, timeout_seconds=float(args.timeout)
+            )
+            sdk_client = await stack.enter_async_context(open_sdk_client(token or ""))
+            run.sdk = LinkedInSdk(sdk_client, run.rest)
+        if landing_phases:
             repository = IngestRepository(settings.database_url, settings.redis_url)
+            stack.push_async_callback(repository.close)
             run.landing = RepositoryLanding(repository)
-        if 3 in phases:
+        if "3" in steps or "score" in steps:
             run.tenant_id = load_ingest_tenant_id()
             # Compose gives the tool its own name for core's URL (CORE_URL is not spread).
             core_url = os.environ.get("BD_IMPORT_CORE_URL") or settings.core_url
-            core_client = httpx.AsyncClient(
-                base_url=core_url.rstrip("/"), timeout=settings.upstream_timeout_seconds
+            core_client = await stack.enter_async_context(
+                httpx.AsyncClient(base_url=core_url.rstrip("/"), timeout=timeout)
             )
             run.core = HttpCore(settings, run.tenant_id, core_client)
-        async with open_sdk_client(token) as sdk_client:
-            run.sdk = LinkedInSdk(sdk_client, run.rest)
-            await run_phases(run, phase, args.fixtures)
-    finally:
-        http.close()
-        if core_client is not None:
-            await core_client.aclose()
-        if repository is not None:
-            await repository.close()
+            if "score" in steps:
+                ml_client = await stack.enter_async_context(
+                    httpx.AsyncClient(base_url=settings.ml_url.rstrip("/"), timeout=timeout)
+                )
+                secret = settings.internal_service_token
+                run.companies = TenantCompanies(core_client, ml_client, secret, run.tenant_id)
+                scorer = HttpScoreBrief(settings.ml_url, settings.brief_url, secret, run.tenant_id)
+                stack.push_async_callback(scorer.aclose)
+                run.scorer = scorer
+        await run_phases(run, phase, args.fixtures)
     print_report(run.stats, budget)
     return 1 if any(s.failures for s in run.stats.values()) else 0
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Import Bright Data data (phases 0-3).")
-    parser.add_argument("--phase", required=True, choices=["0", "1", "2", "3", "all"])
+    parser = argparse.ArgumentParser(description="Import Bright Data data (phases 0-3, score).")
+    parser.add_argument("--phase", required=True, choices=sorted(PHASE_PLAN))
     parser.add_argument("--cities", default=None, help="comma list; default: all five")
     parser.add_argument("--dry-run", action="store_true", help="no call, no write")
     parser.add_argument("--max-usd", type=float, default=None, help="overrides BD_IMPORT_MAX_USD")
     parser.add_argument("--timeout", type=int, default=1800, help="seconds per provider call")
     parser.add_argument("--state-dir", default=None, help="ledger folder (BD_IMPORT_STATE_DIR)")
+    parser.add_argument(
+        "--rescore", action="store_true", help="score step: also companies with a stored score"
+    )
     parser.add_argument(
         "--fixtures",
         type=Path,

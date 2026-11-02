@@ -63,7 +63,8 @@ The estimate of a full run (`--phase all`, five cities) is $4.62: maps $2.40, jo
 The target builds the `bd-import` tool image (profile `tools`, extra `brightdata`) and runs it inside the Compose network, so it reaches Postgres as `ingest_app`, Redis, and core by service name (`BD_IMPORT_CORE_URL`). The running stack is not stopped or rebuilt. Outside Compose, `python ops/bd_import.py` needs `pip install '.[brightdata]'` and reachable `DATABASE_URL`, `REDIS_URL`, and `CORE_URL`; phase 0 needs none of the three.
 
 - Probe: `make bd-import PHASE=0`
-- Bulk: `make bd-import PHASE=1`, then `make bd-import PHASE=2`, then `make bd-import PHASE=3` (or `PHASE=all`)
+- Bulk: `make bd-import PHASE=1`, then `make bd-import PHASE=2`, then `make bd-import PHASE=score`, then `make bd-import PHASE=3` (`PHASE=all` runs 1, 2, score, 3)
+- Score step: `make bd-import PHASE=score` (add `ARGS=--rescore` to score again companies that already have a score). It makes no Bright Data call (cost $0). It builds a score profile for every company of the ingest tenant from core's `GET /internal/core/companies` (paged, `X-Tenant-Id`: city, website, RUES status, `signal_count`), skips the companies that ML already scored, and runs the seed's `enrich` (`ops/seed/enrich.py`): the `demo-1` features go to `POST /internal/ml/scores`, which stores the score and publishes `lead.score_updated`, so core's automatic qualification creates the leads; then the Brief digest is read. Real companies have no NIT, so their `icp_fit` is 0.4 (0.7 with a website). Run it after the processor has delivered phases 1 and 2; it is safe to run again. It needs core rebuilt with `signal_count` (`docker compose up -d --build core`); without it the step stops and says so.
 - One city: `make bd-import PHASE=1 CITIES=Medellin`
 - Lower cap for one run: `make bd-import PHASE=1 ARGS="--max-usd 5"`
 
