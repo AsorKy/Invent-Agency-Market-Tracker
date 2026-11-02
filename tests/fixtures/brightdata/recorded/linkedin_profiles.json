@@ -1,0 +1,226 @@
+[
+  {
+    "id": "redacted",
+    "name": "redacted",
+    "city": "redacted",
+    "country_code": "redacted",
+    "position": null,
+    "about": "redacted",
+    "current_company": {
+      "link": "https://example.invalid/redacted",
+      "name": "redacted",
+      "company_id": "redacted"
+    },
+    "experience": null,
+    "url": "https://example.invalid/redacted",
+    "people_also_viewed": [
+      {
+        "profile_link": "https://example.invalid/redacted",
+        "name": "redacted",
+        "about": "redacted",
+        "location": "redacted"
+      }
+    ],
+    "educations_details": "redacted",
+    "education": [
+      {
+        "title": "redacted",
+        "url": "https://example.invalid/redacted",
+        "start_year": "redacted",
+        "end_year": "redacted",
+        "description": null,
+        "description_html": null,
+        "institute_logo_url": null
+      }
+    ],
+    "avatar": "https://example.invalid/redacted",
+    "volunteer_experience": [
+      {
+        "cause": "redacted",
+        "duration": "redacted",
+        "duration_short": "redacted",
+        "info": "redacted",
+        "start_date": "redacted",
+        "subtitle": "redacted",
+        "title": "redacted"
+      }
+    ],
+    "followers": 0,
+    "connections": 0,
+    "current_company_company_id": "redacted",
+    "current_company_name": "redacted",
+    "organizations": [
+      {
+        "title": "redacted",
+        "membership_type": "redacted",
+        "start_date": "redacted",
+        "end_date": "redacted",
+        "description": "redacted",
+        "membership_number": null
+      }
+    ],
+    "location": "redacted",
+    "input_url": "https://example.invalid/redacted",
+    "linkedin_id": "redacted",
+    "activity": [
+      {
+        "interaction": null,
+        "link": "https://example.invalid/redacted",
+        "title": "redacted",
+        "img": "https://example.invalid/redacted",
+        "id": "redacted"
+      }
+    ],
+    "linkedin_num_id": "redacted",
+    "banner_image": "https://example.invalid/redacted",
+    "honors_and_awards": null,
+    "similar_profiles": [
+      {
+        "url": "https://example.invalid/redacted",
+        "name": "redacted",
+        "title": "redacted",
+        "url_text": "https://example.invalid/redacted"
+      }
+    ],
+    "default_avatar": false,
+    "memorialized_account": false,
+    "bio_links": [
+      {
+        "title": "redacted",
+        "link": "https://example.invalid/redacted"
+      }
+    ],
+    "first_name": "redacted",
+    "last_name": "redacted",
+    "influencer": false,
+    "timestamp": "redacted",
+    "input": {
+      "url": "https://example.invalid/redacted"
+    }
+  },
+  {
+    "id": "redacted",
+    "name": "redacted",
+    "city": "redacted",
+    "country_code": "redacted",
+    "position": null,
+    "about": "redacted",
+    "posts": [
+      {
+        "title": "redacted",
+        "attribution": "redacted",
+        "link": "https://example.invalid/redacted",
+        "created_at": "redacted",
+        "interaction": "redacted",
+        "id": "redacted"
+      }
+    ],
+    "current_company": {
+      "link": "https://example.invalid/redacted",
+      "name": "redacted",
+      "company_id": "redacted"
+    },
+    "experience": null,
+    "url": "https://example.invalid/redacted",
+    "people_also_viewed": [
+      {
+        "profile_link": "https://example.invalid/redacted",
+        "name": "redacted",
+        "about": "redacted",
+        "location": "redacted"
+      }
+    ],
+    "educations_details": "redacted",
+    "education": [
+      {
+        "title": "redacted",
+        "url": "https://example.invalid/redacted",
+        "start_year": "redacted",
+        "end_year": "redacted",
+        "description": null,
+        "description_html": null,
+        "institute_logo_url": null
+      }
+    ],
+    "avatar": "https://example.invalid/redacted",
+    "courses": [
+      {
+        "subtitle": "redacted",
+        "title": "redacted"
+      }
+    ],
+    "languages": [
+      {
+        "subtitle": "redacted",
+        "title": "redacted"
+      }
+    ],
+    "volunteer_experience": [
+      {
+        "cause": "redacted",
+        "duration": "redacted",
+        "duration_short": "redacted",
+        "start_date": "redacted",
+        "subtitle": "redacted",
+        "title": "redacted"
+      }
+    ],
+    "followers": 0,
+    "connections": 0,
+    "current_company_company_id": "redacted",
+    "current_company_name": "redacted",
+    "projects": [
+      {
+        "title": "redacted",
+        "start_date": "redacted"
+      }
+    ],
+    "organizations": [
+      {
+        "title": "redacted",
+        "membership_type": "redacted",
+        "membership_number": null
+      }
+    ],
+    "location": "redacted",
+    "input_url": "https://example.invalid/redacted",
+    "linkedin_id": "redacted",
+    "activity": [
+      {
+        "interaction": null,
+        "link": "https://example.invalid/redacted",
+        "title": "redacted",
+        "img": "https://example.invalid/redacted",
+        "id": "redacted"
+      }
+    ],
+    "linkedin_num_id": "redacted",
+    "banner_image": "https://example.invalid/redacted",
+    "honors_and_awards": [
+      {
+        "title": "redacted",
+        "publication": "redacted",
+        "date": "redacted",
+        "description": null
+      }
+    ],
+    "similar_profiles": [
+      {
+        "url": "https://example.invalid/redacted",
+        "name": "redacted",
+        "title": "redacted",
+        "url_text": "https://example.invalid/redacted"
+      }
+    ],
+    "default_avatar": false,
+    "memorialized_account": false,
+    "bio_links": [],
+    "first_name": "redacted",
+    "last_name": "redacted",
+    "influencer": false,
+    "timestamp": "redacted",
+    "input": {
+      "url": "https://example.invalid/redacted"
+    }
+  }
+]

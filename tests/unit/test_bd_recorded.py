@@ -212,3 +212,51 @@ def test_recorded_profiles_yield_no_decision_maker_without_a_role_field() -> Non
     for record in recorded("linkedin_companies"):
         prepared = bd.prepare_record("linkedin_companies", record)
         assert prepared["decision_makers"] == [] and "employees" not in prepared
+
+
+def test_linkedin_industry_reaches_the_signal_payload() -> None:
+    jobs, companies = recorded("linkedin_jobs"), recorded("linkedin_companies")
+    core = asyncio.run(_deliver_all({"linkedin_jobs": jobs, "linkedin_companies": companies}))
+    by_source: dict[str, list[dict[str, Any]]] = {}
+    for signal in core.signals:
+        by_source.setdefault(signal["source"], []).append(signal["payload"])
+    assert [p["industry"] for p in by_source["linkedin_jobs"]] == [
+        j["job_industries"] for j in jobs
+    ]
+    assert [p["industry"] for p in by_source["linkedin_companies"]] == [
+        c["industries"] for c in companies
+    ]
+
+
+def test_profile_samples_hold_only_placeholders_and_no_current_role() -> None:
+    path = RECORDED / "linkedin_profiles.json"
+    profiles = json.loads(path.read_text(encoding="utf-8"))
+    leaves: list[Any] = []
+
+    def walk(value: Any) -> None:
+        if isinstance(value, dict):
+            for item in value.values():
+                walk(item)
+        elif isinstance(value, list):
+            for item in value:
+                walk(item)
+        else:
+            leaves.append(value)
+
+    walk(profiles)
+    texts = {"redacted", "https://example.invalid/redacted"}
+    assert profiles and leaves
+    for leaf in leaves:
+        assert leaf is None or isinstance(leaf, bool) or leaf in texts or leaf == 0, type(leaf)
+    # Phase 0 finding: the dataset returned no current role for employee profiles.
+    assert all(p["position"] is None and p["experience"] is None for p in profiles)
+    assert all(set(p["current_company"]) == {"company_id", "link", "name"} for p in profiles)
+
+
+def test_profile_fetches_have_a_price_and_a_cap_that_fits_250_profiles() -> None:
+    assert bd.PRICES["linkedin_profiles"].cost(250) <= bd.SOURCE_CAPS_USD["linkedin_profiles"]
+    budget = bd.budget_from_env(
+        {"BD_IMPORT_MAX_USD_LINKEDIN_PROFILES": "0.01"}, max_usd=None, phase="3"
+    )
+    with pytest.raises(bd.BudgetExceededError, match="source cap"):
+        budget.reserve("linkedin_profiles", 6)

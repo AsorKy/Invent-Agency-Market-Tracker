@@ -11,7 +11,7 @@ This runbook is the operator procedure for `ops/bd_import.py`, the one-shot impo
 | 1 | `linkedin_jobs` | LinkedIn jobs discover by keyword, dataset `gd_lpfll7v5hcqtkxl6l`, 3 keywords x 50 per city | `brightdata-sdk` 2.5.2 | `persist_snapshot` |
 | 1 | `business_search_companies` | `POST /search/company`, ludicrous, 11-500 employees, 2 niches per city, 100 per search | REST | `persist_snapshot` under the routing id `bd_search_company` |
 | 2 | `linkedin_companies` | LinkedIn company profiles, dataset `gd_l1vikfnt1wgvvqz95w`, unique company URLs of the landed jobs (cap 300) | `brightdata-sdk` | `persist_snapshot` |
-| 3 | `linkedin_companies`, then `business_search_people` | decision makers of the 150 best scored imported companies: first from the employee lists kept in phase 2, else `POST /search/people` | none, then REST | core `POST /internal/core/signals`, `signal_type` `decision_maker` |
+| 3 | `linkedin_companies`, then `business_search_people` | decision makers of the 50 best scored imported companies: first from the employee lists kept in phase 2, else `POST /search/people` | none, then REST | core `POST /internal/core/signals`, `signal_type` `decision_maker` |
 
 Phases 1 and 2 enter through `IngestRepository.persist_snapshot`, the poller's path, so the processor, resolution, core, ml, pulse, and brief run unchanged. The processor routes a snapshot to its mapping by dataset id (`dataset_sources` in `services/ingest/app/source_config.py`): the `SOURCE_<NAME>_DATASET_ID` of every enabled source, plus the fixed id `bd_search_company` for `business_search_companies`, which has no settings slot. Phase 3 knows the company id from core's lead list, so people never go through mapping or resolution. Only name, title, and the public profile (or the public profile id) of a person are kept; e-mail and phone are never copied (INV-12). Leads are read as the local caller `verify_live` (core accepts only the gateway and that caller on `/internal/core/leads`, and only outside production); signals are written as `ingest`.
 
@@ -33,6 +33,7 @@ Before every paid call the importer books `records requested x price` and stops 
 | `BD_IMPORT_MAX_USD_MAPS` | 5 | cap of the `maps` source |
 | `BD_IMPORT_MAX_USD_LINKEDIN_JOBS` | 4 | cap of `linkedin_jobs` |
 | `BD_IMPORT_MAX_USD_LINKEDIN_COMPANIES` | 2 | cap of `linkedin_companies` |
+| `BD_IMPORT_MAX_USD_LINKEDIN_PROFILES` | 3 | cap of `linkedin_profiles` (employee profiles; 250 fit) |
 | `BD_IMPORT_MAX_USD_BUSINESS_SEARCH_COMPANIES` | 1 | cap of `business_search_companies` |
 | `BD_IMPORT_MAX_USD_BUSINESS_SEARCH_PEOPLE` | 1 | cap of `business_search_people` |
 
@@ -40,10 +41,11 @@ Price table (`PRICES` in `ops/bd_import.py`):
 
 | Source | Price used | Status |
 | --- | --- | --- |
-| `maps`, `linkedin_jobs`, `linkedin_companies` | $2.00 per 1,000 records | not confirmed per scraper: the public pay-as-you-go rate is $1.50 per 1,000 records and no per-scraper rate is published, so the SDK 2.5.2 LinkedIn constant is used as a conservative value |
+| `maps` | $2.00 per 1,000 records | not confirmed per scraper: the Web Scraper API pay-as-you-go rate is $1.50 per 1,000 records and no Maps rate is published, so a conservative value is used |
+| `linkedin_jobs`, `linkedin_companies`, `linkedin_profiles` | $2.00 per 1,000 records | conservative: the LinkedIn Scraper API page lists one pay-as-you-go price, $1.50 per 1,000 records, for profiles, companies, and jobs |
 | `business_search_companies`, `business_search_people` | $2 per 1,000 searches, one search is a block of up to 100 requested results | confirmed in the Business Search pricing page |
 
-The estimate of a full run (`--phase all`, five cities) is $4.82: maps $2.40, jobs $1.50, companies $0.60, company searches $0.02, people searches $0.30. Every run prints the cumulative estimate and an end-of-run report per source: records, share with phone or website, share of mid-size companies (11 to 500 employees), share of searched companies with at least one decision maker, and estimated cost.
+The estimate of a full run (`--phase all`, five cities) is $4.62: maps $2.40, jobs $1.50, companies $0.60, company searches $0.02, people searches $0.10 (50 companies). Every run prints the cumulative estimate and an end-of-run report per source: records, share with phone or website, share of mid-size companies (11 to 500 employees), share of searched companies with at least one decision maker, and estimated cost.
 
 ## 3. Before the first bulk run (phases 1 to 3)
 
@@ -83,6 +85,7 @@ Phase 0 writes one redacted sample per endpoint to `tests/fixtures/brightdata/re
 | LinkedIn companies (SDK) | 3 records from the jobs' `company_url`; 1 of 3 mid-size | `linkedin_companies` v2, verified (coverage 0.85) |
 | Google Maps discover by location (REST) | `crawl_error` on 5 attempts: `/trigger` with the array and the wrapped body, then the documented `/datasets/v3/scrape` call (wrapped body, `type=discover_new`, `discover_by=location`) with Medellin and with the docs example verbatim (US, "coffee shop"). Error: `Crawler error: Unexpected token ')', ")]}'\n[[..." is not valid JSON`, the scraper fails to parse Google's answer: a provider-side failure, no place record | `maps` v2 known fixes, still unverified |
 | Business Search companies and people (REST) | HTTP 403: the account is not on the Business Search allowlist (early access); not billed | `business_search_companies` v1, unverified |
+| LinkedIn employee profiles (SDK `scrape.linkedin.profiles`) | 2 profiles (each probed company exposed one public employee link): `position` and `experience` were null and `current_company` held only `company_id`, `link`, `name`. The response carries no current role, so decision makers cannot be told from it; phase 3 does not fetch profiles. Placeholder sample: `recorded/linkedin_profiles.json` | none (never landed) |
 
 Until Business Search access is granted, phase 1 lands no company search and phase 3 finds no decision maker; until the Maps scraper works, phase 1 lands no place. Provider error records are never landed and are not billed (pay only for success).
 

@@ -308,8 +308,17 @@ def sdk_client(calls: list[str]) -> Any:
         DATASET_ID_JOBS=bd.LINKEDIN_JOBS_DATASET_ID,
         workflow_executor=SimpleNamespace(execute=execute),
     )
+
+    async def profiles(url: list[str], timeout: int) -> Any:
+        calls.append(f"profiles:{len(url)}")
+        data = [{"url": u, "name": "x", "position": None, "experience": None} for u in url]
+        return SimpleNamespace(success=True, data=data, snapshot_id="sp", status="ready")
+
     scrape = SimpleNamespace(
-        DATASET_ID_COMPANIES=bd.LINKEDIN_COMPANIES_DATASET_ID, companies=companies
+        DATASET_ID=bd.LINKEDIN_PROFILES_DATASET_ID,
+        DATASET_ID_COMPANIES=bd.LINKEDIN_COMPANIES_DATASET_ID,
+        companies=companies,
+        profiles=profiles,
     )
     return SimpleNamespace(
         search=SimpleNamespace(linkedin=search), scrape=SimpleNamespace(linkedin=scrape)
@@ -387,8 +396,8 @@ def test_dry_run_plans_without_calls(tmp_path: Path) -> None:
         asyncio.run(phase())
     assert requests == [] and sdk_calls == []
     assert run.stats["business_search_people"].calls == bd.TOP_COMPANIES
-    # One city: maps 240 + jobs 150 records, 2 company searches, 300 URLs, 150 people searches.
-    assert run.budget.total == pytest.approx((240 + 150 + 300) * 0.002 + (2 + 150) * 0.002)
+    # One city: maps 240 + jobs 150 records, 2 company searches, 300 URLs, 50 people searches.
+    assert run.budget.total == pytest.approx((240 + 150 + 300) * 0.002 + (2 + 50) * 0.002)
 
 
 def test_phase2_scrapes_new_company_urls_once(tmp_path: Path) -> None:
