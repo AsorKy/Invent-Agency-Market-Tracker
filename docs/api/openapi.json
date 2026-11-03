@@ -3188,6 +3188,16 @@
               "minLength": 1,
               "type": "string"
             }
+          },
+          {
+            "description": "Original name of the uploaded file; defaults to upload.csv.",
+            "in": "header",
+            "name": "X-Filename",
+            "required": false,
+            "schema": {
+              "maxLength": 255,
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
