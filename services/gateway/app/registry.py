@@ -407,7 +407,7 @@ def _build() -> tuple[PublicRoute, ...]:
             request_content="text/csv",
             query=(Param("preserve_blob", "boolean", default=False),),
             errors=(*c, 413, 422),
-            request_headers=(ID,),
+            request_headers=(ID, "X-Filename"),
         ),
         PublicRoute(
             "GET",

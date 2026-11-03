@@ -50,6 +50,11 @@ REQUEST_HEADERS: dict[str, dict[str, Any]] = {
         "description": "ETag of the version being replaced.",
         "schema": {"type": "string"},
     },
+    "X-Filename": {
+        "required": False,
+        "description": "Original name of the uploaded file; defaults to upload.csv.",
+        "schema": {"type": "string", "maxLength": 255},
+    },
 }
 ERROR_TEXT = {
     400: "Invalid cursor or parameter",

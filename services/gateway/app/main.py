@@ -68,6 +68,19 @@ configure_logging(settings.log_level)
 logger = structlog.get_logger(__name__)
 security_config = GatewaySecurityConfig.from_settings(settings)
 
+# Client request headers forwarded upstream (allow list). Authorization, cookies (except to
+# identity), the edge secret, and every tenant, user, role, and service-token header are never
+# taken from the client: the gateway derives them itself. X-Request-ID is set separately.
+FORWARDED_HEADERS: tuple[str, ...] = (
+    "content-type",
+    "idempotency-key",
+    "if-match",
+    "x-filename",
+    "x-brightdata-signature",
+    "x-brightdata-timestamp",
+)
+IDENTITY_FORWARDED_HEADERS: tuple[str, ...] = ("cookie", "x-csrf-token")
+
 
 def _upstreams() -> dict[str, str]:
     return {
@@ -387,9 +400,9 @@ async def proxy(path: str, request: Request) -> Response:
     if not isinstance(request_id, str):
         request_id = request.headers.get("X-Request-ID") or str(uuid4())
     upstream_headers: dict[str, str] = {"X-Request-ID": request_id}
-    forwarded = ["content-type", "if-match", "x-brightdata-signature", "x-brightdata-timestamp"]
+    forwarded = FORWARDED_HEADERS
     if route.service == "identity":
-        forwarded += ["cookie", "x-csrf-token"]
+        forwarded += IDENTITY_FORWARDED_HEADERS
     for header_name in forwarded:
         header_value = request.headers.get(header_name)
         if header_value:
