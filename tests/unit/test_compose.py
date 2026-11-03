@@ -216,6 +216,11 @@ def test_gateway_port_is_published_on_loopback_only(services: dict[str, Any]) ->
     assert services["gateway"]["ports"] == ["127.0.0.1:${GATEWAY_PORT:-8000}:8000"]
 
 
+def test_streamlit_publishes_no_port(services):
+    # The React frontend is the interface; Streamlit stays reachable only inside the network.
+    assert "ports" not in services["streamlit"]
+
+
 def test_frontend_is_a_static_loopback_proxy_to_the_gateway(services: dict[str, Any]) -> None:
     frontend = services["frontend"]
     assert frontend["image"].startswith("nginx:") and frontend["image"].endswith("-alpine")

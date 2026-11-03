@@ -5,7 +5,8 @@ characters, and rejects a curated list of Spanish words and legacy identifiers.
 It relates to ``Makefile`` and ``.github/workflows/ci.yml`` and complements
 ``ops/check_script_docs.py``. Its purpose is to keep docstrings, comments,
 configuration descriptions, messages, and code conventions in English. The Spanish
-ADR exports under ``docs/adr`` are the only excluded files. The frontend design components
+ADR exports under ``docs/adr`` and the design leftovers in ``frontend/unused`` (never served,
+never committed) are the only excluded files. The frontend design components
 (``frontend/*.dc.html``) and the generated dc runtime (``frontend/support.js``) may hold
 non-ASCII text, because they carry the Spanish UI copy and a vendored file that must not be
 edited; the legacy-identifier check still applies to them.
@@ -18,7 +19,8 @@ from pathlib import Path
 
 EXCLUDED_PARTS = {".git", "__pycache__", ".mypy_cache", ".ruff_cache"}
 # The architecture decision records are exported verbatim from the project vault in Spanish.
-EXCLUDED_DIRECTORIES = (Path("docs") / "adr",)
+# frontend/unused holds design boards and uploads the app does not use; nginx never serves it.
+EXCLUDED_DIRECTORIES = (Path("docs") / "adr", Path("frontend") / "unused")
 # Spanish UI copy and the generated dc runtime; frontend/api.js and the tests stay ASCII.
 NON_ASCII_ALLOWED = re.compile(r"^frontend/(?:[^/]+\.dc\.html|support\.js)$")
 LEGACY_IDENTIFIER_HEX = (

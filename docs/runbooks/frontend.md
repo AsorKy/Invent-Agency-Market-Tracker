@@ -17,6 +17,8 @@ REQ-FE-001 is a later decision.
 - The `frontend` service: `nginx:1.27-alpine` serving `frontend/` read-only and the template
   `deploy/nginx/frontend.conf.template`. nginx proxies `/api/` to `gateway:8000`, so the browser
   stays on one origin: no CORS, and the session and CSRF cookies are first-party cookies.
+- `frontend/unused/` holds design boards and uploads the app does not use. It is not served, not
+  committed, and skipped by `ops/check_language.py`.
 - Only the app files are served (allowlist): `*.dc.html`, `api.js`, `support.js`. Tests, docs
   and anything else under `frontend/` answer 404.
 - The proxy plays the edge: when `EDGE_SECRET` is set it adds `X-Edge-Secret` server-side

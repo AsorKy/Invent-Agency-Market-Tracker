@@ -71,7 +71,7 @@ def test_repository_template_gets_every_secret_key() -> None:
 def test_service_urls_use_ports() -> None:
     urls = env.service_urls({"GATEWAY_PORT": "9000"})
     assert urls["Gateway"] == "http://localhost:9000"
-    assert urls["Streamlit"] == "http://localhost:8501"
+    assert urls["Frontend"] == "http://localhost:3000"
     assert "n8n" in urls
 
 

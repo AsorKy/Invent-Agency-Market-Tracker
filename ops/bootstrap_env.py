@@ -105,11 +105,11 @@ def read_values(path: Path) -> dict[str, str]:
 def service_urls(values: Mapping[str, str]) -> dict[str, str]:
     """Return the host URLs printed after start."""
     gateway = values.get("GATEWAY_PORT") or "8000"
-    streamlit = values.get("STREAMLIT_PORT") or "8501"
+    frontend = values.get("FRONTEND_PORT") or "3000"
     return {
         "Gateway": f"http://localhost:{gateway}",
         "Gateway readiness": f"http://localhost:{gateway}/ready",
-        "Streamlit": f"http://localhost:{streamlit}",
+        "Frontend": f"http://localhost:{frontend}",
         "n8n": "http://localhost:5678",
     }
 
