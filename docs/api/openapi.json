@@ -2808,6 +2808,7 @@
             "schema": {
               "enum": [
                 "raw_snapshots",
+                "raw_records",
                 "entity_candidates",
                 "rues_queue",
                 "failed_records",

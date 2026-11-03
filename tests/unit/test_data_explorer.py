@@ -68,6 +68,10 @@ SCOPE_BINDS = {
     "brief": {"tenant_id"},
     "pulse": {"tenant_id"},
 }
+# Datasets that project a table instead of listing its columns: id -> (table, columns added).
+PROJECTIONS = {
+    "raw_records": ("ingest.raw_snapshot", {"raw_snapshot_id", "record_index", "record"})
+}
 # Table columns that are never returned, with the reason.
 HIDDEN = {
     "ingest.raw_snapshot": {"payload_sha256"},  # payload hash
@@ -105,6 +109,8 @@ def _parse(sql: str) -> Any:
 def _table(dataset: Dataset) -> str:
     """The ``schema.table`` the count statement reads."""
     relation = _parse(dataset.count.text).fromClause[0]
+    while hasattr(relation, "larg"):  # a join: the table is its left side
+        relation = relation.larg
     return f"{relation.schemaname}.{relation.relname}"
 
 
@@ -150,10 +156,24 @@ def test_columns_are_the_whole_table_except_the_hidden_hashes() -> None:
         names = [name for name, _ in dataset.columns]
         table = set(schema.tables[_table(dataset)].columns)
         assert len(names) == len(set(names)), dataset.id
+        if dataset.id in PROJECTIONS:
+            continue
         assert set(names) | set(dataset.hidden) == table, dataset.id
         assert not set(names) & set(dataset.hidden), dataset.id
         assert set(dataset.key) <= set(names), dataset.id
     assert {_table(d): set(d.hidden) for d in ALL if d.hidden} == HIDDEN
+
+
+def test_raw_records_expand_the_snapshot_payload_without_the_hash() -> None:
+    dataset = BY_ID["raw_records"]
+    table, added = PROJECTIONS["raw_records"]
+    schema = load_schema()
+    names = {name for name, _ in dataset.columns}
+    assert _table(dataset) == table
+    assert names - added <= set(schema.tables[table].columns)
+    assert "payload_sha256" not in names and "payload" not in names
+    assert "jsonb_array_elements" in dataset.page.text and "WITH ORDINALITY" in dataset.page.text
+    assert "jsonb_typeof(payload) = 'array'" in dataset.count.text
 
 
 def test_no_secret_looking_column_is_returned() -> None:
@@ -466,7 +486,7 @@ def test_ingest_rows_are_hidden_from_any_other_tenant(monkeypatch: pytest.Monkey
     catalog = client.get("/internal/ingest/data/catalog", headers=_headers(other)).json()
 
     assert page["data"] == [] and page["total"] == 0 and page["next_cursor"] is None
-    assert [entry["count"] for entry in catalog["datasets"]] == [0] * 6
+    assert [entry["count"] for entry in catalog["datasets"]] == [0] * 7
     assert engine.connection.calls == []
 
 

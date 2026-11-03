@@ -81,13 +81,17 @@ Analitica, Modelos, Redes, Metricas and Investigacion have no public read route 
 ## Datos tab
 
 Roles admin, strategist and analyst. The left list comes from `GET /api/v1/data/catalog`,
-grouped by `origin`: "Bright Data (crudo)" (`bright_data_raw`: raw_snapshots, failed_records,
-failed_fetches, pending_snapshots) first, then "Derivadas" (entity_candidates, rues_queue,
+grouped by `origin`: "Bright Data (crudo)" (`bright_data_raw`: raw_snapshots, raw_records,
+failed_records, failed_fetches, pending_snapshots) first, then "Derivadas" (entity_candidates, rues_queue,
 companies, signals, leads, lead_scores, record_digests, fact_signals, daily_rollups), each with
 its `count`. The table pages `GET /api/v1/data/{dataset}?limit=50&cursor=&q=`: headers from
 `columns` (name and type), the text filter sends `q`, "Cargar mas" follows `next_cursor`, object
 cells open a JSON viewer, `truncated_cells` shows the "truncado" badge, and "Exportar CSV" saves
-the rows loaded so far. A dataset with `unavailable: true` is listed but not fetched. The URL
+the rows loaded so far.
+A snapshot payload (25 KB to 800 KB) does not fit in a cell, so `raw_snapshots` shows only its
+first 20,000 characters (badge "truncado"); `raw_records` expands every payload into one row per
+Bright Data record, and its JSON viewer opens each record whole (a record above 20,000
+characters is cut and badged the same way). A dataset with `unavailable: true` is listed but not fetched. The URL
 hash (`#/data/<dataset>`) keeps the selection, so "Copiar enlace" works.
 
 ## Checks

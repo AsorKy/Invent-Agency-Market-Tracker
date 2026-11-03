@@ -73,6 +73,14 @@ CATALOG: dict[str, DatasetInfo] = {
             "Bright Data snapshots with the payload exactly as delivered (ingest.raw_snapshot).",
         ),
         DatasetInfo(
+            "raw_records",
+            "ingest",
+            "bright_data_raw",
+            "Raw records",
+            "Every record of every Bright Data snapshot as delivered, one row per record "
+            "(ingest.raw_snapshot, payload expanded).",
+        ),
+        DatasetInfo(
             "entity_candidates",
             "ingest",
             "derived",

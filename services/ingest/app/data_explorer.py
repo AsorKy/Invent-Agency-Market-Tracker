@@ -68,6 +68,55 @@ DATASETS: tuple[Dataset, ...] = (
             """
         ),
     ),
+    # One row per record of each snapshot payload (a JSON array; any other value counts as one
+    # record), so a record fits in a cell where a whole snapshot (up to ~800 KB) does not.
+    Dataset(
+        id="raw_records",
+        columns=(
+            ("raw_snapshot_id", "uuid"),
+            ("snapshot_id", "text"),
+            ("dataset_id", "text"),
+            ("source", "text"),
+            ("record_index", "bigint"),
+            ("record", "jsonb"),
+            ("created_at", "timestamptz"),
+        ),
+        key=("created_at", "raw_snapshot_id", "record_index"),
+        page=text(
+            """
+            SELECT id AS raw_snapshot_id, snapshot_id, dataset_id, source,
+                   ord - 1 AS record_index, left(record::text, 20001) AS record, created_at
+            FROM ingest.raw_snapshot
+            CROSS JOIN LATERAL jsonb_array_elements(
+                CASE WHEN jsonb_typeof(payload) = 'array'
+                     THEN payload ELSE jsonb_build_array(payload) END
+            ) WITH ORDINALITY AS r(record, ord)
+            WHERE (CAST(:q AS text) IS NULL
+                   OR strpos(lower(snapshot_id), lower(CAST(:q AS text))) > 0
+                   OR strpos(lower(dataset_id), lower(CAST(:q AS text))) > 0
+                   OR strpos(lower(record::text), lower(CAST(:q AS text))) > 0)
+              AND (CAST(:k1 AS timestamptz) IS NULL
+                   OR (created_at, id, ord - 1) < (CAST(:k1 AS timestamptz),
+                                                   CAST(:k2 AS uuid), CAST(:k3 AS bigint)))
+            ORDER BY created_at DESC, raw_snapshot_id DESC, record_index DESC
+            LIMIT :limit
+            """
+        ),
+        count=text(
+            """
+            SELECT count(*)
+            FROM ingest.raw_snapshot
+            CROSS JOIN LATERAL jsonb_array_elements(
+                CASE WHEN jsonb_typeof(payload) = 'array'
+                     THEN payload ELSE jsonb_build_array(payload) END
+            ) AS r(record)
+            WHERE (CAST(:q AS text) IS NULL
+                   OR strpos(lower(snapshot_id), lower(CAST(:q AS text))) > 0
+                   OR strpos(lower(dataset_id), lower(CAST(:q AS text))) > 0
+                   OR strpos(lower(record::text), lower(CAST(:q AS text))) > 0)
+            """
+        ),
+    ),
     Dataset(
         id="entity_candidates",
         columns=(
