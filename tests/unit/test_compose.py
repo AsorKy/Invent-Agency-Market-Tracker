@@ -231,6 +231,9 @@ def test_frontend_is_a_static_loopback_proxy_to_the_gateway(services: dict[str, 
     assert "set $gateway_upstream http://gateway:8000;" in conf
     assert 'proxy_set_header X-Edge-Secret "${EDGE_SECRET}";' in conf
     assert "location /api/ {" in conf
+    assert "absolute_redirect off;" in conf  # the host port differs from the container port
+    for name in ("X-Tenant-Id", "X-User-Id", "X-User-Role", "X-User-Scopes", "X-Service-Token"):
+        assert f'proxy_set_header {name} "";' in conf
     # Allowlist: anything that is not a dc component, api.js or support.js answers 404.
     assert conf.rstrip().endswith("location / {\n        return 404;\n    }\n}")
 

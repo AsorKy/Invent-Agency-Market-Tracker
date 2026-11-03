@@ -11,6 +11,8 @@ server {
     listen 80;
     server_name _;
     server_tokens off;
+    # Relative Location headers: the container listens on 80 but the host port is FRONTEND_PORT.
+    absolute_redirect off;
     root /usr/share/nginx/html;
     charset utf-8;
 
@@ -61,6 +63,12 @@ server {
         # The proxy plays the edge: it adds the gateway edge secret server-side (empty means
         # no header) and always replaces whatever the browser sent. Never served to the page.
         proxy_set_header X-Edge-Secret "${EDGE_SECRET}";
+        # Identity headers come only from the gateway's own token check: drop browser copies.
+        proxy_set_header X-Tenant-Id "";
+        proxy_set_header X-User-Id "";
+        proxy_set_header X-User-Role "";
+        proxy_set_header X-User-Scopes "";
+        proxy_set_header X-Service-Token "";
         proxy_connect_timeout 5s;
         proxy_read_timeout 75s;
         client_max_body_size 11m;
