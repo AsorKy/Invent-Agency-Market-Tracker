@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./api.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="display:flex;flex-direction:column;gap:24px;font-family:Inter,sans-serif;color:#0A0A0A;font-variant-numeric:tabular-nums">
+  <div><div style="font-size:11px;line-height:16px;font-weight:500;letter-spacing:.16em;color:#666666">{{ file }}</div><h1 style="margin:4px 0 0;font-size:28px;line-height:32px;font-weight:500;letter-spacing:-.03em">{{ title }}</h1><div style="font-size:14px;color:#3D3D3D;margin-top:4px">{{ sub }}</div></div>
+  <section aria-label="{{ title }}" style="background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:56px 32px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px">
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#666666" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M3 3v18h18M7 14l4-4 3 3 5-6"></path></svg>
+    <div style="font-size:18px;font-weight:500">Sin datos todavía</div>
+    <div style="font-size:14px;line-height:20px;color:#666666;max-width:560px">{{ reason }}</div>
+    <sc-if value="{{ checking }}" hint-placeholder-val="{{ false }}"><div role="status" style="font-size:13px;color:#666666">Consultando la API…</div></sc-if>
+    <sc-if value="{{ apiNote }}" hint-placeholder-val="{{ false }}"><div style="margin-top:8px;font-size:12px;color:#525252">Respuesta de la API: <span style="font-family:ui-monospace,Menlo,monospace">{{ apiNote }}</span></div></sc-if>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1136,&quot;height&quot;:600},&quot;page&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;analitica&quot;,&quot;modelos&quot;,&quot;redes&quot;,&quot;experimentos&quot;,&quot;segmentos&quot;],&quot;default&quot;:&quot;analitica&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  // The Streamlit report pages (L2/L3 analytics). None has a public read route yet, so each
+  // shows an honest empty state; Segmentos asks GET /api/v1/segments and shows its answer.
+  state = { seg: null, checking: false };
+  componentDidMount() { this.check(); }
+  componentDidUpdate(prev) { if (prev && prev.page !== this.props.page) this.check(); }
+  check() {
+    if (this.props.page !== 'segmentos') return;
+    this.setState({ checking: true, seg: null });
+    window.InventApi.client.get('/segments').then(res => this.setState({ checking: false, seg: res }));
+  }
+  renderVals() {
+    const p = this.props, page = p.page || 'analitica', seg = this.state.seg;
+    const TABS = ['Atribución', 'Inferencia causal', 'Anomalías y drift', 'Temas', 'Concentración', 'Elasticidad de precio'];
+    const P = {
+      analitica: ['10_ANALITICA', 'Analítica', TABS[Number(p.tab) || 0] || TABS[0], 'Atribución, causalidad y drift pertenecen a la capa L2 (ADR-IMT-0002): sus rutas responden «not_in_layer» hasta su corrida.'],
+      modelos: ['11_MODELOS', 'Modelos', p.comp || 'Scoring', 'La API no publica todavía métricas de los modelos (calibración, registro, Monte Carlo). El score de cada empresa sí se ve en su lead.'],
+      redes: ['8_REDES', 'Redes', p.level || 'N2 compañía', 'No hay ruta pública para el grafo de empresas: la red se construye en una capa posterior.'],
+      experimentos: ['12_EXPERIMENTOS', 'Experimentos', 'Fichas experimentales', 'Las fichas experimentales llegan con la capa L2.'],
+      segmentos: ['3_SEGMENTOS', 'Segmentos', 'Segmentos y arquetipos', 'El read model de segmentos aún no está construido en pulse.']
+    };
+    const d = P[page] || P.analitica;
+    return { file: d[0], title: d[1], sub: d[2], reason: d[3], checking: this.state.checking, apiNote: seg && !seg.ok ? String(seg.status) + ' ' + (seg.code || seg.kind) : seg && seg.ok ? '200 ' + JSON.stringify(seg.data).slice(0, 120) : '' };
+  }
+}
+</script>
+</body>
+</html>

@@ -3,7 +3,7 @@
 # docker-compose.yml.
 .PHONY: up down datagen openapi static compose-config test test-integration test-sql coverage \
 	invent-tracker invent-tracker-down invent-tracker-reset db-ui seed seed-clear doctor verify-live \
-	bd-import
+	bd-import frontend test-frontend
 
 up:
 	docker compose up --build
@@ -26,6 +26,7 @@ invent-tracker:
 	docker compose up -d --build --remove-orphans
 	python ops/bootstrap_env.py --wait
 	test -f .env.seeded || { $(MAKE) seed && touch .env.seeded; }
+	@echo "Frontend: http://localhost:$${FRONTEND_PORT:-3000}  (docs/runbooks/frontend.md)"
 	@echo "Data UI (SQL editor): make db-ui"
 
 invent-tracker-down:
@@ -40,6 +41,16 @@ invent-tracker-reset:
 db-ui:
 	docker compose --profile ui up -d --wait pgadmin
 	@echo "pgAdmin: http://localhost:$${PGADMIN_PORT:-5050}  (server 'Invent Market Tracker (local)', user postgres)"
+
+# Frontend (docs/runbooks/frontend.md): nginx serves frontend/ and proxies /api/ to the gateway.
+# The browser loads React from unpkg, so it needs internet access.
+frontend:
+	docker compose up -d --wait frontend
+	@echo "Frontend: http://localhost:$${FRONTEND_PORT:-3000}"
+
+# Offline checks of the frontend data layer and design components (Node built-in test runner).
+test-frontend:
+	node --test frontend/tests/api.test.js frontend/tests/components.test.js
 
 seed:
 	docker compose exec -T gateway python -m ops.seed load

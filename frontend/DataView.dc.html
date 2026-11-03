@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./api.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div data-testid="data-view" style="display:flex;flex-direction:column;gap:24px;font-family:Inter,sans-serif;color:#0A0A0A;font-variant-numeric:tabular-nums">
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap"><div><h1 style="margin:0;font-size:28px;line-height:32px;font-weight:500;letter-spacing:-.03em">Datos</h1><div style="font-size:14px;color:#3D3D3D;margin-top:4px">Lo que Bright Data entregó, tal cual, y cada tabla que el sistema derivó de ello. Solo lectura.</div></div>
+    <button onClick="{{ reloadCatalog }}" style="height:36px;padding:0 16px;border:1px solid rgba(10,10,10,.26);border-radius:999px;background:transparent;color:#0A0A0A;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap" style-hover="background:#F5F5F5">Actualizar catálogo</button></div>
+  <sc-if value="{{ catLoading }}" hint-placeholder-val="{{ false }}"><div role="status" style="font-size:14px;color:#666666">Cargando el catálogo…</div></sc-if>
+  <sc-if value="{{ catFailed }}" hint-placeholder-val="{{ false }}"><div role="alert" style="display:flex;gap:12px;align-items:center;padding:12px 16px;border-radius:12px;background:#FEF3F2;border:1px solid #FECDCA;color:#B42318;font-size:14px"><span style="flex:1"><span style="font-weight:500">{{ catErrMsg }}</span> {{ catErrHint }}</span><span style="font-family:ui-monospace,Menlo,monospace;font-size:12px">{{ catErrCode }}</span><button onClick="{{ reloadCatalog }}" style="height:28px;padding:0 12px;border:1px solid currentColor;border-radius:999px;background:transparent;color:inherit;font-family:inherit;font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap">Reintentar</button></div></sc-if>
+  <sc-if value="{{ hasCatalog }}" hint-placeholder-val="{{ false }}">
+  <div style="display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start">
+    <nav aria-label="Tablas disponibles" data-testid="data-catalog" style="flex:1 1 260px;max-width:340px;min-width:0;background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:16px;box-sizing:border-box">
+      <sc-for list="{{ groups }}" as="g" hint-placeholder-count="2"><div style="display:flex;flex-direction:column;gap:2px"><h2 style="margin:0;padding:0 8px 6px;font-size:11px;line-height:16px;font-weight:500;letter-spacing:.16em;color:#666666">{{ g.t }}</h2>
+        <sc-for list="{{ g.items }}" as="d" hint-placeholder-count="6"><button onClick="{{ d.go }}" aria-current="{{ d.cur }}" title="{{ d.desc }}" style="display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:40px;padding:6px 10px;box-sizing:border-box;border:1px solid {{ d.bd }};border-radius:8px;background:{{ d.bg }};font-family:inherit;text-align:left;color:#0A0A0A;cursor:pointer;opacity:{{ d.op }}" style-hover="background:#F5F5F5"><span style="min-width:0;display:flex;flex-direction:column"><span style="font-size:14px;font-weight:{{ d.fw }};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ d.title }}</span><span style="font-size:11px;color:#666666;font-family:ui-monospace,Menlo,monospace">{{ d.service }} · {{ d.id }}</span></span><span style="font-size:12px;color:#525252;white-space:nowrap">{{ d.count }}</span></button></sc-for>
+      </div></sc-for>
+    </nav>
+    <section aria-labelledby="data-title" style="flex:999 1 560px;min-width:0;display:flex;flex-direction:column;gap:16px">
+      <div style="background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:20px 24px;display:flex;flex-direction:column;gap:12px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap"><div style="min-width:0"><h2 id="data-title" style="margin:0;font-size:20px;line-height:28px;font-weight:500;letter-spacing:-.02em">{{ cur.title }}</h2><div style="font-size:13px;line-height:20px;color:#666666">{{ cur.desc }}</div><div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;align-items:center"><span style="display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:999px;font-size:11px;font-weight:500;background:{{ cur.obg }};color:{{ cur.ofg }};border:1px solid {{ cur.obd }}">{{ cur.origin }}</span><span style="font-family:ui-monospace,Menlo,monospace;font-size:12px;color:#525252">{{ cur.service }} · {{ cur.id }}</span><sc-if value="{{ truncated }}" hint-placeholder-val="{{ false }}"><span data-testid="data-truncated" title="La API recortó celdas muy largas; el JSON completo está en la base." style="display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:999px;font-size:11px;font-weight:500;background:#FFF8EB;color:#A1460A;border:1px solid #FCDDA0">truncado</span></sc-if></div></div>
+          <div style="display:flex;gap:8px;align-items:center"><button onClick="{{ exportCsv }}" disabled="{{ noRows }}" style="height:36px;padding:0 16px;border:1px solid rgba(10,10,10,.26);border-radius:999px;background:transparent;color:#0A0A0A;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap;opacity:{{ exportOp }}" style-hover="background:#F5F5F5">Exportar CSV</button></div></div>
+        <form onSubmit="{{ search }}" role="search" aria-label="Filtrar filas" style="display:flex;gap:8px;align-items:end;flex-wrap:wrap"><label style="flex:1 1 260px;display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:500;color:#3D3D3D">Filtro de texto<input data-testid="data-filter" type="search" value="{{ qInput }}" onInput="{{ setQ }}" placeholder="Busca en las columnas de texto" style="height:36px;box-sizing:border-box;padding:0 12px;border:1px solid #767676;border-radius:8px;background:#FAFAFA;font-family:inherit;font-size:14px;color:#0A0A0A"></label><button type="submit" style="height:36px;padding:0 16px;border:1px solid #0A0A0A;border-radius:999px;background:#0A0A0A;color:#FAFAFA;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap">Filtrar</button><sc-if value="{{ hasQ }}" hint-placeholder-val="{{ false }}"><button type="button" onClick="{{ clearQ }}" style="height:36px;padding:0 16px;border:1px solid rgba(10,10,10,.26);border-radius:999px;background:transparent;color:#0A0A0A;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap">Limpiar</button></sc-if></form>
+        <div data-testid="data-count" role="status" aria-live="polite" style="font-size:13px;color:#525252">{{ countText }}</div>
+      </div>
+      <sc-if value="{{ unavailable }}" hint-placeholder-val="{{ false }}"><div role="note" style="padding:16px 20px;border-radius:12px;background:#F5F5F5;border:1px solid rgba(10,10,10,.14);font-size:14px;color:#3D3D3D">Esta tabla no está disponible en este entorno (el catálogo la marca como «unavailable»).</div></sc-if>
+      <sc-if value="{{ failed }}" hint-placeholder-val="{{ false }}"><div role="alert" style="display:flex;gap:12px;align-items:center;padding:12px 16px;border-radius:12px;background:#FEF3F2;border:1px solid #FECDCA;color:#B42318;font-size:14px"><span style="flex:1;font-weight:500">{{ errMsg }}</span><span style="font-family:ui-monospace,Menlo,monospace;font-size:12px">{{ errCode }}</span><button onClick="{{ retry }}" style="height:28px;padding:0 12px;border:1px solid currentColor;border-radius:999px;background:transparent;color:inherit;font-family:inherit;font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap">Reintentar</button></div></sc-if>
+      <sc-if value="{{ showTable }}" hint-placeholder-val="{{ false }}">
+      <div style="background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;overflow:auto;max-height:70vh" sc-camel-tab-index="0" aria-label="Filas de {{ cur.title }}" role="region">
+        <table data-testid="data-table" aria-busy="{{ loading }}" style="width:100%;border-collapse:separate;border-spacing:0;font-size:13px">
+          <caption style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">{{ cur.title }}: {{ countText }}</caption>
+          <thead><tr><sc-for list="{{ cols }}" as="c" hint-placeholder-count="6"><th scope="col" style="position:sticky;top:0;z-index:1;text-align:left;padding:10px 12px;background:#F5F5F5;border-bottom:1px solid rgba(10,10,10,.14);white-space:nowrap;vertical-align:bottom"><span style="display:block;font-size:12px;font-weight:500;color:#0A0A0A">{{ c.name }}</span><span style="display:block;font-size:11px;font-weight:400;color:#666666;font-family:ui-monospace,Menlo,monospace">{{ c.type }}</span></th></sc-for></tr></thead>
+          <tbody>
+            <sc-for list="{{ rows }}" as="r" hint-placeholder-count="8">
+              <tr><sc-for list="{{ r.cells }}" as="x" hint-placeholder-count="6"><td style="padding:8px 12px;border-bottom:1px solid rgba(10,10,10,.08);vertical-align:top;max-width:360px">
+                <sc-if value="{{ x.isObj }}" hint-placeholder-val="{{ false }}"><button onClick="{{ x.toggle }}" aria-expanded="{{ x.open }}" aria-label="{{ x.aria }}" style="height:24px;padding:0 8px;border:1px solid rgba(10,10,10,.26);border-radius:6px;background:{{ x.bg }};font-family:ui-monospace,Menlo,monospace;font-size:12px;color:#0A0A0A;cursor:pointer;white-space:nowrap">{{ x.label }}</button></sc-if>
+                <sc-if value="{{ x.isText }}" hint-placeholder-val="{{ true }}"><span title="{{ x.full }}" style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:{{ x.c }};font-family:{{ x.ff }}">{{ x.text }}</span></sc-if>
+              </td></sc-for></tr>
+              <sc-if value="{{ r.hasJson }}" hint-placeholder-val="{{ false }}"><tr><td sc-camel-col-span="{{ colCount }}" style="padding:0 12px 12px;border-bottom:1px solid rgba(10,10,10,.14);background:#F5F5F5"><div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0 4px;font-size:12px;color:#525252"><span style="font-family:ui-monospace,Menlo,monospace">{{ r.jsonCol }}</span><button onClick="{{ r.closeJson }}" style="border:0;background:transparent;padding:0;font-family:inherit;font-size:12px;color:#006A99;text-decoration:underline;cursor:pointer">Cerrar</button></div><pre sc-camel-tab-index="0" aria-label="JSON de {{ r.jsonCol }}" style="margin:0;max-height:320px;overflow:auto;padding:12px;border:1px solid rgba(10,10,10,.14);border-radius:8px;background:#FAFAFA;font-family:ui-monospace,Menlo,monospace;font-size:12px;line-height:18px;white-space:pre-wrap;overflow-wrap:anywhere">{{ r.json }}</pre></td></tr></sc-if>
+            </sc-for>
+          </tbody>
+        </table>
+        <sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}"><div role="status" style="padding:24px;text-align:center;font-size:14px;color:#666666">Cargando filas…</div></sc-if>
+        <sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}"><div style="padding:40px 24px;text-align:center"><div style="font-size:16px;font-weight:500">{{ emptyTitle }}</div><div style="font-size:14px;color:#666666;margin-top:4px">{{ emptyHint }}</div></div></sc-if>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><span style="font-size:13px;color:#666666">{{ pageHint }}</span><sc-if value="{{ hasMore }}" hint-placeholder-val="{{ false }}"><button data-testid="data-more" onClick="{{ more }}" disabled="{{ loadingMore }}" style="height:40px;padding:0 20px;border:1px solid rgba(10,10,10,.26);border-radius:999px;background:transparent;font-family:inherit;font-size:13px;font-weight:500;letter-spacing:.02em;color:#0A0A0A;cursor:pointer;white-space:nowrap" style-hover="background:#F5F5F5">{{ moreLabel }}</button></sc-if></div>
+      </sc-if>
+    </section>
+  </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:800}}">
+class Component extends DCLogic {
+  // GET /api/v1/data/catalog lists the tables (Bright Data raw first, then derived) and
+  // GET /api/v1/data/{dataset}?limit=50&cursor=&q= pages one of them. JSON cells open in a viewer;
+  // truncated_cells shows the "truncado" badge; CSV export covers the rows loaded so far.
+  state = { catalog: null, catErr: null, catLoading: true, sel: '', page: null, columns: null, truncated: false, loading: false, loadingMore: false, q: '', qInput: '', open: null };
+  LIMIT = 50;
+  componentDidMount() { this.loadCatalog(false); }
+  componentDidUpdate(prev) { if (prev && prev.dataset !== this.props.dataset && this.props.dataset && this.props.dataset !== this.state.sel) this.pick(this.props.dataset); }
+  loadCatalog(fresh) {
+    this.setState({ catLoading: true, catErr: null });
+    return window.InventApi.client.get('/data/catalog', null, { fresh: !!fresh }).then(res => {
+      if (!res.ok) return this.setState({ catLoading: false, catErr: res });
+      const list = res.data && Array.isArray(res.data.datasets) ? res.data.datasets : [];
+      this.setState({ catLoading: false, catalog: list });
+      const want = list.find(d => d.id === (this.state.sel || this.props.dataset)) || list.find(d => d.origin === 'bright_data_raw' && !d.unavailable) || list.find(d => !d.unavailable) || list[0];
+      if (want) this.pick(want.id);
+    });
+  }
+  pick(id) {
+    this.setState({ sel: id, page: null, columns: null, truncated: false, q: '', qInput: '', open: null });
+    if (this.props.onDataset && id !== this.props.dataset) this.props.onDataset(id);
+    const d = (this.state.catalog || []).find(x => x.id === id);
+    if (d && d.unavailable) return;
+    return this.load(id, '', false);
+  }
+  load(id, q, append) {
+    const A = window.InventApi, seq = this.seq = (this.seq || 0) + 1, prev = this.state.page;
+    if (append && !(prev && prev.nextCursor)) return;
+    this.setState(append ? { loadingMore: true } : { loading: true, page: null, truncated: false, open: null });
+    const query = { limit: this.LIMIT, cursor: append ? prev.nextCursor : undefined, q: q || undefined };
+    return A.client.listPage('/data/' + encodeURIComponent(id), query).then(res => {
+      if (seq !== this.seq) return;
+      const page = A.mergePage(append ? prev : null, res, append);
+      const patch = { loading: false, loadingMore: false, page };
+      if (res.ok) {
+        if (Array.isArray(res.data && res.data.columns) && res.data.columns.length) patch.columns = res.data.columns;
+        patch.truncated = (append && this.state.truncated) || !!(res.data && res.data.truncated_cells);
+      }
+      this.setState(patch);
+    });
+  }
+  renderVals() {
+    const p = this.props, st = this.state, set = o => this.setState(o), A = window.InventApi, fmt = A.fmt;
+    const list = st.catalog || [];
+    const ORIGIN = { bright_data_raw: ['Bright Data (crudo)', '#E5F8FD', '#006A99', '#9BE3F7'], derived: ['Derivadas', '#F3EFFF', '#5B3DCB', '#F3EFFF'] };
+    const item = d => ({ id: d.id, title: d.title || d.id, desc: d.description || '', service: d.service || '', count: d.unavailable ? 'n/d' : d.count == null ? '—' : fmt.number(d.count), cur: d.id === st.sel ? 'page' : 'false', bg: d.id === st.sel ? '#F5F5F5' : 'transparent', bd: d.id === st.sel ? 'rgba(10,10,10,.26)' : 'transparent', fw: d.id === st.sel ? 500 : 400, op: d.unavailable ? .55 : 1, go: () => this.pick(d.id) });
+    const groups = [['bright_data_raw', 'BRIGHT DATA (CRUDO)'], ['derived', 'DERIVADAS']].map(([o, t]) => ({ t, items: list.filter(d => (d.origin === 'bright_data_raw') === (o === 'bright_data_raw')).map(item) })).filter(g => g.items.length);
+    const d = list.find(x => x.id === st.sel) || null;
+    const og = ORIGIN[d && d.origin] || ORIGIN.derived;
+    const cols = (st.columns || (d && d.columns) || []).map(c => typeof c === 'string' ? { name: c, type: '' } : { name: c.name, type: c.type || '' });
+    const page = st.page || { rows: [], nextCursor: null, total: null, hasMore: false, error: null };
+    const isObj = v => v !== null && typeof v === 'object';
+    const rows = page.rows.map((row, ri) => {
+      const cells = cols.map(c => {
+        const v = row ? row[c.name] : undefined, key = ri + '|' + c.name, open = st.open === key;
+        if (isObj(v)) { const n = Array.isArray(v) ? v.length : Object.keys(v).length; return { isObj: true, isText: false, label: (Array.isArray(v) ? '[' + n + ']' : '{' + n + '}') + (open ? ' ▴' : ' ▾'), open, aria: (open ? 'Ocultar' : 'Ver') + ' JSON de ' + c.name, bg: open ? '#E9E8E4' : 'transparent', toggle: () => set({ open: open ? null : key }), text: '', full: '', c: '', ff: '' }; }
+        const nul = v === null || v === undefined, text = nul ? 'null' : String(v);
+        return { isObj: false, isText: true, text: text.length > 160 ? text.slice(0, 160) + '…' : text, full: text, c: nul ? '#85857F' : '#0A0A0A', ff: typeof v === 'number' || nul ? 'ui-monospace,Menlo,monospace' : 'inherit', label: '', open: false, aria: '', bg: '', toggle: null };
+      });
+      const openCol = st.open && st.open.split('|')[0] === String(ri) ? st.open.slice(st.open.indexOf('|') + 1) : null;
+      let json = '';
+      if (openCol !== null) { try { json = JSON.stringify(row[openCol], null, 2); } catch (e) { json = String(row[openCol]); } }
+      return { cells, hasJson: openCol !== null, jsonCol: openCol || '', json, closeJson: () => set({ open: null }) };
+    });
+    const err = page.error, loaded = page.rows.length;
+    const total = page.total != null ? page.total : d && d.count != null && !st.q ? d.count : null;
+    const countText = !d ? '' : d.unavailable ? 'No disponible' : st.loading ? 'Cargando…' : loaded + (loaded === 1 ? ' fila cargada' : ' filas cargadas') + (total != null ? ' de ' + fmt.number(total) : page.hasMore ? ' (hay más)' : '') + (st.q ? ' · filtro «' + st.q + '»' : '');
+    const catErr = st.catErr;
+    return {
+      catLoading: st.catLoading, catFailed: !!catErr, catErrMsg: catErr ? catErr.message : '', catErrCode: catErr ? (catErr.status || '') + ' ' + (catErr.code || catErr.kind) : '', catErrHint: catErr && catErr.kind === 'route_missing' ? 'La pasarela aún no publica /api/v1/data.' : '', reloadCatalog: () => this.loadCatalog(true),
+      hasCatalog: list.length > 0 || (!st.catLoading && !catErr), groups,
+      cur: d ? { id: d.id, title: d.title || d.id, desc: d.description || '', service: d.service || '', origin: og[0], obg: og[1], ofg: og[2], obd: og[3] } : { id: '', title: list.length ? 'Elige una tabla' : 'El catálogo está vacío', desc: '', service: '', origin: '', obg: 'transparent', ofg: '#666666', obd: 'transparent' },
+      truncated: st.truncated, unavailable: !!(d && d.unavailable), showTable: !!d && !d.unavailable,
+      cols, colCount: Math.max(1, cols.length), rows, loading: st.loading, loadingMore: st.loadingMore, hasMore: page.hasMore && !st.loading, more: () => this.load(st.sel, st.q, true), moreLabel: st.loadingMore ? 'Cargando…' : 'Cargar más',
+      empty: !!d && !st.loading && !err && loaded === 0, emptyTitle: st.q ? 'Sin resultados' : 'Sin filas todavía', emptyHint: st.q ? 'Ninguna fila contiene «' + st.q + '».' : 'Esta tabla está vacía: aún no hay datos de Bright Data procesados aquí.',
+      failed: !!err, errMsg: err ? err.message : '', errCode: err ? (err.status || '') + ' ' + (err.code || err.kind) : '', retry: () => this.load(st.sel, st.q, false),
+      countText, pageHint: page.hasMore ? 'Página de ' + this.LIMIT + ' filas; usa «Cargar más» para seguir.' : loaded ? 'No hay más filas.' : '',
+      qInput: st.qInput, setQ: e => set({ qInput: e.target.value }), hasQ: !!(st.q || st.qInput), search: e => { if (e && e.preventDefault) e.preventDefault(); const q = (st.qInput || '').trim(); set({ q }); this.load(st.sel, q, false); }, clearQ: () => { set({ q: '', qInput: '' }); this.load(st.sel, '', false); },
+      noRows: loaded === 0, exportOp: loaded === 0 ? .5 : 1,
+      exportCsv: () => { if (!loaded) return; A.downloadCsv((st.sel || 'datos') + '.csv', A.toCsv(cols, page.rows)); if (p.onNotify) p.onNotify('CSV con ' + loaded + ' filas cargadas'); }
+    };
+  }
+}
+</script>
+</body>
+</html>

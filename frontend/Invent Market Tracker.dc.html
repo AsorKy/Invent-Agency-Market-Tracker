@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Invent Market Tracker</title>
+<script src="./api.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&display=swap" rel="stylesheet"><style>body{margin:0;background:#E9E8E4;font-family:Inter,sans-serif;-webkit-font-smoothing:antialiased}:focus-visible{outline:2px solid #0A0A0A;outline-offset:2px}dialog::backdrop{background:rgba(10,10,10,.4)}aside :focus-visible{outline-color:#00D4FF}a{color:#006A99}a:hover{color:#0A0A0A}[data-theme="dark"]{color-scheme:dark}body:has([data-theme="dark"]){background:#0A0A0A}[data-theme="dark"] [style*="background: rgb(250, 250, 250)"],[data-theme="dark"] [style*="background-color: rgb(250, 250, 250)"]{background:#141414!important}[data-theme="dark"] [style*="background: rgb(245, 245, 245)"],[data-theme="dark"] [style*="background-color: rgb(245, 245, 245)"]{background:#1C1C1C!important}[data-theme="dark"] [style*="background: rgb(233, 232, 228)"],[data-theme="dark"] [style*="background-color: rgb(233, 232, 228)"]{background:#0A0A0A!important}[data-theme="dark"] [style*="background: rgba(10, 10, 10, 0.14)"],[data-theme="dark"] [style*="background-color: rgba(10, 10, 10, 0.14)"]{background:rgba(250,250,250,.12)!important}[data-theme="dark"] [style*="background: rgb(255, 248, 235)"],[data-theme="dark"] [style*="background-color: rgb(255, 248, 235)"]{background:rgba(199,124,14,.16)!important}[data-theme="dark"] [style*="background: rgb(254, 243, 242)"],[data-theme="dark"] [style*="background-color: rgb(254, 243, 242)"]{background:rgba(217,45,32,.16)!important}[data-theme="dark"] [style*="background: rgb(236, 250, 243)"],[data-theme="dark"] [style*="background-color: rgb(236, 250, 243)"]{background:rgba(31,154,110,.16)!important}[data-theme="dark"] [style*="background: rgb(229, 248, 253)"],[data-theme="dark"] [style*="background-color: rgb(229, 248, 253)"]{background:rgba(0,119,170,.22)!important}[data-theme="dark"] [style*="background: rgb(243, 239, 255)"],[data-theme="dark"] [style*="background-color: rgb(243, 239, 255)"]{background:rgba(123,92,240,.2)!important}[data-theme="dark"] [style^="color: rgb(10, 10, 10)"],[data-theme="dark"] [style*="; color: rgb(10, 10, 10)"]{color:#E9E8E4!important}[data-theme="dark"] [style^="color: rgb(61, 61, 61)"],[data-theme="dark"] [style*="; color: rgb(61, 61, 61)"]{color:#C9C8C4!important}[data-theme="dark"] [style^="color: rgb(82, 82, 82)"],[data-theme="dark"] [style*="; color: rgb(82, 82, 82)"]{color:#C9C8C4!important}[data-theme="dark"] [style^="color: rgb(102, 102, 102)"],[data-theme="dark"] [style*="; color: rgb(102, 102, 102)"]{color:#8E8D89!important}[data-theme="dark"] [style^="color: rgb(0, 106, 153)"],[data-theme="dark"] [style*="; color: rgb(0, 106, 153)"]{color:#9BE3F7!important}[data-theme="dark"] [style^="color: rgb(161, 70, 10)"],[data-theme="dark"] [style*="; color: rgb(161, 70, 10)"]{color:#FCDDA0!important}[data-theme="dark"] [style^="color: rgb(180, 35, 24)"],[data-theme="dark"] [style*="; color: rgb(180, 35, 24)"]{color:#FECDCA!important}[data-theme="dark"] [style^="color: rgb(6, 118, 71)"],[data-theme="dark"] [style*="; color: rgb(6, 118, 71)"]{color:#A9E9C9!important}[data-theme="dark"] [style^="color: rgb(91, 61, 203)"],[data-theme="dark"] [style*="; color: rgb(91, 61, 203)"]{color:#F3EFFF!important}[data-theme="dark"] [style*="solid rgba(10, 10, 10, 0.14)"]{border-color:rgba(250,250,250,.12)!important}[data-theme="dark"] [style*="solid rgba(10, 10, 10, 0.26)"]{border-color:rgba(250,250,250,.24)!important}[data-theme="dark"] [style*="solid rgb(118, 118, 118)"]{border-color:#767676!important}[data-theme="dark"] [style*="solid rgb(252, 221, 160)"]{border-color:rgba(199,124,14,.45)!important}[data-theme="dark"] [style*="solid rgb(254, 205, 202)"]{border-color:rgba(217,45,32,.45)!important}[data-theme="dark"] [style*="solid rgb(169, 233, 201)"]{border-color:rgba(31,154,110,.45)!important}[data-theme="dark"] [style*="solid rgb(155, 227, 247)"]{border-color:rgba(0,119,170,.5)!important}[data-theme="dark"] [style*="solid rgb(10, 10, 10)"]{border-color:#E9E8E4!important}[data-theme="dark"] button[style*="background: rgb(10, 10, 10)"],[data-theme="dark"] a[style*="background: rgb(10, 10, 10)"]{background:#E9E8E4!important;color:#0A0A0A!important;border-color:#E9E8E4!important}[data-theme="dark"] aside[style*="background: rgb(10, 10, 10)"]{border-right:1px solid rgba(250,250,250,.1)}[data-theme="dark"] line[stroke^="rgba(10,10,10"],[data-theme="dark"] path[stroke="#3D3D3D"]{stroke:rgba(250,250,250,.2)}[data-theme="dark"] [stroke="#0A0A0A"]{stroke:#E9E8E4}[data-theme="dark"] rect[fill="#E5F8FD"]{fill:rgba(0,119,170,.25)}[data-theme="dark"] rect[fill="#F5F5F5"]{fill:#1C1C1C}[data-theme="dark"] svg[viewBox="0 0 100 100"] rect[fill="#0A0A0A"],[data-theme="dark"] svg[viewBox="0 0 100 100"] circle[fill="#0A0A0A"]{fill:#00D4FF}[data-theme="dark"] circle[fill="#0A0A0A"]{fill:#E9E8E4}[data-theme="dark"] :focus-visible{outline-color:#00D4FF!important}[data-theme="dark"] a{color:#9BE3F7}[data-theme="dark"] [style*="background:#FAFAFA" i]{background:#141414!important}[data-theme="dark"] [style*="background:#F5F5F5" i]{background:#1C1C1C!important}[data-theme="dark"] [style*="background:#E9E8E4" i]{background:#0A0A0A!important}[data-theme="dark"] [style*="background:rgba(10,10,10,.14)" i]{background:rgba(250,250,250,.12)!important}[data-theme="dark"] [style*="background:#FFF8EB" i]{background:rgba(199,124,14,.16)!important}[data-theme="dark"] [style*="background:#FEF3F2" i]{background:rgba(217,45,32,.16)!important}[data-theme="dark"] [style*="background:#ECFAF3" i]{background:rgba(31,154,110,.16)!important}[data-theme="dark"] [style*="background:#E5F8FD" i]{background:rgba(0,119,170,.22)!important}[data-theme="dark"] [style*="background:#F3EFFF" i]{background:rgba(123,92,240,.2)!important}[data-theme="dark"] [style*="color:#0A0A0A" i]{color:#E9E8E4!important}[data-theme="dark"] [style*="color:#3D3D3D" i]{color:#C9C8C4!important}[data-theme="dark"] [style*="color:#525252" i]{color:#C9C8C4!important}[data-theme="dark"] [style*="color:#666666" i]{color:#8E8D89!important}[data-theme="dark"] [style*="color:#006A99" i]{color:#9BE3F7!important}[data-theme="dark"] [style*="color:#A1460A" i]{color:#FCDDA0!important}[data-theme="dark"] [style*="color:#B42318" i]{color:#FECDCA!important}[data-theme="dark"] [style*="color:#067647" i]{color:#A9E9C9!important}[data-theme="dark"] [style*="color:#5B3DCB" i]{color:#F3EFFF!important}[data-theme="dark"] [style*="solid rgba(10,10,10,.14)" i]{border-color:rgba(250,250,250,.12)!important}[data-theme="dark"] [style*="solid rgba(10,10,10,.26)" i]{border-color:rgba(250,250,250,.24)!important}[data-theme="dark"] [style*="solid #FCDDA0" i]{border-color:rgba(199,124,14,.45)!important}[data-theme="dark"] [style*="solid #FECDCA" i]{border-color:rgba(217,45,32,.45)!important}[data-theme="dark"] [style*="solid #A9E9C9" i]{border-color:rgba(31,154,110,.45)!important}[data-theme="dark"] [style*="solid #9BE3F7" i]{border-color:rgba(0,119,170,.5)!important}[data-theme="dark"] [style*="solid #0A0A0A" i]{border-color:#E9E8E4!important}[data-theme="dark"] button[style*="background:#0A0A0A" i],[data-theme="dark"] a[style*="background:#0A0A0A" i]{background:#E9E8E4!important;color:#0A0A0A!important;border-color:#E9E8E4!important}[data-theme="dark"] button[style*="background:#0A0A0A" i] *{color:#0A0A0A!important}[data-theme="dark"] aside[style*="background:#0A0A0A" i]{border-right:1px solid rgba(250,250,250,.1)}</style></helmet>
+<div data-theme="{{ theme }}" style="min-height:100vh;background:{{ rootBg }};font-family:Inter,sans-serif;color:{{ rootFg }};font-variant-numeric:tabular-nums">
+
+<sc-if value="{{ isChecking }}" hint-placeholder-val="{{ true }}">
+  <div role="status" style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px"><svg width="40" height="40" viewBox="0 0 100 100" aria-hidden="true"><rect x="22" y="34" width="28" height="58" rx="14" fill="#0A0A0A"></rect><circle cx="70" cy="23" r="12" fill="#00D4FF"></circle></svg><div style="font-size:14px;color:#525252">Conectando con la API…</div></div>
+</sc-if>
+
+<sc-if value="{{ isOfflineScreen }}" hint-placeholder-val="{{ false }}">
+  <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px"><div role="alert" style="width:100%;max-width:480px;background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:32px;display:flex;flex-direction:column;gap:12px">
+    <div style="font-family:ui-monospace,Menlo,monospace;font-size:12px;color:#666666">{{ bootCode }}</div>
+    <h1 style="margin:0;font-size:24px;line-height:30px;font-weight:500;letter-spacing:-.03em">No hay conexión con la API</h1>
+    <p style="margin:0;font-size:14px;line-height:20px;color:#3D3D3D">{{ bootMessage }}</p>
+    <p style="margin:0;font-size:13px;line-height:20px;color:#666666">El frontend llama a /api/v1 en este mismo origen; el proxy lo envía a la pasarela. Revisa que el stack esté arriba (make invent-tracker).</p>
+    <button onClick="{{ retryBoot }}" style="align-self:flex-start;height:40px;padding:0 20px;border:1px solid #0A0A0A;border-radius:999px;background:#0A0A0A;color:#FAFAFA;font-family:inherit;font-size:13px;font-weight:500;letter-spacing:.02em;cursor:pointer;white-space:nowrap">Reintentar</button>
+  </div></div>
+</sc-if>
+
+<sc-if value="{{ isLogin }}" hint-placeholder-val="{{ false }}">
+  <div style="min-height:100vh;display:grid;grid-template-columns:{{ loginCols }}">
+    <sc-if value="{{ loginArt }}" hint-placeholder-val="{{ true }}"><div style="position:relative;background:#0A0A0A;overflow:hidden;padding:64px;display:flex;flex-direction:column;justify-content:space-between;box-sizing:border-box">
+      <div style="position:absolute;right:-160px;top:-160px;width:640px;height:640px;border-radius:50%;background:radial-gradient(circle,rgba(0,212,255,.12) 0%,rgba(0,212,255,0) 70%)"></div>
+      <svg width="100%" height="100%" aria-hidden="true" style="position:absolute;inset:0"><defs><pattern id="plus" width="48" height="48" patternUnits="userSpaceOnUse"><path d="M24 20v8M20 24h8" stroke="#FAFAFA" stroke-opacity=".1" stroke-width="1"></path></pattern></defs><rect width="100%" height="100%" fill="url(#plus)"></rect></svg>
+      <div style="position:relative;display:flex;align-items:center;gap:12px"><svg width="40" height="40" viewBox="0 0 100 100" aria-hidden="true"><rect x="22" y="34" width="28" height="58" rx="14" fill="#00D4FF"></rect><circle cx="70" cy="23" r="12" fill="#00D4FF"></circle></svg><div><div style="font-size:16px;line-height:18px;font-weight:500;letter-spacing:-.02em;color:#FAFAFA">INVENT®</div><div style="font-size:11px;line-height:16px;font-weight:500;letter-spacing:.16em;color:#8E8D89;margin-top:2px">MARKET TRACKER</div></div></div>
+      <div style="position:relative;max-width:560px"><h1 style="margin:0;font-size:48px;line-height:52px;font-weight:500;letter-spacing:-.04em;color:#FAFAFA">Evidencia de mercado, no intuición.</h1><p style="margin:20px 0 0;font-size:16px;line-height:24px;color:#C9C8C4">Detecta señales, califica leads y valida proyectos.</p></div>
+      <div style="position:relative;font-size:12px;letter-spacing:.02em;color:#8E8D89">( BOG · 4.7110° N )</div>
+    </div></sc-if>
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:32px">
+      <dc-import name="LoginCard" state="{{ loginState }}" onSubmit="{{ doLogin }}" hint-size="400px,480px" style="width:100%;max-width:400px"></dc-import>
+      <div style="font-size:12px;line-height:18px;color:#666666;max-width:400px;text-align:center">Entra con tu cuenta de Invent. La sesión vive en una cookie HttpOnly; este navegador no guarda tokens.</div>
+      <sc-if value="{{ canSkipLogin }}" hint-placeholder-val="{{ false }}"><button data-testid="login-local" onClick="{{ backToLocal }}" style="border:0;background:transparent;padding:0;font-family:inherit;font-size:13px;color:#006A99;text-decoration:underline;cursor:pointer">Seguir en modo local (sin sesión)</button></sc-if>
+      <button onClick="{{ goPrivacy }}" style="border:0;background:transparent;padding:0;font-family:inherit;font-size:13px;color:#006A99;text-decoration:underline;cursor:pointer">¿Tu empresa quiere salir de la base? Mira cómo pedirlo</button>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ isPrivacy }}" hint-placeholder-val="{{ false }}"><dc-import name="PrivacyView" onBack="{{ leavePrivacy }}" hint-size="100%,700px"></dc-import></sc-if>
+
+<sc-if value="{{ inApp }}" hint-placeholder-val="{{ false }}">
+<a href="#main" style="position:absolute;left:-9999px;top:8px;z-index:100;padding:8px 16px;border-radius:999px;background:#0A0A0A;color:#FAFAFA;font-size:13px;text-decoration:none" style-focus="left:16px">Saltar al contenido</a>
+<div style="display:flex;align-items:stretch;min-height:100vh">
+  <div style="width:{{ sbW }};flex:none;position:sticky;top:0;height:100vh;display:{{ sbDisplay }}"><dc-import name="Sidebar" onToggle="{{ toggleSb }}" active="{{ navActive }}" onNav="{{ nav }}" items="{{ navItems }}" collapsed="{{ collapsed }}" env="{{ envLabel }}" hint-size="240px,100%" style="flex:1;display:flex"></dc-import></div>
+  <sc-if value="{{ drawerOpen }}" hint-placeholder-val="{{ false }}"><div style="position:fixed;inset:0;z-index:70;display:flex"><div style="width:240px;height:100%;display:flex"><dc-import name="Sidebar" active="{{ navActive }}" onNav="{{ navDrawer }}" items="{{ navItems }}" env="{{ envLabel }}" hint-size="240px,100%" style="flex:1;display:flex"></dc-import></div><div onClick="{{ closeDrawer }}" style="flex:1;background:rgba(10,10,10,.4)"></div></div></sc-if>
+  <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+    <dc-import name="TopBar" theme="{{ theme }}" onTheme="{{ toggleTheme }}" crumb="{{ crumb }}" role="{{ role }}" who="{{ who }}" initials="{{ initials }}" local="{{ isLocal }}" city="{{ city }}" onCity="{{ setCity }}" onLogout="{{ logout }}" scope="{{ scope }}" compact="{{ isCompact }}" onMenu="{{ openDrawer }}" hint-size="100%,64px"></dc-import>
+    <div style="flex:1;display:flex;align-items:stretch;min-width:0">
+    <sc-if value="{{ isAna }}" hint-placeholder-val="{{ false }}">
+      <sc-if value="{{ anaShow }}" hint-placeholder-val="{{ true }}">
+        <nav aria-label="Subsecciones de {{ anaTitle }}" data-testid="analysis-subnav" style="width:264px;flex:none;box-sizing:border-box;background:#F5F5F5;border-right:1px solid rgba(10,10,10,.14);position:{{ anaPos }};left:0;top:{{ anaTop }};z-index:{{ anaZ }};height:calc(100vh - 64px);overflow-y:auto;display:flex;flex-direction:column;gap:16px;padding:20px 16px">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><div><div style="font-size:11px;line-height:16px;font-weight:500;letter-spacing:.16em;color:#666666">ANÁLISIS</div><div style="font-size:16px;line-height:24px;font-weight:500">{{ anaTitle }}</div><div style="font-size:12px;color:#666666">{{ anaCount }} subsecciones</div></div><button onClick="{{ anaHide }}" aria-label="Ocultar subsecciones" title="Ocultar subsecciones" style="width:32px;height:32px;border:1px solid rgba(10,10,10,.26);border-radius:999px;background:#FAFAFA;color:#0A0A0A;display:flex;align-items:center;justify-content:center;cursor:pointer;white-space:nowrap" style-hover="background:#E9E8E4"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"></path></svg></button></div>
+          <label style="position:relative;display:block"><span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Buscar subsección</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#666666" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="position:absolute;left:12px;top:11px"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4.3-4.3"></path></svg><input value="{{ anaQ }}" onInput="{{ setAnaQ }}" placeholder="Buscar subsección" style="width:100%;height:36px;box-sizing:border-box;padding:0 12px 0 32px;border:1px solid #767676;border-radius:999px;background:#FAFAFA;font-family:inherit;font-size:13px;color:#0A0A0A"></label>
+          <sc-if value="{{ anaEmpty }}" hint-placeholder-val="{{ false }}"><div style="font-size:13px;color:#666666;padding:8px 4px">Sin coincidencias.</div></sc-if>
+          <sc-for list="{{ anaGroups }}" as="g" hint-placeholder-count="1">
+            <div style="display:flex;flex-direction:column;gap:2px"><div style="font-size:11px;line-height:16px;font-weight:500;letter-spacing:.16em;color:#666666;padding:0 8px 6px">{{ g.g }}</div>
+              <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="3">
+                <a href="#" onClick="{{ it.go }}" aria-current="{{ it.cur }}" style="display:flex;align-items:center;height:32px;padding:0 10px;border-radius:8px;background:{{ it.bg }};border:1px solid {{ it.bd }};color:#0A0A0A;font-size:14px;font-weight:{{ it.fw }};text-decoration:none"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ it.l }}</span></a>
+              </sc-for>
+            </div>
+          </sc-for>
+          <div style="flex:1"></div>
+          <div style="font-size:12px;color:#666666;line-height:16px">{{ anaFoot }}</div>
+        </nav>
+      </sc-if>
+      <sc-if value="{{ anaRail }}" hint-placeholder-val="{{ false }}">
+        <div style="width:48px;flex:none;box-sizing:border-box;background:#F5F5F5;border-right:1px solid rgba(10,10,10,.14);position:sticky;top:0;height:calc(100vh - 64px);display:flex;flex-direction:column;align-items:center;padding-top:20px"><button onClick="{{ anaShowFn }}" aria-label="Mostrar subsecciones" title="Mostrar subsecciones de Análisis" style="width:32px;height:32px;border:1px solid rgba(10,10,10,.26);border-radius:999px;background:#FAFAFA;color:#0A0A0A;display:flex;align-items:center;justify-content:center;cursor:pointer;white-space:nowrap" style-hover="background:#E9E8E4"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg></button></div>
+      </sc-if>
+    </sc-if>
+    <main id="main" style="padding:{{ pad }};padding-bottom:96px;display:flex;flex-direction:column;gap:24px;max-width:{{ mainMax }};width:100%;margin:0 auto;box-sizing:border-box;min-width:0">
+
+<sc-if value="{{ offline }}" hint-placeholder-val="{{ false }}"><div role="alert" style="display:flex;gap:12px;align-items:center;padding:12px 16px;border-radius:12px;background:#FFF8EB;border:1px solid #FCDDA0;color:#A1460A;font-size:14px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 20h.01M8.5 16.4a5 5 0 0 1 7 0M5 12.9a10 10 0 0 1 5-2.7M2 8.8a15 15 0 0 1 4.2-2.7M2 2l20 20"></path></svg><span style="flex:1;font-weight:500">Sin conexión con la API. Los datos en pantalla pueden estar desactualizados.</span><button onClick="{{ goOnline }}" style="height:28px;padding:0 12px;border:1px solid currentColor;border-radius:999px;background:transparent;color:inherit;font-family:inherit;font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap">Reintentar</button></div></sc-if>
+<sc-if value="{{ hasBootWarning }}" hint-placeholder-val="{{ false }}"><div role="alert" style="display:flex;gap:12px;align-items:center;padding:12px 16px;border-radius:12px;background:#FFF8EB;border:1px solid #FCDDA0;color:#A1460A;font-size:14px"><span style="flex:1"><span style="font-weight:500">La API respondió con un error al arrancar.</span> {{ bootWarning }}</span><span style="font-family:ui-monospace,Menlo,monospace;font-size:12px">{{ bootWarningCode }}</span></div></sc-if>
+<sc-if value="{{ idle }}" hint-placeholder-val="{{ false }}"><div role="status" style="display:flex;gap:12px;align-items:center;padding:12px 16px;border-radius:12px;background:#E5F8FD;border:1px solid #9BE3F7;color:#006A99;font-size:14px"><span style="flex:1;font-weight:500">Tu sesión se cerrará pronto por inactividad.</span><button onClick="{{ keepAlive }}" style="height:28px;padding:0 12px;border:1px solid currentColor;border-radius:999px;background:transparent;color:inherit;font-family:inherit;font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap">Seguir conectado</button></div></sc-if>
+<sc-if value="{{ isForbidden }}" hint-placeholder-val="{{ false }}"><div style="background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:64px 32px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:12px"><div style="font-family:ui-monospace,Menlo,monospace;font-size:13px;color:#666666">403</div><h1 style="margin:0;font-size:28px;line-height:32px;font-weight:500;letter-spacing:-.03em">No tienes permiso para ver esto</h1><p style="margin:0;font-size:14px;color:#3D3D3D;max-width:420px">{{ forbidMsg }}</p><button onClick="{{ goEntry }}" style="margin-top:12px;height:40px;padding:0 20px;border:1px solid #0A0A0A;border-radius:999px;background:#0A0A0A;color:#FAFAFA;font-family:inherit;font-size:13px;font-weight:500;letter-spacing:.02em;cursor:pointer;white-space:nowrap">{{ entryLabel }}</button></div></sc-if>
+<sc-if value="{{ isOther }}" hint-placeholder-val="{{ false }}"><div style="background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:64px 32px;text-align:center"><div style="font-size:16px;font-weight:500">Reportería ↗</div><div style="font-size:14px;line-height:20px;color:#666666;margin-top:4px;max-width:520px;margin-left:auto;margin-right:auto">Streamlit corre solo como servicio interno, sin puerto publicado: esta aplicación es la interfaz. La analítica y los segmentos se ven en sus propias secciones.</div></div></sc-if>
+<sc-if value="{{ isInbox }}" hint-placeholder-val="{{ false }}"><dc-import name="InboxView" role="{{ role }}" city="{{ city }}" onOpen="{{ openLead }}" onNotify="{{ notify }}" onGo="{{ goRoute }}" hint-size="100%,700px"></dc-import></sc-if>
+<sc-if value="{{ isPipeline }}" hint-placeholder-val="{{ false }}"><dc-import name="PipelineView" role="{{ role }}" city="{{ city }}" onOpen="{{ openLead }}" onNotify="{{ notify }}" hint-size="100%,700px"></dc-import></sc-if>
+<sc-if value="{{ isProjects }}" hint-placeholder-val="{{ false }}"><dc-import name="ProjectsView" role="{{ role }}" onNotify="{{ notify }}" onOpenLead="{{ openLead }}" hint-size="100%,700px"></dc-import></sc-if>
+<sc-if value="{{ isTerritory }}" hint-placeholder-val="{{ false }}"><dc-import name="TerritoryView" city="{{ city }}" hint-size="100%,700px"></dc-import></sc-if>
+<sc-if value="{{ isOps }}" hint-placeholder-val="{{ false }}"><dc-import name="OpsView" hint-size="100%,700px"></dc-import></sc-if>
+<sc-if value="{{ isImports }}" hint-placeholder-val="{{ false }}"><dc-import name="AdminView" mode="imports" role="{{ role }}" onNotify="{{ notify }}" hint-size="100%,700px"></dc-import></sc-if>
+<sc-if value="{{ isConfig }}" hint-placeholder-val="{{ false }}"><dc-import name="AdminView" mode="config" role="{{ role }}" onNotify="{{ notify }}" hint-size="100%,700px"></dc-import></sc-if>
+<sc-if value="{{ isMetrics }}" hint-placeholder-val="{{ false }}"><dc-import name="AdminView" mode="metrics" role="{{ role }}" onNotify="{{ notify }}" hint-size="100%,700px"></dc-import></sc-if>
+<sc-if value="{{ isAnalytics }}" hint-placeholder-val="{{ false }}"><dc-import name="AnalyticsView" layer="{{ anaLayer }}" role="{{ role }}" onGo="{{ goRoute }}" hint-size="100%,700px"></dc-import></sc-if>
+<sc-if value="{{ isSt }}" hint-placeholder-val="{{ false }}"><dc-import name="StreamlitView" page="{{ stPage }}" tab="{{ anaTab }}" comp="{{ anaComp }}" level="{{ anaLevel }}" hint-size="100%,700px"></dc-import></sc-if>
+<sc-if value="{{ isValidation }}" hint-placeholder-val="{{ false }}"><dc-import name="PortfolioView" part="{{ anaPart }}" onModels="{{ goModelos }}" hint-size="100%,700px"></dc-import></sc-if>
+<sc-if value="{{ isResearch }}" hint-placeholder-val="{{ false }}"><dc-import name="ResearchView" role="{{ role }}" hint-size="100%,700px"></dc-import></sc-if>
+<sc-if value="{{ isData }}" hint-placeholder-val="{{ false }}"><dc-import name="DataView" role="{{ role }}" dataset="{{ dataDataset }}" onDataset="{{ setDataDataset }}" onNotify="{{ notify }}" hint-size="100%,700px"></dc-import></sc-if>
+
+<sc-if value="{{ isMarket }}" hint-placeholder-val="{{ false }}">
+  <header style="display:flex;justify-content:space-between;align-items:flex-end;gap:16px 24px;flex-wrap:wrap">
+    <div><h1 style="margin:0;font-size:28px;line-height:32px;font-weight:500;letter-spacing:-.03em">Mercado</h1>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:6px;font-size:13px;color:#525252;flex-wrap:wrap"><span data-testid="market-as-of">{{ mAsOf }}</span><sc-if value="{{ mStale }}" hint-placeholder-val="{{ false }}"><span aria-hidden="true" style="color:#85857F">·</span><span data-testid="market-stale" style="display:inline-flex;align-items:center;gap:6px;color:#A1460A;font-weight:500"><span style="width:6px;height:6px;border-radius:50%;background:#C77C0E"></span>Desactualizado</span></sc-if><span aria-hidden="true" style="color:#85857F">·</span><span>{{ cityLabel }}</span></div></div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <div role="group" aria-label="Rango" style="display:flex;gap:2px;padding:2px;border-radius:8px;background:#F5F5F5;border:1px solid rgba(10,10,10,.14)"><sc-for list="{{ ranges }}" as="r" hint-placeholder-count="4"><button onClick="{{ r.go }}" aria-pressed="{{ r.on }}" style="height:28px;padding:0 12px;border:1px solid {{ r.sbd }};border-radius:6px;background:{{ r.sbg }};color:{{ r.sc }};font-family:inherit;font-size:13px;font-weight:{{ r.sw }};cursor:pointer">{{ r.l }}</button></sc-for></div>
+      <button onClick="{{ reloadMarket }}" style="height:34px;padding:0 14px;border:1px solid rgba(10,10,10,.26);border-radius:999px;background:transparent;color:#0A0A0A;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap" style-hover="background:#F5F5F5">Actualizar</button>
+    </div>
+  </header>
+  <sc-if value="{{ mLoading }}" hint-placeholder-val="{{ false }}"><div role="status" style="font-size:13px;color:#666666">Cargando datos del mercado…</div></sc-if>
+  <sc-for list="{{ mErrors }}" as="e" hint-placeholder-count="0"><div role="alert" style="display:flex;gap:12px;align-items:center;padding:12px 16px;border-radius:12px;background:#FEF3F2;border:1px solid #FECDCA;color:#B42318;font-size:14px"><span style="flex:1"><span style="font-weight:500">{{ e.block }}:</span> {{ e.message }}</span><span style="font-family:ui-monospace,Menlo,monospace;font-size:12px">{{ e.code }}</span></div></sc-for>
+
+  <div style="display:grid;grid-template-columns:repeat({{ kpiN }},minmax(0,1fr));gap:1px;background:rgba(10,10,10,.14);border:1px solid rgba(10,10,10,.14);border-radius:12px;overflow:hidden">
+    <sc-for list="{{ kpis }}" as="k" hint-placeholder-count="4"><div data-testid="{{ k.tid }}" style="background:#FAFAFA;padding:20px 24px"><div style="font-size:13px;color:#525252">{{ k.l }}</div><div style="font-size:32px;line-height:40px;font-weight:300;letter-spacing:-.03em;margin-top:4px">{{ k.v }}</div><div style="font-size:13px;color:{{ k.sc }}">{{ k.sub }}</div></div></sc-for>
+  </div>
+
+  <div style="display:flex;flex-wrap:wrap;gap:24px;align-items:stretch">
+    <section aria-labelledby="m-signals" style="flex:8 1 520px;min-width:0;background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:20px 24px 16px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:12px"><div style="min-width:0"><h2 id="m-signals" style="margin:0;font-size:16px;line-height:24px;font-weight:500;color:#0A0A0A">Señales por periodo</h2><div style="font-size:13px;line-height:20px;color:#666666">Señales recibidas y fallidas por {{ periodNoun }}</div></div>
+        <div style="display:flex;gap:8px;align-items:center"><div role="group" aria-label="Periodo" style="display:flex;gap:2px;padding:2px;border-radius:8px;background:#F5F5F5;border:1px solid rgba(10,10,10,.14)"><sc-for list="{{ periods }}" as="r" hint-placeholder-count="3"><button onClick="{{ r.go }}" aria-pressed="{{ r.on }}" style="height:26px;padding:0 12px;border:1px solid {{ r.sbd }};border-radius:6px;background:{{ r.sbg }};color:{{ r.sc }};font-family:inherit;font-size:13px;font-weight:{{ r.sw }};cursor:pointer">{{ r.l }}</button></sc-for></div><sc-if value="{{ hasPoints }}" hint-placeholder-val="{{ false }}"><button onClick="{{ toggleTable }}" style="height:28px;padding:0 4px;border:0;background:transparent;font-family:inherit;font-size:13px;font-weight:500;color:#006A99;cursor:pointer" style-hover="text-decoration:underline">{{ tableLabel }}</button></sc-if></div></div>
+      <sc-if value="{{ noPoints }}" hint-placeholder-val="{{ false }}"><div style="padding:40px 16px;text-align:center;border:1px dashed rgba(10,10,10,.26);border-radius:8px"><div style="font-size:15px;font-weight:500">Sin datos todavía</div><div style="font-size:13px;color:#666666;margin-top:4px">pulse aún no publica señales por periodo para este rango.</div></div></sc-if>
+      <sc-if value="{{ showChart }}" hint-placeholder-val="{{ false }}">
+      <svg viewBox="0 0 692 250" width="100%" role="img" aria-label="Señales por periodo" style="display:block">
+        <sc-for list="{{ grid }}" as="g" hint-placeholder-count="4"><g><line x1="36" x2="692" y1="{{ g.y }}" y2="{{ g.y }}" stroke="rgba(10,10,10,.08)"></line><foreignObject x="28" y="{{ g.ty }}" width="1" height="1" style="overflow:visible"><div style="width:max-content;white-space:nowrap;transform:translate(-100%,-80%);font-size:11px;line-height:1.2;color:#666666;font-weight:400;font-family:Inter,sans-serif;font-variant-numeric:tabular-nums;pointer-events:none">{{ g.l }}</div></foreignObject></g></sc-for>
+        <sc-for list="{{ bars }}" as="b" hint-placeholder-count="12"><g><rect x="{{ b.x }}" y="{{ b.y }}" width="{{ b.bw }}" height="{{ b.h }}" rx="2" fill="#0077AA"></rect><rect x="{{ b.x }}" y="{{ b.fy }}" width="{{ b.bw }}" height="{{ b.fh }}" rx="2" fill="#D92D20"></rect><foreignObject x="{{ b.cx }}" y="236" width="1" height="1" style="overflow:visible"><div style="width:max-content;white-space:nowrap;transform:translate(-50%,-80%);font-size:11px;line-height:1.2;color:#666666;font-weight:400;font-family:Inter,sans-serif;font-variant-numeric:tabular-nums;pointer-events:none">{{ b.l }}</div></foreignObject></g></sc-for>
+      </svg>
+      <div style="display:flex;gap:20px;margin-top:4px;font-size:12px;color:#525252"><span style="display:flex;gap:6px;align-items:center"><span style="width:10px;height:10px;background:#0077AA;border-radius:2px;display:block"></span>Recibidas</span><span style="display:flex;gap:6px;align-items:center"><span style="width:10px;height:10px;background:#D92D20;border-radius:2px;display:block"></span>Fallidas</span></div>
+      </sc-if>
+      <sc-if value="{{ showTable }}" hint-placeholder-val="{{ false }}">
+        <div style="border:1px solid rgba(10,10,10,.14);border-radius:8px;max-height:252px;overflow-y:auto"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr><th scope="col" style="text-align:left;padding:8px 12px;background:#F5F5F5;font-weight:500;color:#525252">Periodo</th><th scope="col" style="text-align:right;padding:8px 12px;background:#F5F5F5;font-weight:500;color:#525252">Señales</th><th scope="col" style="text-align:right;padding:8px 12px;background:#F5F5F5;font-weight:500;color:#525252">Fallidas</th><th scope="col" style="text-align:right;padding:8px 12px;background:#F5F5F5;font-weight:500;color:#525252">Tasa de fallo</th></tr></thead><tbody><sc-for list="{{ tableRows }}" as="t" hint-placeholder-count="6"><tr><td style="padding:8px 12px;border-top:1px solid rgba(10,10,10,.14)">{{ t.l }}</td><td style="padding:8px 12px;border-top:1px solid rgba(10,10,10,.14);text-align:right">{{ t.v }}</td><td style="padding:8px 12px;border-top:1px solid rgba(10,10,10,.14);text-align:right">{{ t.f }}</td><td style="padding:8px 12px;border-top:1px solid rgba(10,10,10,.14);text-align:right;color:#666666">{{ t.r }}</td></tr></sc-for></tbody></table></div>
+      </sc-if>
+    </section>
+
+    <section aria-labelledby="m-sources" style="flex:4 1 300px;min-width:0;background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:20px 24px;display:flex;flex-direction:column">
+      <div style="margin-bottom:12px"><h2 id="m-sources" style="margin:0;font-size:16px;line-height:24px;font-weight:500;color:#0A0A0A">Fuentes</h2><div style="font-size:13px;line-height:20px;color:#666666">Leads, reuniones y costo por reunión</div></div>
+      <sc-if value="{{ noSources }}" hint-placeholder-val="{{ false }}"><div style="padding:24px 8px;text-align:center"><div style="font-size:15px;font-weight:500">Sin datos todavía</div><div style="font-size:13px;color:#666666;margin-top:4px">La eficiencia por fuente aparece cuando pulse tenga costos y reuniones.</div></div></sc-if>
+      <sc-if value="{{ hasSources }}" hint-placeholder-val="{{ false }}"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr><th scope="col" style="text-align:left;padding:0 0 8px;font-weight:500;color:#666666">Fuente</th><th scope="col" style="text-align:right;padding:0 0 8px;font-weight:500;color:#666666">Leads</th><th scope="col" style="text-align:right;padding:0 0 8px;font-weight:500;color:#666666">Reuniones</th><th scope="col" style="text-align:right;padding:0 0 8px 16px;font-weight:500;color:#666666">US$ / reunión</th></tr></thead>
+        <tbody><sc-for list="{{ srcRows }}" as="r" hint-placeholder-count="4"><tr><td style="padding:10px 0;border-top:1px solid rgba(10,10,10,.14);color:#0A0A0A">{{ r.n }}</td><td style="padding:10px 0;border-top:1px solid rgba(10,10,10,.14);text-align:right">{{ r.leads }}</td><td style="padding:10px 0;border-top:1px solid rgba(10,10,10,.14);text-align:right">{{ r.meetings }}</td><td style="padding:10px 0 10px 16px;border-top:1px solid rgba(10,10,10,.14);text-align:right">{{ r.cost }}</td></tr></sc-for></tbody></table></sc-if>
+    </section>
+
+    <section aria-labelledby="m-time" style="flex:7 1 460px;min-width:0;background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:20px 24px">
+      <div style="margin-bottom:16px"><h2 id="m-time" style="margin:0;font-size:16px;line-height:24px;font-weight:500;color:#0A0A0A">Tiempo en pipeline</h2><div style="font-size:13px;line-height:20px;color:#666666">Días por línea de servicio · barra hasta p50, marca en p90</div></div>
+      <sc-if value="{{ noStages }}" hint-placeholder-val="{{ false }}"><div style="padding:24px 8px;text-align:center"><div style="font-size:15px;font-weight:500">Sin datos todavía</div><div style="font-size:13px;color:#666666;margin-top:4px">Se calcula cuando haya leads que cambien de etapa.</div></div></sc-if>
+      <sc-if value="{{ hasStages }}" hint-placeholder-val="{{ false }}"><div role="table" aria-label="Tiempo por línea" style="display:flex;flex-direction:column">
+        <div role="row" style="display:grid;grid-template-columns:minmax(150px,1.3fr) minmax(0,2fr) 44px 44px 44px;gap:12px;padding-bottom:8px;font-size:12px;font-weight:500;color:#666666"><span role="columnheader">Grupo</span><span></span><span role="columnheader" style="text-align:right">p50</span><span role="columnheader" style="text-align:right">p90</span><span role="columnheader" style="text-align:right">n</span></div>
+        <sc-for list="{{ stageRows }}" as="s" hint-placeholder-count="4"><div role="row" style="display:grid;grid-template-columns:minmax(150px,1.3fr) minmax(0,2fr) 44px 44px 44px;gap:12px;align-items:center;padding:10px 0;border-top:1px solid rgba(10,10,10,.14);font-size:13px">
+          <span role="cell"><span style="display:block;color:#0A0A0A">{{ s.n }}</span><sc-if value="{{ s.low }}" hint-placeholder-val="{{ false }}"><span style="display:block;font-size:12px;color:#A1460A">Muestra baja (n &lt; 5)</span></sc-if></span>
+          <span aria-hidden="true" style="position:relative;height:8px;background:#E9E8E4;border-radius:4px;display:block"><span style="position:absolute;left:0;top:0;bottom:0;width:{{ s.w50 }};background:{{ s.fill }};border-radius:4px;opacity:{{ s.op }}"></span><span style="position:absolute;left:{{ s.w90 }};top:-4px;bottom:-4px;width:2px;background:#0A0A0A;border-radius:1px"></span></span>
+          <span role="cell" style="text-align:right">{{ s.p50 }}</span><span role="cell" style="text-align:right;color:#525252">{{ s.p90 }}</span><span role="cell" style="text-align:right;color:#666666">{{ s.nn }}</span></div></sc-for>
+      </div></sc-if>
+    </section>
+
+    <section aria-labelledby="m-cities" style="flex:5 1 340px;min-width:0;background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:20px 24px">
+      <div style="margin-bottom:12px"><h2 id="m-cities" style="margin:0;font-size:16px;line-height:24px;font-weight:500;color:#0A0A0A">Empresas por ciudad y categoría</h2><div style="font-size:13px;line-height:20px;color:#666666">Categoría de Google Maps, si no la industria de LinkedIn, si no el sector</div></div>
+      <sc-if value="{{ noCityCat }}" hint-placeholder-val="{{ false }}"><div style="padding:24px 8px;text-align:center"><div style="font-size:15px;font-weight:500">Aún no hay empresas</div><div style="font-size:13px;color:#666666;margin-top:4px">Aparecen cuando ingest convierte los snapshots de Bright Data en empresas.</div></div></sc-if>
+      <sc-for list="{{ cityCat }}" as="h" hint-placeholder-count="5"><div style="display:grid;grid-template-columns:minmax(0,1fr) 72px 48px;gap:12px;align-items:center;padding:6px 0;font-size:13px"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{ h.title }}"><span style="color:#0A0A0A">{{ h.cat }}</span> <span style="color:#666666">· {{ h.city }}</span></span><span aria-hidden="true" style="height:4px;background:#E9E8E4;border-radius:2px;position:relative;display:block"><span style="position:absolute;left:0;top:0;bottom:0;width:{{ h.w }};background:#0077AA;border-radius:2px"></span></span><span style="text-align:right">{{ h.n }}</span></div></sc-for>
+    </section>
+
+    <section aria-labelledby="m-maps" style="flex:4 1 300px;min-width:0;background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:20px 24px">
+      <div style="margin-bottom:12px"><h2 id="m-maps" style="margin:0;font-size:16px;line-height:24px;font-weight:500;color:#0A0A0A">Calificaciones en Google Maps</h2><div style="font-size:13px;line-height:20px;color:#666666">Fichas, calificación y reseñas promedio por ciudad</div></div>
+      <sc-if value="{{ mapsOff }}" hint-placeholder-val="{{ false }}"><div role="note" style="display:flex;gap:8px;align-items:center;padding:12px 16px;border-radius:12px;background:#F5F5F5;border:1px solid rgba(10,10,10,.14);color:#3D3D3D;font-size:13px">{{ mapsMsg }}</div></sc-if>
+      <sc-if value="{{ mapsOn }}" hint-placeholder-val="{{ false }}"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr><th scope="col" style="text-align:left;padding:0 0 8px;font-weight:500;color:#666666">Ciudad</th><th scope="col" style="text-align:right;padding:0 0 8px;font-weight:500;color:#666666">Fichas</th><th scope="col" style="text-align:right;padding:0 0 8px;font-weight:500;color:#666666">Calificación</th><th scope="col" style="text-align:right;padding:0 0 8px;font-weight:500;color:#666666">Reseñas</th></tr></thead><tbody><sc-for list="{{ mapsRows }}" as="r" hint-placeholder-count="3"><tr><td style="padding:10px 0;border-top:1px solid rgba(10,10,10,.14)">{{ r.city }}</td><td style="padding:10px 0;border-top:1px solid rgba(10,10,10,.14);text-align:right">{{ r.listings }}</td><td style="padding:10px 0;border-top:1px solid rgba(10,10,10,.14);text-align:right">{{ r.rating }}</td><td style="padding:10px 0;border-top:1px solid rgba(10,10,10,.14);text-align:right">{{ r.reviews }}</td></tr></sc-for></tbody></table></sc-if>
+    </section>
+
+    <section aria-labelledby="m-hiring" style="flex:6 1 400px;min-width:0;background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:20px 24px">
+      <div style="margin-bottom:12px"><h2 id="m-hiring" style="margin:0;font-size:16px;line-height:24px;font-weight:500;color:#0A0A0A">Demanda de contratación</h2><div style="font-size:13px;line-height:20px;color:#666666">Vacantes de LinkedIn por ciudad y palabra clave</div></div>
+      <sc-if value="{{ noHiring }}" hint-placeholder-val="{{ false }}"><div style="padding:24px 8px;text-align:center"><div style="font-size:15px;font-weight:500">Sin datos todavía</div><div style="font-size:13px;color:#666666;margin-top:4px">Aparece cuando haya señales de vacantes de LinkedIn.</div></div></sc-if>
+      <sc-for list="{{ hiringRows }}" as="h" hint-placeholder-count="5"><div style="display:grid;grid-template-columns:minmax(0,1fr) 96px 72px;gap:12px;align-items:center;padding:6px 0;font-size:13px"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><span style="color:#0A0A0A">{{ h.k }}</span> <span style="color:#666666">· {{ h.city }}</span></span><span aria-hidden="true" style="height:4px;background:#E9E8E4;border-radius:2px;position:relative;display:block"><span style="position:absolute;left:0;top:0;bottom:0;width:{{ h.w }};background:#7B5CF0;border-radius:2px"></span></span><span style="text-align:right" title="{{ h.title }}">{{ h.n }}</span></div></sc-for>
+    </section>
+
+    <section aria-labelledby="m-mid" style="flex:4 1 300px;min-width:0;background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:20px 24px">
+      <div style="margin-bottom:12px"><h2 id="m-mid" style="margin:0;font-size:16px;line-height:24px;font-weight:500;color:#0A0A0A">Empresas medianas</h2><div style="font-size:13px;line-height:20px;color:#666666">{{ midSub }}</div></div>
+      <sc-if value="{{ noMid }}" hint-placeholder-val="{{ false }}"><div style="padding:24px 8px;text-align:center"><div style="font-size:15px;font-weight:500">Sin datos todavía</div><div style="font-size:13px;color:#666666;margin-top:4px">Ninguna empresa tiene tamaño conocido aún.</div></div></sc-if>
+      <sc-for list="{{ midRows }}" as="h" hint-placeholder-count="4"><div style="display:grid;grid-template-columns:minmax(0,1fr) 72px 56px;gap:12px;align-items:center;padding:6px 0;font-size:13px"><span style="color:#0A0A0A">{{ h.city }}</span><span aria-hidden="true" style="height:4px;background:#E9E8E4;border-radius:2px;position:relative;display:block"><span style="position:absolute;left:0;top:0;bottom:0;width:{{ h.w }};background:#1F9A6E;border-radius:2px"></span></span><span style="text-align:right" title="{{ h.title }}">{{ h.share }}</span></div></sc-for>
+    </section>
+  </div>
+</sc-if>
+
+<sc-if value="{{ isLeads }}" hint-placeholder-val="{{ false }}">
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap">
+    <div><h1 style="margin:0;font-size:28px;line-height:32px;font-weight:500;letter-spacing:-.03em">Leads</h1><div style="font-size:14px;color:#3D3D3D;margin-top:4px">Empresas detectadas y calificadas · {{ leadsCount }} · {{ cityLabel }}</div></div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <button onClick="{{ copyLink }}" style="height:40px;padding:0 16px;border:1px solid rgba(10,10,10,.26);border-radius:999px;background:transparent;color:#0A0A0A;font-family:inherit;font-size:13px;font-weight:500;letter-spacing:.02em;cursor:pointer;white-space:nowrap" style-hover="background:#F5F5F5">Copiar enlace</button>
+      <sc-if value="{{ canExport }}" hint-placeholder-val="{{ false }}"><button onClick="{{ exportCsv }}" disabled="{{ noRows }}" style="height:40px;padding:0 16px;border:1px solid rgba(10,10,10,.26);border-radius:999px;background:transparent;color:#0A0A0A;font-family:inherit;font-size:13px;font-weight:500;letter-spacing:.02em;cursor:pointer;white-space:nowrap" style-hover="background:#F5F5F5">Exportar CSV</button></sc-if>
+      <sc-if value="{{ canCreate }}" hint-placeholder-val="{{ false }}"><button data-testid="leads-new" onClick="{{ newLead }}" style="height:40px;padding:0 20px;border:1px solid #0A0A0A;border-radius:999px;background:#0A0A0A;color:#FAFAFA;font-family:inherit;font-size:13px;font-weight:500;letter-spacing:.02em;display:inline-flex;align-items:center;gap:8px;cursor:pointer;white-space:nowrap" style-hover="background:#1C1C1C"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Nuevo lead</button></sc-if>
+    </div>
+  </div>
+  <sc-if value="{{ dmUnavailable }}" hint-placeholder-val="{{ false }}"><div data-testid="dm-unavailable" role="note" style="display:flex;gap:12px;align-items:center;padding:12px 16px;border-radius:12px;background:#E5F8FD;border:1px solid #9BE3F7;color:#006A99;font-size:14px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 16v-4M12 8h.01"></path></svg>Decisores no disponibles (requiere Business Search de Bright Data)</div></sc-if>
+  <div style="background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:16px 24px;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;align-items:end">
+    <sc-for list="{{ filters }}" as="f" hint-placeholder-count="3"><label style="display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:500;color:#3D3D3D">{{ f.l }}<span style="position:relative;display:block"><select value="{{ f.value }}" onChange="{{ f.change }}" style="appearance:none;width:100%;height:36px;box-sizing:border-box;padding:0 28px 0 12px;border:1px solid #767676;border-radius:8px;background:#FAFAFA;font-family:inherit;font-size:14px;color:#0A0A0A;cursor:pointer"><sc-for list="{{ f.opts }}" as="o" hint-placeholder-count="4"><option value="{{ o.v }}">{{ o.l }}</option></sc-for></select><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3D3D3D" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="position:absolute;right:10px;top:11px;pointer-events:none"><path d="m6 9 6 6 6-6"></path></svg></span></label></sc-for>
+    <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:500;color:#3D3D3D">Score mínimo<input type="number" min="0" max="100" value="{{ scoreMin }}" onChange="{{ setScore }}" style="height:36px;box-sizing:border-box;padding:0 12px;border:1px solid #767676;border-radius:8px;background:#FAFAFA;font-family:inherit;font-size:14px;color:#0A0A0A;width:100%"></label>
+    <button onClick="{{ clearF }}" style="height:36px;padding:0 16px;border:1px solid rgba(10,10,10,.26);border-radius:999px;background:transparent;font-family:inherit;font-size:13px;font-weight:500;letter-spacing:.02em;color:#0A0A0A;cursor:pointer;white-space:nowrap">Limpiar</button>
+  </div>
+  <sc-if value="{{ leadsError }}" hint-placeholder-val="{{ false }}"><div role="alert" style="display:flex;gap:12px;align-items:center;padding:12px 16px;border-radius:12px;background:#FEF3F2;border:1px solid #FECDCA;color:#B42318;font-size:14px"><span style="flex:1;font-weight:500">{{ leadsErrorMsg }}</span><span style="font-family:ui-monospace,Menlo,monospace;font-size:12px">{{ leadsErrorCode }}</span><button onClick="{{ reloadLeads }}" style="height:28px;padding:0 12px;border:1px solid currentColor;border-radius:999px;background:transparent;color:inherit;font-family:inherit;font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap">Reintentar</button></div></sc-if>
+  <div style="background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;overflow-x:auto">
+    <div role="table" aria-label="Leads" aria-busy="{{ leadsLoading }}" data-testid="leads-list" style="min-width:1180px">
+      <div role="row" style="display:grid;grid-template-columns:96px minmax(0,2fr) 128px 120px 110px 100px 100px 130px;gap:16px;padding:12px 24px;background:#F5F5F5;border-bottom:1px solid rgba(10,10,10,.14);font-size:11px;font-weight:500;letter-spacing:.16em;color:#525252"><span role="columnheader">SCORE</span><span role="columnheader">EMPRESA</span><span role="columnheader">ESTADO</span><span role="columnheader">LÍNEA</span><span role="columnheader">CIUDAD</span><span role="columnheader">SEGMENTO</span><span role="columnheader">ACTUALIZADO</span><span role="columnheader" title="Registro Único Empresarial y Social">RUES</span></div>
+      <sc-if value="{{ leadsLoading }}" hint-placeholder-val="{{ false }}"><div role="status" style="padding:32px 24px;text-align:center;font-size:14px;color:#666666">Cargando leads…</div></sc-if>
+      <sc-if value="{{ noRows }}" hint-placeholder-val="{{ false }}"><div style="padding:48px 24px;text-align:center"><div style="font-size:16px;font-weight:500">{{ emptyTitle }}</div><div style="font-size:14px;color:#666666;margin-top:4px">{{ emptyHint }}</div></div></sc-if>
+      <sc-for list="{{ rows }}" as="r" hint-placeholder-count="10">
+        <div role="row" onClick="{{ r.open }}" style="display:grid;grid-template-columns:96px minmax(0,2fr) 128px 120px 110px 100px 100px 130px;gap:16px;align-items:center;padding:8px 24px;min-height:60px;box-sizing:border-box;border-bottom:1px solid rgba(10,10,10,.14);font-size:14px;cursor:pointer" style-hover="background:#F5F5F5">
+          <span role="cell" title="{{ r.tip }}" style="display:flex;flex-direction:column;gap:4px"><b style="font-size:16px;font-weight:500">{{ r.s }}</b><span style="width:48px;height:4px;background:#E9E8E4;border-radius:2px;position:relative;display:block"><span style="position:absolute;left:0;top:0;bottom:0;width:{{ r.sw }};background:{{ r.sc }};border-radius:2px"></span></span></span>
+          <span role="cell" style="min-width:0"><a href="{{ r.href }}" onClick="{{ r.open }}" style="color:#0A0A0A;font-weight:500;text-decoration:none">{{ r.n }}</a><div style="font-size:12px;color:#666666;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{ r.dmTitle }}">{{ r.dm }}</div></span>
+          <span role="cell"><dc-import name="StatusPill" status="{{ r.stage }}" hint-size="100px,24px"></dc-import></span>
+          <span role="cell"><span style="display:inline-flex;align-items:center;height:24px;padding:0 10px;border:1px solid rgba(10,10,10,.26);border-radius:999px;font-size:12px;font-weight:500;color:#3D3D3D;white-space:nowrap">{{ r.l }}</span></span>
+          <span role="cell" style="color:#3D3D3D">{{ r.c }}</span><span role="cell" style="color:#3D3D3D">{{ r.seg }}</span><span role="cell" title="{{ r.abs }}" style="color:#666666;font-size:13px">{{ r.u }}</span>
+          <span role="cell"><dc-import name="RuesStatus" state="{{ r.ru }}" hint-size="110px,24px"></dc-import></span>
+        </div>
+      </sc-for>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 24px"><span style="font-size:13px;color:#666666">Mostrando {{ shown }}{{ moreHint }}</span><sc-if value="{{ hasMore }}" hint-placeholder-val="{{ false }}"><button data-testid="leads-next" onClick="{{ loadMore }}" disabled="{{ loadingMore }}" style="height:40px;padding:0 20px;border:1px solid rgba(10,10,10,.26);border-radius:999px;background:transparent;font-family:inherit;font-size:13px;font-weight:500;letter-spacing:.02em;color:#0A0A0A;cursor:pointer;white-space:nowrap" style-hover="background:#F5F5F5">{{ moreLabel }}</button></sc-if></div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ isNotFound }}" hint-placeholder-val="{{ false }}"><div style="background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:64px 32px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:12px"><div style="font-family:ui-monospace,Menlo,monospace;font-size:13px;color:#666666">{{ leadErrCode }}</div><h1 style="margin:0;font-size:28px;line-height:32px;font-weight:500;letter-spacing:-.03em">{{ leadErrTitle }}</h1><p style="margin:0;font-size:14px;color:#3D3D3D;max-width:460px">{{ leadErrMsg }}</p><div style="display:flex;gap:8px;margin-top:12px"><button onClick="{{ goLeads }}" style="height:40px;padding:0 20px;border:1px solid #0A0A0A;border-radius:999px;background:#0A0A0A;color:#FAFAFA;font-family:inherit;font-size:13px;font-weight:500;letter-spacing:.02em;cursor:pointer;white-space:nowrap">Volver a Leads</button><button onClick="{{ reloadLead }}" style="height:40px;padding:0 20px;border:1px solid rgba(10,10,10,.26);border-radius:999px;background:transparent;color:#0A0A0A;font-family:inherit;font-size:13px;font-weight:500;letter-spacing:.02em;cursor:pointer;white-space:nowrap">Reintentar</button></div></div></sc-if>
+<sc-if value="{{ leadLoading }}" hint-placeholder-val="{{ false }}"><div role="status" style="padding:48px 24px;text-align:center;font-size:14px;color:#666666">Cargando el lead…</div></sc-if>
+
+<sc-if value="{{ isLead }}" hint-placeholder-val="{{ false }}">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:24px;flex-wrap:wrap">
+    <div><button onClick="{{ goLeads }}" style="border:0;background:transparent;padding:0;margin-bottom:8px;font-family:inherit;font-size:13px;color:#006A99;cursor:pointer;display:flex;gap:4px;align-items:center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7"></path></svg>Volver a Leads</button>
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><h1 style="margin:0;font-size:28px;line-height:32px;font-weight:500;letter-spacing:-.03em">{{ lead.n }}</h1><span data-testid="lead-status"><dc-import name="StatusPill" status="{{ lead.stage }}" hint-size="80px,24px"></dc-import></span><span title="Versión del lead (control de concurrencia)" style="font-family:ui-monospace,Menlo,monospace;font-size:12px;color:#666666">v{{ lead.version }}</span></div>
+      <div style="margin-top:8px;display:flex;align-items:center;gap:8px"><span title="Identificador de la empresa en core" style="font-family:ui-monospace,Menlo,monospace;font-size:12px;color:#3D3D3D">{{ lead.companyId }}</span><button onClick="{{ copyId }}" aria-label="Copiar identificador de la empresa" style="width:24px;height:24px;border:0;border-radius:6px;background:transparent;color:#3D3D3D;cursor:pointer;display:flex;align-items:center;justify-content:center" style-hover="background:#F5F5F5"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button></div></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;max-width:620px">
+      <sc-for list="{{ actions }}" as="a" hint-placeholder-count="4"><button data-testid="{{ a.tid }}" onClick="{{ a.go }}" disabled="{{ a.dis }}" title="{{ a.tip }}" style="height:40px;padding:0 20px;border:1px solid {{ a.bd }};border-radius:999px;background:{{ a.bg }};color:{{ a.fg }};font-family:inherit;font-size:13px;font-weight:500;letter-spacing:.02em;cursor:{{ a.cur }};opacity:{{ a.op }};white-space:nowrap">{{ a.l }}</button></sc-for>
+    </div>
+  </div>
+  <nav data-testid="lead-stepper" aria-label="Etapas" style="background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:16px 24px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+    <ol style="list-style:none;margin:0;padding:0;display:flex;align-items:center;gap:8px;flex-wrap:wrap"><sc-for list="{{ steps }}" as="s" hint-placeholder-count="7"><li aria-current="{{ s.cur }}" style="display:flex;align-items:center;gap:8px"><span style="width:24px;height:24px;border-radius:50%;box-sizing:border-box;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:500;background:{{ s.bg }};color:{{ s.fg }};border:1px solid {{ s.bd }}">{{ s.mark }}</span><span style="font-size:13px;font-weight:{{ s.w }};color:{{ s.tc }}">{{ s.l }}</span><span style="width:16px;height:1px;background:rgba(10,10,10,.26);display:block"></span></li></sc-for></ol>
+    <span style="display:flex;align-items:center;gap:6px;font-size:13px;color:{{ lostColor }};font-weight:{{ lostW }};padding-left:16px;border-left:1px solid rgba(10,10,10,.14)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM4.9 4.9l14.2 14.2"></path></svg>Perdido</span>
+  </nav>
+  <div style="display:flex;flex-wrap:wrap;gap:24px;align-items:start">
+    <div style="flex:7 1 {{ mainBasis }};min-width:0;display:flex;flex-direction:column;gap:24px">
+      <section aria-labelledby="lead-ficha" style="background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:24px">
+        <h2 id="lead-ficha" style="margin:0 0 16px;font-size:15px;line-height:22px;font-weight:500;color:#0A0A0A">Ficha</h2>
+        <dl style="margin:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:20px 24px">
+          <sc-for list="{{ ficha }}" as="f" hint-placeholder-count="6"><div><dt style="font-size:12px;font-weight:500;color:#666666">{{ f.k }}</dt><dd style="margin:4px 0 0;font-size:14px;font-weight:500">{{ f.v }}</dd></div></sc-for>
+          <div><dt style="font-size:12px;font-weight:500;color:#666666">RUES</dt><dd style="margin:4px 0 0"><dc-import name="RuesStatus" state="{{ lead.ru }}" hint-size="110px,24px"></dc-import></dd></div>
+          <div><dt style="font-size:12px;font-weight:500;color:#666666">Territorio</dt><dd style="margin:4px 0 0"><button onClick="{{ goTerritory }}" style="border:0;background:transparent;padding:0;font-family:inherit;font-size:14px;font-weight:500;color:#006A99;text-decoration:underline;cursor:pointer">Ver oportunidad en {{ lead.c }} →</button></dd></div>
+        </dl>
+        <div data-testid="lead-decision-makers" style="margin-top:20px;padding-top:16px;border-top:1px solid rgba(10,10,10,.14)"><div style="font-size:12px;font-weight:500;color:#666666">Decisores</div>
+          <sc-if value="{{ dmNone }}" hint-placeholder-val="{{ false }}"><div style="font-size:13px;color:#666666;margin-top:8px">{{ dmNoneMsg }}</div></sc-if>
+          <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"><sc-for list="{{ dmList }}" as="d" hint-placeholder-count="2"><a href="{{ d.url }}" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 12px;border:1px solid rgba(10,10,10,.14);border-radius:999px;font-size:13px;white-space:nowrap;color:#0A0A0A;text-decoration:none">{{ d.n }}<span style="color:#666666">{{ d.t }}</span></a></sc-for></div></div>
+      </section>
+      <section style="background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:0 24px 8px">
+        <div role="tablist" aria-label="Detalle del lead" style="display:flex;gap:24px;border-bottom:1px solid rgba(10,10,10,.14);overflow-x:auto"><sc-for list="{{ tabs }}" as="t" hint-placeholder-count="3"><button role="tab" onClick="{{ t.go }}" aria-selected="{{ t.on }}" style="flex:none;height:52px;padding:0;border:0;border-bottom:2px solid {{ t.bar }};margin-bottom:-1px;background:transparent;font-family:inherit;font-size:14px;font-weight:{{ t.w }};color:{{ t.c }};cursor:pointer" style-hover="color:#0A0A0A">{{ t.l }}</button></sc-for></div>
+        <div role="tabpanel" aria-label="{{ tabLabel }}">
+          <ul style="list-style:none;margin:0;padding:0"><sc-for list="{{ tabItems }}" as="a" hint-placeholder-count="4"><li style="display:grid;grid-template-columns:20px minmax(0,1fr) auto;gap:16px;padding:16px 0;border-bottom:1px solid rgba(10,10,10,.14)"><span style="width:8px;height:8px;margin-top:6px;border-radius:50%;background:{{ a.dot }};border:1px solid #0A0A0A;box-sizing:border-box"></span><div style="min-width:0"><div style="font-size:14px;font-weight:500;color:#0A0A0A;overflow-wrap:anywhere">{{ a.t }}</div><div style="font-size:13px;color:#666666;margin-top:2px;overflow-wrap:anywhere">{{ a.d }}</div></div><span style="font-size:12px;color:#666666">{{ a.w }}</span></li></sc-for></ul>
+          <sc-if value="{{ noItems }}" hint-placeholder-val="{{ false }}"><div style="padding:24px 0;text-align:center;font-size:14px;color:#666666">{{ noItemsMsg }}</div></sc-if>
+        </div>
+      </section>
+    </div>
+    <div style="flex:5 1 {{ panelBasis }};order:{{ panelOrder }};min-width:0;position:{{ panelPos }};top:24px"><dc-import name="LeadPanel" brief="{{ brief }}" briefError="{{ briefError }}" briefLoading="{{ briefLoading }}" score="{{ lead.s }}" line="{{ lead.l }}" city="{{ lead.c }}" rues="{{ lead.ru }}" onModels="{{ goModelos }}" onRetry="{{ reloadBrief }}" hint-size="100%,600px"></dc-import></div>
+  </div>
+</sc-if>
+
+  <sc-if value="{{ dlg }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;inset:0;background:rgba(10,10,10,.4);display:flex;align-items:center;justify-content:center;z-index:50;padding:24px">
+      <div role="dialog" aria-modal="true" aria-label="{{ dlgTitle }}" style="width:100%;max-width:{{ dlgW }};max-height:90vh;overflow:auto;box-sizing:border-box;background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:16px">
+        <h3 style="margin:0;font-size:20px;line-height:28px;font-weight:500;letter-spacing:-.02em">{{ dlgTitle }}</h3>
+        <sc-if value="{{ isStatusDlg }}" hint-placeholder-val="{{ false }}"><div style="font-size:14px;color:#3D3D3D;display:flex;gap:8px;align-items:center">Actual <dc-import name="StatusPill" status="{{ lead.stage }}" hint-size="80px,24px"></dc-import></div>
+          <sc-if value="{{ conflict }}" hint-placeholder-val="{{ false }}"><div role="alert" style="display:flex;gap:12px;padding:12px 16px;border-radius:12px;background:#FEF3F2;border:1px solid #FECDCA;color:#B42318"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none;margin-top:1px"><path d="M7.86 2h8.28L22 7.86v8.28L16.14 22H7.86L2 16.14V7.86zM12 8v4M12 16h.01"></path></svg><div><div style="font-size:14px;font-weight:500">Este lead cambió mientras lo editabas.</div><div style="font-family:ui-monospace,Menlo,monospace;font-size:12px;margin-top:2px">version_conflict</div></div></div></sc-if>
+          <sc-if value="{{ noDests }}" hint-placeholder-val="{{ false }}"><div style="font-size:14px;color:#666666">Desde esta etapa no hay transiciones permitidas.</div></sc-if>
+          <sc-if value="{{ noConflict }}" hint-placeholder-val="{{ true }}"><div role="radiogroup" aria-label="Nueva etapa" style="display:flex;flex-direction:column;gap:8px"><sc-for list="{{ dests }}" as="d" hint-placeholder-count="2"><label style="display:flex;align-items:center;gap:12px;min-height:44px;padding:0 16px;border:1px solid {{ d.bd }};border-radius:12px;background:{{ d.bg }};cursor:pointer"><input type="radio" name="dest" checked="{{ d.on }}" onChange="{{ d.go }}" style="accent-color:#0A0A0A"><dc-import name="StatusPill" status="{{ d.s }}" hint-size="100px,24px"></dc-import></label></sc-for></div></sc-if></sc-if>
+        <sc-if value="{{ isFormDlg }}" hint-placeholder-val="{{ false }}"><sc-for list="{{ dFields }}" as="f" hint-placeholder-count="4"><label style="display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:500;color:#3D3D3D">{{ f.l }}
+          <sc-if value="{{ f.isText }}" hint-placeholder-val="{{ false }}"><input type="{{ f.type }}" value="{{ f.v }}" onInput="{{ f.set }}" style="height:40px;box-sizing:border-box;padding:0 12px;border:1px solid {{ f.bd }};border-radius:8px;background:#FAFAFA;font-family:{{ f.ff }};font-size:14px;color:#0A0A0A"></sc-if>
+          <sc-if value="{{ f.isArea }}" hint-placeholder-val="{{ false }}"><textarea value="{{ f.v }}" onInput="{{ f.set }}" rows="3" style="box-sizing:border-box;padding:8px 12px;border:1px solid {{ f.bd }};border-radius:8px;background:#FAFAFA;font-family:inherit;font-size:14px;color:#0A0A0A;resize:vertical"></textarea></sc-if>
+          <sc-if value="{{ f.isSel }}" hint-placeholder-val="{{ false }}"><select value="{{ f.v }}" onChange="{{ f.set }}" style="height:40px;box-sizing:border-box;padding:0 8px;border:1px solid {{ f.bd }};border-radius:8px;background:#FAFAFA;font-family:inherit;font-size:14px;color:#0A0A0A"><sc-for list="{{ f.opts }}" as="o" hint-placeholder-count="4"><option value="{{ o.v }}">{{ o.l }}</option></sc-for></select></sc-if>
+          <sc-if value="{{ f.hint }}" hint-placeholder-val="{{ false }}"><span style="font-weight:400;color:#666666">{{ f.hint }}</span></sc-if>
+          <sc-if value="{{ f.err }}" hint-placeholder-val="{{ false }}"><span style="font-weight:400;color:#B42318">{{ f.err }}</span></sc-if></label></sc-for></sc-if>
+        <sc-if value="{{ dlgErr }}" hint-placeholder-val="{{ false }}"><div role="alert" style="padding:12px 16px;border-radius:12px;background:#FEF3F2;border:1px solid #FECDCA;color:#B42318;font-size:13px">{{ dlgErr }}</div></sc-if>
+        <div style="display:flex;gap:12px;justify-content:flex-end"><button onClick="{{ closeDialog }}" style="height:40px;padding:0 20px;border:1px solid rgba(10,10,10,.26);border-radius:999px;background:transparent;font-family:inherit;font-size:13px;font-weight:500;letter-spacing:.02em;cursor:pointer;white-space:nowrap">Cancelar</button>
+          <sc-if value="{{ conflict }}" hint-placeholder-val="{{ false }}"><button onClick="{{ reloadAfterConflict }}" style="height:40px;padding:0 20px;border:1px solid #0A0A0A;border-radius:999px;background:#0A0A0A;color:#FAFAFA;font-family:inherit;font-size:13px;font-weight:500;letter-spacing:.02em;cursor:pointer;white-space:nowrap">Recargar</button></sc-if>
+          <sc-if value="{{ showOk }}" hint-placeholder-val="{{ true }}"><button onClick="{{ okDialog }}" disabled="{{ dlgBusy }}" style="height:40px;padding:0 20px;border:1px solid #0A0A0A;border-radius:999px;background:#0A0A0A;color:#FAFAFA;font-family:inherit;font-size:13px;font-weight:500;letter-spacing:.02em;cursor:pointer;white-space:nowrap;opacity:{{ dlgOp }}">{{ okLabel }}</button></sc-if></div>
+      </div></div>
+  </sc-if>
+
+    </main>
+    </div>
+  </div>
+</div>
+</sc-if>
+<sc-if value="{{ gt }}" hint-placeholder-val="{{ false }}"><div role="status" aria-live="polite" style="position:fixed;right:24px;bottom:24px;z-index:60;display:flex;gap:12px;align-items:center;padding:12px 16px;border-radius:12px;background:#0A0A0A;color:#FAFAFA;font-size:14px;max-width:360px"><span style="width:8px;height:8px;border-radius:50%;background:#00D4FF;flex:none"></span><span>{{ gt }}</span></div></sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  // Every list, KPI and chart comes from the API through window.InventApi (frontend/api.js).
+  // Session modes: 'checking' -> 'session' (a /me user), 'local' (the gateway does not validate
+  // identity: no session, every section visible as admin), 'login', or 'offline'.
+  state = { mode: 'checking', user: null, role: 'admin', localAvailable: false, boot: null, route: 'market', city: '', theme: null,
+    loginState: 'default', vw: 1440, drawer: false, offline: false, idle: false, gt: '',
+    market: { loading: false, data: {}, errors: [] }, range: '30d', period: 'week', table: false,
+    leads: { rows: [], nextCursor: null, hasMore: false, error: null, loading: false, loadingMore: false, loaded: false },
+    lf: { stage: '', line: '', segment: '' }, scoreMin: '', seen: { line: [], segment: [] },
+    selId: null, selRow: null, lead: null, leadLoading: false, leadError: null, brief: null, briefError: null, briefLoading: false, tab: 'act',
+    dlg: null, fd: {}, errs: {}, dlgErr: '', dlgBusy: false, conflict: false, pick: null, companies: null, dataDataset: '' };
+
+  PERM = { market: ['admin', 'strategist', 'analyst'], inbox: ['admin', 'intake', 'analyst'], projects: ['admin', 'strategist', 'analyst'], territory: ['admin', 'strategist', 'analyst', 'bd_rep'], ops: ['admin', 'analyst'], imports: ['admin', 'bd_rep'], config: ['admin'], research: ['admin', 'analyst'], analytics: ['admin', 'strategist', 'analyst'], 'st-analitica': ['admin', 'strategist', 'analyst'], 'st-modelos': ['admin', 'strategist', 'analyst'], 'st-redes': ['admin', 'strategist', 'analyst'], 'st-experimentos': ['admin', 'strategist', 'analyst'], 'st-segmentos': ['admin', 'strategist', 'analyst'], validation: ['admin', 'strategist', 'analyst'], metrics: ['admin', 'strategist', 'analyst'], data: ['admin', 'strategist', 'analyst'] };
+  ROUTES = ['market', 'inbox', 'leads', 'lead', 'pipeline', 'projects', 'analytics', 'st-analitica', 'st-modelos', 'st-redes', 'st-experimentos', 'st-segmentos', 'territory', 'validation', 'ops', 'imports', 'config', 'metrics', 'research', 'data', 'rep', 'privacy'];
+  CITY = { Medellin: 'Medellín', Bogota: 'Bogotá' };
+  seq = { market: 0, leads: 0, lead: 0, brief: 0 };
+
+  A() { return window.InventApi; }
+  C() { return window.InventApi.client; }
+  cityLabel(c) { return c ? (this.CITY[c] || c) : ''; }
+  entry(role) { return role === 'intake' || role === 'bd_rep' ? 'leads' : 'market'; }
+  allowed(route, role) { const p = this.PERM[route]; return !p || p.includes(role || this.state.role); }
+
+  componentDidUpdate() { const open = !!this.state.dlg; if (this._wasOpen && !open && this.opener && this.opener.focus) { try { this.opener.focus(); } catch (e) {} this.opener = null; } this._wasOpen = open; }
+  componentDidMount() {
+    try { const t = localStorage.getItem('imt-theme'); if (t === 'dark' || t === 'light') this.setState({ theme: t }); } catch (e) {}
+    this.onK = e => { const d = document.querySelector('[role="dialog"]'); if (!this.state.dlg || !d) return; if (e.key === 'Escape') { this.closeDlg(); } else if (e.key === 'Tab') { const f = Array.from(d.querySelectorAll('input,select,textarea,button:not([disabled])')); if (!f.length) return; const first = f[0], last = f[f.length - 1]; if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); } else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); } } };
+    document.addEventListener('keydown', this.onK);
+    this.onR = () => this.setState({ vw: window.innerWidth || 1440 });
+    window.addEventListener('resize', this.onR); this.onR();
+    this.onHash = () => this.applyHash();
+    window.addEventListener('hashchange', this.onHash);
+    this.onNetDown = () => this.setState({ offline: true });
+    this.onNetUp = () => this.setState({ offline: false });
+    window.addEventListener('offline', this.onNetDown); window.addEventListener('online', this.onNetUp);
+    const c = this.C();
+    this.unsub = [
+      c.on('unauthorized', () => this.sessionLost()),
+      c.on('offline', () => { if (this.state.mode === 'local' || this.state.mode === 'session') this.setState({ offline: true }); }),
+      c.on('online', () => { if (this.state.offline) this.setState({ offline: false }); })
+    ];
+    this.boot();
+  }
+  componentWillUnmount() {
+    document.removeEventListener('keydown', this.onK); window.removeEventListener('resize', this.onR); window.removeEventListener('hashchange', this.onHash);
+    window.removeEventListener('offline', this.onNetDown); window.removeEventListener('online', this.onNetUp);
+    (this.unsub || []).forEach(u => u()); clearTimeout(this.tt); clearTimeout(this.idleT); clearTimeout(this.scoreT);
+  }
+
+  // ---- session ------------------------------------------------------------------------
+  boot() {
+    this.setState({ mode: 'checking', boot: null });
+    return this.C().detectSession().then(s => {
+      const hash = this.parseHash();
+      if (s.mode === 'session') return this.enterSession(s.user, hash);
+      if (s.mode === 'local') {
+        this.setState({ mode: 'local', user: null, role: 'admin', localAvailable: true, boot: s.warning || null });
+        return this.applyHash(hash, 'market');
+      }
+      if (s.mode === 'login') return this.setState({ mode: 'login', loginState: 'default', localAvailable: false });
+      this.setState({ mode: 'offline', boot: s.error || null });
+    });
+  }
+  enterSession(user, hash) {
+    this.setState({ mode: 'session', user, role: user.role, loginState: 'default', idle: false });
+    this.scheduleIdle(user.expires_at);
+    const h = hash || this.parseHash();
+    return this.applyHash(h && this.allowed(h.route, user.role) ? h : null, this.entry(user.role));
+  }
+  scheduleIdle(expiresAt) {
+    clearTimeout(this.idleT);
+    const ms = Date.parse(expiresAt || '') - Date.now() - 120000;
+    if (ms > 0) this.idleT = setTimeout(() => this.setState({ idle: true }), Math.min(ms, 2147483000));
+  }
+  sessionLost() {
+    if (this.state.mode !== 'session') return;
+    clearTimeout(this.idleT);
+    this.setState({ mode: 'login', loginState: 'expired', user: null, dlg: null, idle: false });
+  }
+  doLogin(email, password) {
+    if (!email || !password) return this.setState({ loginState: 'error' });
+    this.setState({ loginState: 'sending' });
+    return this.C().login(email, password).then(res => {
+      if (res.ok && res.data && res.data.role) return this.enterSession(res.data, null);
+      const st = res.kind === 'rate_limited' ? 'locked' : res.kind === 'offline' || res.kind === 'timeout' ? 'offline' : 'error';
+      this.setState({ loginState: st });
+    });
+  }
+  logout() {
+    if (this.state.mode === 'local') return this.setState({ mode: 'login', loginState: 'default', dlg: null });
+    clearTimeout(this.idleT);
+    return this.C().logout().then(() => { this.C().invalidate(); this.setState({ mode: 'login', loginState: 'logged_out', user: null, dlg: null, idle: false }); });
+  }
+  keepAlive() {
+    return this.C().get('/me', null, { fresh: true }).then(res => {
+      if (res.ok && res.data) { this.setState({ idle: false, user: res.data }); this.scheduleIdle(res.data.expires_at); this.notify('Sesión renovada'); }
+    });
+  }
+
+  // ---- routing (hash keeps "Copiar enlace" honest) --------------------------------------
+  parseHash() {
+    const raw = String((window.location && window.location.hash) || '').replace(/^#\/?/, '');
+    if (!raw) return null;
+    const parts = raw.split('/').map(p => { try { return decodeURIComponent(p); } catch (e) { return p; } });
+    if (parts[0] === 'lead' && parts[1]) return { route: 'lead', id: parts[1] };
+    if (parts[0] === 'data') return { route: 'data', dataset: parts[1] || '' };
+    return this.ROUTES.includes(parts[0]) ? { route: parts[0] } : null;
+  }
+  writeHash(route, extra) {
+    const h = route === 'lead' ? '#/lead/' + encodeURIComponent(extra || '') : route === 'data' && extra ? '#/data/' + encodeURIComponent(extra) : '#/' + route;
+    try { if (window.history && window.location.hash !== h) window.history.replaceState(null, '', h); } catch (e) {}
+  }
+  applyHash(hash, fallback) {
+    const h = hash === undefined ? this.parseHash() : hash;
+    if (this.state.mode !== 'local' && this.state.mode !== 'session') return;
+    if (h && h.route === 'lead') return this.openLead(h.id);
+    if (h && h.route === 'data') this.setState({ dataDataset: h.dataset || '' });
+    return this.go(h ? h.route : (fallback || this.state.route));
+  }
+  go(route) {
+    const r = this.ROUTES.includes(route) && route !== 'lead' ? route : this.entry(this.state.role);
+    this.setState({ route: r, dlg: null, anaQ: '', drawer: false });
+    this.writeHash(r, r === 'data' ? this.state.dataDataset : '');
+    if (!this.allowed(r)) return;
+    if (r === 'market') this.loadMarket();
+    if (r === 'leads') this.loadLeads(false);
+  }
+
+  // ---- market -------------------------------------------------------------------------
+  loadMarket() {
+    const c = this.C(), st = this.state, city = st.city || undefined, seq = ++this.seq.market;
+    const reqs = [['insights', 'Empresas', c.get('/companies/insights')], ['overview', 'Totales de 90 días', c.get('/pulse/market')],
+      ['backlog', 'Backlog', c.get('/pulse/pipeline-backlog', { city })], ['sources', 'Fuentes', c.get('/pulse/source-efficiency', { period: st.range })],
+      ['times', 'Tiempo en pipeline', c.get('/pulse/time-in-pipeline', { group_by: 'service_line' })], ['points', 'Señales por periodo', c.get('/pulse/unprocessed-signals', { granularity: st.period, city })]];
+    this.setState(s => ({ market: Object.assign({}, s.market, { loading: true }) }));
+    return Promise.all(reqs.map(r => r[2])).then(results => {
+      if (seq !== this.seq.market) return;
+      const data = {}, grouped = {};
+      results.forEach((res, i) => {
+        if (res.ok) { data[reqs[i][0]] = res; return; }
+        const key = res.kind + '|' + res.code;
+        (grouped[key] = grouped[key] || { blocks: [], message: res.message, code: res.code || res.kind }).blocks.push(reqs[i][1]);
+      });
+      const errors = Object.keys(grouped).map(k => ({ block: grouped[k].blocks.join(', '), message: grouped[k].message, code: grouped[k].code }));
+      this.setState({ market: { loading: false, data, errors } });
+    });
+  }
+
+  // ---- leads --------------------------------------------------------------------------
+  leadQuery(cursor) {
+    const st = this.state;
+    return { limit: 50, cursor: cursor || undefined, state: st.lf.stage || undefined, service_line: st.lf.line || undefined, segment: st.lf.segment || undefined, city: st.city || undefined, min_score: st.scoreMin === '' ? undefined : st.scoreMin };
+  }
+  loadLeads(append) {
+    const A = this.A(), seq = ++this.seq.leads, cursor = append ? this.state.leads.nextCursor : null;
+    if (append && !cursor) return Promise.resolve();
+    this.setState(s => ({ leads: Object.assign({}, s.leads, append ? { loadingMore: true } : { loading: true, error: null }) }));
+    return this.C().listPage('/leads', this.leadQuery(cursor)).then(res => {
+      if (seq !== this.seq.leads) return;
+      this.setState(s => {
+        const merged = A.mergePage(s.leads, res, append);
+        const add = (list, values) => Array.from(new Set(list.concat(values.filter(Boolean)))).sort();
+        const rows = res.ok ? res.rows : [];
+        return { leads: Object.assign({}, merged, { loading: false, loadingMore: false, loaded: true }),
+          seen: { line: add(s.seen.line, rows.map(r => r.service_line)), segment: add(s.seen.segment, rows.map(r => r.segment)) } };
+      });
+    });
+  }
+  setFilter(key, value) { this.setState(s => ({ lf: Object.assign({}, s.lf, { [key]: value }) })); setTimeout(() => this.loadLeads(false), 0); }
+
+  // ---- lead detail --------------------------------------------------------------------
+  openLead(id, row) {
+    if (!id) return;
+    const known = row || (this.state.leads.rows || []).find(x => x.id === id) || (this.state.selRow && this.state.selRow.id === id ? this.state.selRow : null);
+    this.setState({ route: 'lead', selId: id, selRow: known || null, lead: null, leadError: null, brief: null, briefError: null, tab: 'act', dlg: null, drawer: false });
+    this.writeHash('lead', id);
+    this.loadLead(id); this.loadBrief(id);
+  }
+  loadLead(id) {
+    const seq = ++this.seq.lead;
+    this.setState({ leadLoading: true, leadError: null });
+    return this.C().get('/leads/' + encodeURIComponent(id), null, { fresh: true }).then(res => {
+      if (seq !== this.seq.lead) return;
+      this.setState(res.ok ? { lead: res.data, leadLoading: false } : { leadError: res, leadLoading: false });
+    });
+  }
+  loadBrief(id) {
+    const seq = ++this.seq.brief;
+    this.setState({ briefLoading: true, briefError: null });
+    return this.C().get('/leads/' + encodeURIComponent(id) + '/brief').then(res => {
+      if (seq !== this.seq.brief) return;
+      this.setState(res.ok ? { brief: res.data, briefLoading: false } : { brief: null, briefError: res, briefLoading: false });
+    });
+  }
+
+  // ---- dialogs ------------------------------------------------------------------------
+  notify(m) { clearTimeout(this.tt); this.setState({ gt: m }); this.tt = setTimeout(() => this.setState({ gt: '' }), 4500); }
+  closeDlg() { this.setState({ dlg: null, conflict: false, dlgErr: '', dlgBusy: false }); }
+  openDlg(kind) {
+    const L = this.state.lead || {}, today = new Date().toISOString().slice(0, 10);
+    const defs = { status: {}, activity: { type: 'call', date: today, channel: '', note: '' }, outcome: { outcome: 'contact', result: 'won', notes: '' }, fp: { motive: 'Fuera del ICP' },
+      convert: { name: 'Proyecto · ' + (L.legal_name || ''), hyp: '', line: L.service_line || '', market: '', roi: '', time: '12 meses' }, newlead: { company: '', line: '', city: this.state.city || '', source: 'manual' } };
+    try { this.opener = document.activeElement; } catch (e) {}
+    setTimeout(() => { const d = document.querySelector('[role="dialog"]'); const f = d && d.querySelector('input,select,textarea,button'); if (f) f.focus(); }, 60);
+    this.setState({ dlg: kind, fd: defs[kind], errs: {}, dlgErr: '', dlgBusy: false, conflict: false, pick: null });
+    if (kind === 'newlead' && this.state.companies === null) {
+      this.C().listPage('/companies', { limit: 200 }).then(res => this.setState({ companies: res.ok ? res.rows : [], companiesError: res.ok ? null : res }));
+    }
+  }
+  submitDialog(pick) {
+    const st = this.state, fd = st.fd || {}, L = st.lead || {}, c = this.C(), id = st.selId, e = {};
+    const done = (res, msg, after) => {
+      if (res.ok) { this.closeDlg(); this.notify(msg); if (after) after(res); return; }
+      if (res.status === 409 && st.dlg === 'status') return this.setState({ conflict: true, dlgBusy: false });
+      let extra = '';
+      if (res.detail && Array.isArray(res.detail.allowed)) extra = ' Etapas permitidas: ' + (res.detail.allowed.map(a => this.A().pipeline.stage(a).label).join(', ') || 'ninguna') + '.';
+      if (res.code === 'lead_already_converted') extra = ' Este lead ya tiene un proyecto.';
+      this.setState({ dlgErr: res.message + extra, dlgBusy: false });
+    };
+    const busy = () => this.setState({ dlgBusy: true, dlgErr: '' });
+    const lid = encodeURIComponent(id || '');
+    if (st.dlg === 'status') {
+      if (!pick) return this.setState({ dlgErr: 'Elige la nueva etapa.' });
+      busy();
+      return c.patch('/leads/' + lid + '/status', { stage: pick, expected_version: L.version }).then(res => done(res, 'Estado actualizado a ' + this.A().pipeline.stage(pick).label, () => this.loadLead(id)));
+    }
+    if (st.dlg === 'activity') {
+      busy();
+      const body = { activity_type: fd.type, payload: fd.note ? { note: fd.note } : {} };
+      if (fd.channel) body.channel = fd.channel;
+      if (fd.date) body.occurred_at = new Date(fd.date + 'T12:00:00').toISOString();
+      return c.post('/leads/' + lid + '/activities', body, { headers: { 'Idempotency-Key': c.newKey() } }).then(res => done(res, 'Actividad registrada', () => this.loadBrief(id)));
+    }
+    if (st.dlg === 'outcome' || st.dlg === 'fp') {
+      busy();
+      const body = st.dlg === 'fp' ? { outcome: 'spam', notes: fd.motive } : { outcome: fd.outcome, notes: fd.notes || undefined };
+      if (st.dlg === 'outcome' && fd.outcome === 'close') body.result = fd.result;
+      return c.post('/leads/' + lid + '/outcomes', body).then(res => done(res, st.dlg === 'fp' ? 'Marcado como falso positivo: ' + fd.motive : 'Resultado registrado'));
+    }
+    if (st.dlg === 'convert') {
+      if (!(fd.name || '').trim()) e.name = 'Escribe el nombre.';
+      if (!(fd.hyp || '').trim()) e.hyp = 'Escribe la hipótesis.';
+      if (fd.roi !== '' && fd.roi != null && !/^-?\d+(\.\d+)?$/.test(String(fd.roi))) e.roi = 'Indica un número.';
+      if (Object.keys(e).length) return this.setState({ errs: e });
+      busy();
+      const body = { lead_id: id, name: fd.name.trim(), hypothesis: fd.hyp.trim(), service_line: fd.line || undefined, target_market: fd.market || undefined, estimated_roi: fd.roi === '' ? undefined : Number(fd.roi), timeline: fd.time || undefined };
+      return c.post('/projects', body).then(res => done(res, 'Proyecto creado: ' + body.name));
+    }
+    if (st.dlg === 'newlead') {
+      if (!fd.company) e.company = 'Elige una empresa.';
+      if (!(fd.line || '').trim()) e.line = 'Escribe la línea de servicio.';
+      if (Object.keys(e).length) return this.setState({ errs: e });
+      busy();
+      const body = { company_id: fd.company, service_line: fd.line.trim(), city: fd.city || undefined, source: fd.source || undefined };
+      return c.post('/leads', body, { headers: { 'Idempotency-Key': c.newKey() } }).then(res => done(res, 'Lead creado', r => { this.loadLeads(false); const nid = r.data && (r.data.lead_id || r.data.id); if (nid) this.openLead(nid); }));
+    }
+  }
+
+  renderVals() {
+    const st = this.state, set = o => this.setState(o), me = this, A = this.A(), fmt = A.fmt, role = st.role, route = st.route, mode = st.mode;
+    const has = (...r) => r.includes(role);
+    const allowed = r => this.allowed(r);
+    const bp = st.vw >= 1280 ? 'xl' : st.vw >= 1024 ? 'lg' : st.vw >= 768 ? 'md' : 'sm', compact = bp === 'md' || bp === 'sm';
+    const seg = (l, on, fn) => ({ l, on, sbg: on ? '#FAFAFA' : 'transparent', sbd: on ? 'rgba(10,10,10,.14)' : 'transparent', sc: on ? '#0A0A0A' : '#525252', sw: on ? 500 : 400, go: fn });
+    const inSession = mode === 'local' || mode === 'session';
+    const inApp = inSession && route !== 'privacy';
+
+    // Mercado
+    const md = st.market.data || {}, body = k => (md[k] && md[k].data) || null;
+    const ins = body('insights'), ov = body('overview'), bl = body('backlog'), srcs = body('sources'), times = body('times'), pts = body('points');
+    const inCity = x => !st.city || x.city === st.city;
+    const cityRows = ins ? (ins.by_city_category || []).filter(inCity) : [];
+    const companies = ins ? (st.city ? cityRows.reduce((a, x) => a + (x.companies || 0), 0) : ins.companies) : null;
+    const nCities = ins ? new Set((ins.by_city_category || []).map(x => x.city)).size : 0;
+    const kpis = [
+      { tid: 'market-kpi-companies', l: 'Empresas', v: companies == null ? '—' : fmt.number(companies), sub: companies == null ? 'Sin datos todavía' : companies ? (st.city ? 'en ' + this.cityLabel(st.city) : 'en ' + nCities + (nCities === 1 ? ' ciudad' : ' ciudades')) : 'Aún no hay empresas', sc: '#666666' },
+      { tid: 'market-kpi-signals', l: 'Señales · 90 d', v: ov ? fmt.number(ov.signals) : '—', sub: ov ? (Number(ov.signals) ? fmt.number(ov.leads) + ' leads en 90 días · todas las ciudades' : 'Sin señales en 90 días') : 'Sin datos todavía', sc: '#666666' },
+      { tid: 'market-kpi-leads-hot', l: 'Leads hot · 90 d', v: ov ? fmt.number(ov.hot_leads) : '—', sub: ov ? 'Desde el rollup diario de pulse' : 'Sin datos todavía', sc: '#666666' },
+      { tid: 'market-kpi-backlog', l: 'Backlog de calificación', v: bl && bl.active != null ? fmt.number(bl.active) + (bl.capacity_estimate != null ? ' / ' + fmt.number(bl.capacity_estimate) : '') : '—', sub: bl && bl.active != null ? 'leads activos / capacidad' : 'Sin datos todavía', sc: '#666666' }
+    ];
+    const asOf = (ins && ins.as_of) || (ov && ov.as_of) || (md.points && md.points.asOf) || null;
+    const mStale = [bl, srcs, times, pts, ins].some(x => x && x.stale === true);
+    const points = pts && Array.isArray(pts.points) ? pts.points : [];
+    const nb = points.length, mx = Math.max(10, Math.ceil(Math.max(0, ...points.map(p => p.total || 0)) * 1.1 / 10) * 10);
+    const Y = v => 210 - v / mx * 190, slot = 648 / Math.max(1, nb), bw = Math.max(2, Math.round(slot * .62));
+    const bars = points.map((p, i) => { const x = 44 + i * slot + (slot - bw) / 2, total = p.total || 0, failed = Math.min(total, p.failed || 0); return { x, bw, y: Y(total), h: 210 - Y(total), fy: Y(failed), fh: 210 - Y(failed), cx: x + bw / 2, l: String(p.t || '').slice(5, 10) || String(i + 1) }; });
+    const grid = [0, 1, 2, 3].map(k => { const v = Math.round(mx * k / 3); return { y: Y(v), ty: Y(v) + 4, l: v }; });
+    const tableRows = points.map(p => ({ l: p.t, v: fmt.number(p.total), f: fmt.number(p.failed), r: fmt.percent(p.rate) }));
+    const groups = times && Array.isArray(times.groups) ? times.groups : [];
+    const dmax = Math.max(1, ...groups.map(g => g.p90_days || g.p50_days || 0)) * 1.1;
+    const stageRows = groups.map(g => ({ n: g.key, p50: g.p50_days == null ? '—' : fmt.number(g.p50_days, 1), p90: g.p90_days == null ? '—' : fmt.number(g.p90_days, 1), nn: g.n, low: !!g.low_sample, w50: ((g.p50_days || 0) / dmax * 100) + '%', w90: 'calc(' + ((g.p90_days || 0) / dmax * 100) + '% - 1px)', fill: g.low_sample ? '#85857F' : '#0077AA', op: g.low_sample ? .6 : 1 }));
+    const srcRows = (srcs && Array.isArray(srcs.sources) ? srcs.sources : []).map(s => ({ n: s.name, leads: fmt.number(s.leads), meetings: fmt.number(s.meetings), cost: s.cost_per_meeting == null ? '—' : 'US$ ' + fmt.number(Number(s.cost_per_meeting), 2) }));
+    const ccMax = Math.max(1, ...cityRows.map(x => x.companies || 0));
+    const cityCat = cityRows.slice(0, 12).map(x => ({ cat: x.category || 'Sin categoría', city: this.cityLabel(x.city) || 'Sin ciudad', n: fmt.number(x.companies), w: ((x.companies || 0) / ccMax * 100) + '%', title: (x.category || 'Sin categoría') + ' · ' + (this.cityLabel(x.city) || 'Sin ciudad') + (x.avg_rating != null ? ' · Maps ' + fmt.number(x.avg_rating, 1) : '') }));
+    const mapsRows = ins && ins.maps_available ? (ins.maps_by_city || []).filter(inCity).map(x => ({ city: this.cityLabel(x.city) || 'Sin ciudad', listings: fmt.number(x.listings), rating: x.avg_rating == null ? '—' : fmt.number(x.avg_rating, 1), reviews: x.avg_reviews == null ? '—' : fmt.number(x.avg_reviews, 0) })) : [];
+    const mapsMsg = !ins ? 'Sin datos todavía.' : !ins.maps_available ? 'Maps no disponible: este tenant no tiene señales de Google Maps.' : 'Sin fichas de Google Maps en esta ciudad.';
+    const hiring = ins ? (ins.hiring || []).filter(inCity) : [], hMax = Math.max(1, ...hiring.map(h => h.postings || 0));
+    const hiringRows = hiring.slice(0, 12).map(h => ({ k: h.keyword || 'Sin palabra clave', city: this.cityLabel(h.city) || 'Sin ciudad', n: fmt.number(h.postings), w: ((h.postings || 0) / hMax * 100) + '%', title: fmt.number(h.postings) + ' vacantes en ' + fmt.number(h.companies) + ' empresas' }));
+    const mid = ins && ins.mid_size ? ins.mid_size : null;
+    const midRows = mid ? (mid.by_city || []).filter(x => inCity(x) && x.share != null).map(x => ({ city: this.cityLabel(x.city) || 'Sin ciudad', share: fmt.percent(x.share, 0), w: (x.share * 100) + '%', title: x.mid_size + ' de ' + x.companies_with_size + ' con tamaño conocido' })) : [];
+    const midSub = mid ? 'Entre ' + mid.min_employees + ' y ' + mid.max_employees + ' empleados' + (mid.share != null ? ' · ' + fmt.percent(mid.share, 0) + ' del total con tamaño conocido' : '') : 'Entre 11 y 500 empleados';
+    const RANGES = [['7 d', '7d'], ['30 d', '30d'], ['90 d', '90d'], ['12 m', '365d']], PERIODS = [['Día', 'day'], ['Semana', 'week'], ['Mes', 'month']];
+    const reloadAfter = patch => { this.setState(patch); setTimeout(() => this.loadMarket(), 0); };
+
+    // Leads
+    const lv = st.leads, rowsData = lv.rows || [];
+    const stageOpts = [{ v: '', l: 'Todos' }].concat(A.pipeline.STAGES.filter(s => s.api !== 'new').map(s => ({ v: s.api, l: s.label })));
+    const filters = [
+      { l: 'Estado', value: st.lf.stage, opts: stageOpts, change: e => this.setFilter('stage', e.target.value) },
+      { l: 'Línea', value: st.lf.line, opts: [{ v: '', l: 'Todas' }].concat(st.seen.line.map(v => ({ v, l: v }))), change: e => this.setFilter('line', e.target.value) },
+      { l: 'Segmento', value: st.lf.segment, opts: [{ v: '', l: 'Todos' }].concat(st.seen.segment.map(v => ({ v, l: v }))), change: e => this.setFilter('segment', e.target.value) }
+    ];
+    const filtered = !!(st.lf.stage || st.lf.line || st.lf.segment || st.scoreMin !== '');
+    const dmText = x => { const p = Array.isArray(x.decision_makers) ? x.decision_makers : []; if (!p.length) return x.decision_makers_available === false ? '' : 'Sin decisores registrados'; return p.slice(0, 2).map(d => (d.name || 'Sin nombre') + (d.title ? ' (' + d.title + ')' : '')).join(', ') + (p.length > 2 ? ' +' + (p.length - 2) : ''); };
+    const rows = rowsData.map(x => ({ id: x.id, n: x.legal_name || '(sin nombre)', s: x.score == null ? '—' : x.score, sw: (Number(x.score) || 0) + '%', sc: x.score >= 70 ? '#1F9A6E' : x.score >= 40 ? '#C77C0E' : '#767676', tip: x.score == null ? 'Sin score todavía' : 'Score ' + x.score, stage: x.stage, l: x.service_line || '—', c: this.cityLabel(x.city) || '—', seg: x.segment || '—', u: fmt.ago(x.updated_at), abs: fmt.date(x.updated_at), ru: x.rues_status, dm: dmText(x), dmTitle: dmText(x), href: '#/lead/' + encodeURIComponent(x.id), open: e => { if (e && e.preventDefault) e.preventDefault(); if (e && e.stopPropagation) e.stopPropagation(); me.openLead(x.id, x); } }));
+    const noRows = lv.loaded && !lv.loading && !lv.error && rowsData.length === 0;
+
+    // Lead detail
+    const LD = st.lead, row = st.selRow && st.selRow.id === st.selId ? st.selRow : null, stage = LD ? LD.stage : '';
+    const lead = LD ? { n: LD.legal_name || '(sin nombre)', stage, version: LD.version, companyId: LD.company_id || '', ru: row ? row.rues_status : 'unknown', s: LD.score == null ? null : LD.score, l: LD.service_line || '', c: this.cityLabel(LD.city || (row && row.city)) || '' } : { n: '', stage: 'discovered', version: '', companyId: '', ru: 'unknown', s: null, l: '', c: '' };
+    const order = A.pipeline.ORDER, lost = stage === 'lost', cur = Math.max(0, order.indexOf(stage === 'new' ? 'hot' : stage));
+    const steps = order.map((s, i) => { const a = !lost && i < cur, c = !lost && i === cur; return { l: A.pipeline.stage(s).label, mark: a ? '✓' : String(i + 1), cur: c ? 'step' : 'false', bg: a ? '#0A0A0A' : c ? '#E5F8FD' : '#FAFAFA', fg: a ? '#FAFAFA' : c ? '#006A99' : '#525252', bd: a ? '#0A0A0A' : c ? '#0077AA' : 'rgba(10,10,10,.26)', w: c ? 500 : 400, tc: lost || i > cur ? '#666666' : '#0A0A0A' }; });
+    let targets = A.pipeline.allowedTargets(stage);
+    if (role === 'intake') targets = targets.filter(t => t === 'qualified');
+    const pick = st.pick && targets.includes(st.pick) ? st.pick : targets[0];
+    const dests = targets.map(s => ({ s, on: s === pick, bd: s === pick ? '#0A0A0A' : 'rgba(10,10,10,.14)', bg: s === pick ? '#F5F5F5' : '#FAFAFA', go: () => set({ pick: s }) }));
+    const btn = (l, go, o) => { o = o || {}; return { tid: o.tid || '', l, go, dis: !!o.dis, tip: o.tip || '', bd: o.primary ? '#0A0A0A' : 'rgba(10,10,10,.26)', bg: o.primary ? '#0A0A0A' : 'transparent', fg: o.primary ? '#FAFAFA' : '#0A0A0A', cur: o.dis ? 'not-allowed' : 'pointer', op: o.dis ? 0.4 : 1 }; };
+    const actions = [];
+    if (LD && has('admin', 'intake', 'bd_rep')) actions.push(btn('Cambiar estado', () => me.openDlg('status'), { primary: true, dis: !targets.length, tip: targets.length ? '' : 'Sin transiciones desde esta etapa', tid: 'lead-status-change' }));
+    if (LD && has('admin', 'bd_rep')) { actions.push(btn('Registrar actividad', () => me.openDlg('activity'), { tid: 'lead-activity-new' })); actions.push(btn('Registrar resultado', () => me.openDlg('outcome'), { tid: 'lead-outcome-new' })); }
+    if (LD && has('admin', 'strategist')) actions.push(btn('Convertir en proyecto', () => me.openDlg('convert'), { dis: lost, tip: lost ? 'Un lead perdido no se convierte' : '', tid: 'lead-convert' }));
+    if (LD && has('admin', 'intake', 'bd_rep')) actions.push(btn('No era un buen lead', () => me.openDlg('fp'), { tid: 'lead-false-positive' }));
+    const ficha = LD ? [{ k: 'Segmento', v: LD.segment || '—' }, { k: 'Ciudad', v: lead.c || '—' }, { k: 'Línea de servicio', v: LD.service_line || '—' }, { k: 'Fuente', v: LD.source || '—' }, { k: 'Score', v: LD.score == null ? 'Sin score todavía' : LD.score }, { k: 'Creado', v: fmt.date(LD.created_at) }, { k: 'Actualizado', v: fmt.date(LD.updated_at) }, { k: 'Última transición', v: fmt.date(LD.last_transition_at) }] : [];
+    const people = row && Array.isArray(row.decision_makers) ? row.decision_makers : [];
+    const dmList = people.map(d => ({ n: d.name || 'Sin nombre', t: d.title || '', url: /^https?:\/\//.test(d.profile_url || '') ? d.profile_url : '#' }));
+    const dmNoneMsg = !row ? 'Abre el lead desde la lista de Leads para ver sus decisores.' : row.decision_makers_available === false ? 'Decisores no disponibles (requiere Business Search de Bright Data)' : 'Sin decisores registrados para esta empresa.';
+    const content = st.brief && st.brief.content ? st.brief.content : null;
+    const kv = obj => Object.keys(obj || {}).map(k => ({ t: k, d: fmt.cell(obj[k]), w: '', dot: '#FAFAFA' }));
+    const TABS = [['act', 'Actividad'], ['cal', 'Calificación'], ['raw', 'Datos del lead']];
+    let tabItems = [], noItemsMsg = '';
+    if (st.tab === 'act') {
+      tabItems = (content && Array.isArray(content.activity) ? content.activity : []).map((a, i) => { const rest = Object.assign({}, a); const t = rest.activity_type || rest.type || rest.kind || 'Actividad'; const w = rest.occurred_at || rest.at || rest.date || ''; ['activity_type', 'type', 'kind', 'occurred_at', 'at', 'date'].forEach(k => delete rest[k]); return { t, d: Object.keys(rest).map(k => k + ': ' + fmt.cell(rest[k])).join(' · '), w: w ? fmt.date(w) : '', dot: i === 0 ? '#00D4FF' : '#FAFAFA' }; });
+      noItemsMsg = st.briefLoading ? 'Cargando actividad…' : content ? 'Sin actividad registrada.' : 'Sin resumen del brief todavía, así que no hay actividad que mostrar.';
+    } else if (st.tab === 'cal') { tabItems = kv(LD && LD.qualification_reason); noItemsMsg = 'Sin razón de calificación registrada.'; }
+    else { const raw = Object.assign({}, LD || {}); delete raw.qualification_reason; tabItems = kv(raw); noItemsMsg = 'Sin datos.'; }
+    const leadErr = st.leadError;
+
+    // Dialogs
+    const fd = st.fd || {}, errs = st.errs || {};
+    const setf = k => e => set({ fd: Object.assign({}, fd, { [k]: e.target.value }), errs: Object.assign({}, errs, { [k]: '' }), dlgErr: '' });
+    const opt = list => list.map(x => Array.isArray(x) ? { v: x[0], l: x[1] } : { v: x, l: x });
+    const fld = (l, k, kind, opts, type, extra) => Object.assign({ l, v: fd[k] == null ? '' : fd[k], isText: kind === 'text', isArea: kind === 'area', isSel: kind === 'sel', opts: opts || [], type: type || 'text', ff: 'inherit', set: setf(k), err: errs[k] || '', bd: errs[k] ? '#D92D20' : '#767676', hint: '' }, extra || {});
+    const cityOpts = [['', 'Sin ciudad'], ['Medellin', 'Medellín'], ['Bogota', 'Bogotá'], ['Cali', 'Cali'], ['Barranquilla', 'Barranquilla'], ['Cartagena', 'Cartagena']];
+    const companyOpts = st.companies === null ? [['', 'Cargando empresas…']] : [['', st.companies.length ? 'Elige una empresa' : 'Aún no hay empresas en core']].concat(st.companies.map(x => [x.id, (x.legal_name || x.trade_name || x.id) + (x.city ? ' · ' + this.cityLabel(x.city) : '')]));
+    const DL = {
+      activity: { title: 'Registrar actividad', ok: 'Guardar actividad', w: '480px', fields: [fld('Tipo', 'type', 'sel', opt([['call', 'Llamada'], ['email', 'Email'], ['demo', 'Demo'], ['note', 'Nota']])), fld('Fecha', 'date', 'text', null, 'date'), fld('Canal (opcional)', 'channel', 'text'), fld('Nota', 'note', 'area')] },
+      outcome: { title: 'Registrar resultado', ok: 'Guardar resultado', w: '480px', fields: [fld('Resultado', 'outcome', 'sel', opt([['contact', 'Contacto'], ['response', 'Respuesta'], ['meeting', 'Reunión'], ['close', 'Cierre']]))].concat(fd.outcome === 'close' ? [fld('Cierre', 'result', 'sel', opt([['won', 'Ganado'], ['lost', 'Perdido']]))] : []).concat([fld('Notas', 'notes', 'area')]) },
+      fp: { title: 'No era un buen lead', ok: 'Marcar falso positivo', w: '480px', fields: [fld('Motivo', 'motive', 'sel', opt(['Fuera del ICP', 'Duplicado', 'Spam', 'Otro']), null, { hint: 'Se guarda como resultado «spam»: es la etiqueta que aprende el scoring.' })] },
+      convert: { title: 'Convertir en proyecto', ok: 'Crear proyecto', w: '640px', fields: [fld('Nombre del proyecto', 'name', 'text'), fld('Hipótesis', 'hyp', 'area'), fld('Línea de servicio', 'line', 'text'), fld('Mercado objetivo', 'market', 'text'), fld('ROI estimado (opcional)', 'roi', 'text'), fld('Plazo', 'time', 'sel', opt(['6 meses', '12 meses', '18 meses', '24 meses']))] },
+      newlead: { title: 'Nuevo lead', ok: 'Crear lead', w: '520px', fields: [fld('Empresa', 'company', 'sel', opt(companyOpts), null, { hint: st.companiesError ? st.companiesError.message : 'Un lead se crea sobre una empresa que ya existe en core.' }), fld('Línea de servicio', 'line', 'text'), fld('Ciudad', 'city', 'sel', opt(cityOpts)), fld('Fuente', 'source', 'text')] }
+    };
+    const dcfg = DL[st.dlg] || { title: 'Cambiar estado', ok: 'Confirmar', w: '480px', fields: [] };
+
+    // Navigation
+    const SUB = {
+      analytics: { t: 'Centro de reportería', g: 'CAPAS DEL LENS', key: 'anaLayer', kids: ['Todas las capas', 'D · Descriptiva', 'Dx · Diagnóstica', 'P · Predictiva', 'Prescriptiva', 'V · Validación', 'Redes'], foot: 'Cada tarjeta dice si ya hay datos detrás.' },
+      'st-analitica': { t: 'Analítica', g: 'SECCIONES · 10_ANALITICA', key: 'anaTab', kids: ['Atribución', 'Inferencia causal', 'Anomalías y drift', 'Temas', 'Concentración', 'Elasticidad de precio'], foot: 'Streamlit · solo lectura.' },
+      'st-modelos': { t: 'Modelos', g: 'COMPONENTES · 11_MODELOS', key: 'anaComp', byName: true, kids: ['Scoring', 'Uplift', 'Forecast', 'Segmentos y arquetipos', 'Pirámide ICP', 'NLP', 'Monte Carlo', 'Registro'], foot: 'Streamlit · solo lectura.' },
+      'st-redes': { t: 'Redes', g: 'NIVELES · 8_REDES', key: 'anaLevel', byName: true, kids: ['N3 sector-ciudad', 'N2 compañía', 'N1 lead', 'Z zona'], foot: 'Streamlit · solo lectura.' },
+      validation: { t: 'Validación', g: 'BLOQUES', key: 'anaPart', kids: ['Todo', 'V5 · Portafolio', 'V4 · Growth', 'V6 · Meta-ML'], foot: 'V1 a V3 viven en cada proyecto.' }
+    };
+    const anaDef = { anaLayer: 0, anaTab: 0, anaComp: 'Scoring', anaLevel: 'N2 compañía', anaPart: 0 }, curA = k => st[k] != null ? st[k] : anaDef[k];
+    const SB = SUB[route] && allowed(route) ? SUB[route] : null, q = (st.anaQ || '').trim().toLowerCase();
+    const anaGroups = SB ? [{ g: SB.g, items: SB.kids.map((l, i) => ({ l, i })).filter(x => !q || x.l.toLowerCase().includes(q)).map(({ l, i }) => { const val = SB.byName ? l : i, on = curA(SB.key) === val; return { l, cur: on ? 'page' : 'false', bg: on ? '#FAFAFA' : 'transparent', bd: on ? 'rgba(10,10,10,.14)' : 'transparent', fw: on ? 500 : 400, go: e => { if (e && e.preventDefault) e.preventDefault(); set(Object.assign({ [SB.key]: val }, compact ? { anaOpen: false } : {})); } }; }) }].filter(g => g.items.length) : [];
+    const subLabel = SB ? (SB.byName ? curA(SB.key) : SB.kids[curA(SB.key)]) : '';
+    const anaCrumb = SB ? 'Análisis|' + SB.t + (route === 'analytics' && !curA('anaLayer') ? '' : '|' + subLabel) : '';
+    const anaOpen = st.anaOpen != null ? st.anaOpen : !compact;
+    const nav = (k, l, tid, g) => ({ k, l, tid, g });
+    const navItems = [nav('market', 'Mercado', 'nav-market', 'o'), nav('inbox', 'Bandeja', 'nav-inbox', 'o'), nav('leads', 'Leads', 'nav-leads', 'o'), nav('pipeline', 'Pipeline', 'nav-pipeline', 'o'), nav('projects', 'Proyectos', 'nav-projects', 'o'), nav('analytics', 'Centro de reportería', 'nav-analytics', 'a'), nav('st-analitica', 'Analítica', 'nav-analitica', 'a'), nav('st-modelos', 'Modelos', 'nav-modelos', 'a'), nav('st-redes', 'Redes', 'nav-redes', 'a'), nav('territory', 'Territorio', 'nav-territory', 'a'), nav('st-segmentos', 'Segmentos', 'nav-segmentos', 'a'), nav('validation', 'Validación', 'nav-validation', 'a'), nav('data', 'Datos', 'nav-data', 's'), nav('ops', 'Ops', 'nav-ops', 's'), nav('imports', 'Importaciones', 'nav-imports', 's'), nav('config', 'Configuración', 'nav-config', 's'), nav('metrics', 'Métricas', 'nav-metrics', 's'), nav('research', 'Investigación', 'nav-research', 's'), nav('rep', 'Reportería ↗', 'nav-reports', 's')].filter(i => allowed(i.k));
+    const crumbs = { 'st-experimentos': 'Experimentos', 'st-segmentos': 'Segmentos', metrics: 'Métricas del tenant', market: 'Mercado', inbox: 'Bandeja', leads: 'Leads', lead: 'Leads|' + (lead.n || 'Lead'), pipeline: 'Pipeline', projects: 'Proyectos', territory: 'Territorio', ops: 'Ops', imports: 'Importaciones', config: 'Configuración', research: 'Investigación', data: 'Datos', rep: 'Reportería' };
+    const user = st.user || {}, who = mode === 'session' ? (user.display_name || user.email || 'Usuario') : 'Sin sesión';
+    const initials = mode === 'session' ? (who.split(/[\s@._-]+/).filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('') || 'U') : 'L';
+    const scopeTxt = { bd_rep: 'Alcance asignado', intake: 'Alcance asignado' }[role] || 'Todas las ciudades';
+    const forbidden = inApp && !!this.PERM[route] && !allowed(route);
+    const vw = k => inApp && route === k && allowed(k);
+    const sbColl = st.sbColl != null ? st.sbColl : bp === 'lg';
+    const boot = st.boot;
+
+    return {
+      theme: st.theme || 'light', rootBg: st.theme === 'dark' ? '#0A0A0A' : '#E9E8E4', rootFg: st.theme === 'dark' ? '#E9E8E4' : '#0A0A0A', toggleTheme: () => { const t = st.theme === 'dark' ? 'light' : 'dark'; try { localStorage.setItem('imt-theme', t); } catch (e) {} set({ theme: t }); },
+      isChecking: mode === 'checking', isOfflineScreen: mode === 'offline', bootCode: boot ? (boot.code || boot.kind || '') : '', bootMessage: boot ? boot.message : A.MESSAGES.offline, retryBoot: () => me.boot(),
+      hasBootWarning: inApp && mode === 'local' && !!boot, bootWarning: boot ? boot.message : '', bootWarningCode: boot ? (boot.status || '') + ' ' + (boot.code || boot.kind || '') : '',
+      isLogin: mode === 'login' && route !== 'privacy', isPrivacy: route === 'privacy' && (mode === 'login' || inSession), inApp, loginState: st.loginState, doLogin: (e, p) => me.doLogin(e, p), canSkipLogin: st.localAvailable, backToLocal: () => { set({ mode: 'local', role: 'admin' }); me.go(me.state.route === 'privacy' ? 'market' : me.state.route); },
+      loginCols: compact ? 'minmax(0,1fr)' : 'minmax(0,1.3fr) minmax(0,1fr)', loginArt: !compact, goPrivacy: () => set({ route: 'privacy' }), leavePrivacy: () => { if (inSession) me.go(me.entry(role)); else set({ route: me.entry(role) }); },
+      sbW: compact ? '0px' : sbColl ? '72px' : '240px', sbDisplay: compact ? 'none' : 'flex', collapsed: sbColl, toggleSb: () => set({ sbColl: !sbColl }), isCompact: compact, pad: bp === 'xl' ? '32px' : bp === 'sm' ? '16px' : '24px', envLabel: mode === 'session' ? 'sesión' : 'local',
+      kpiN: bp === 'sm' ? 1 : bp === 'md' ? 2 : 4, mainBasis: compact ? '100%' : '448px', panelBasis: compact ? '100%' : '320px', panelOrder: compact ? -1 : 0, panelPos: compact ? 'static' : 'sticky',
+      drawerOpen: st.drawer && compact, openDrawer: () => set({ drawer: true }), closeDrawer: () => set({ drawer: false }), navDrawer: k => me.go(k),
+      who, initials, isLocal: mode === 'local', role, scope: scopeTxt, city: st.city, cityLabel: st.city ? this.cityLabel(st.city) : 'Todas las ciudades',
+      setCity: c => { set({ city: c }); setTimeout(() => { if (me.state.route === 'market') me.loadMarket(); if (me.state.route === 'leads') me.loadLeads(false); }, 0); },
+      logout: () => me.logout(), crumb: SB ? anaCrumb : (crumbs[route] || ''), navActive: route === 'lead' ? 'leads' : route, navItems, nav: k => me.go(k),
+      isForbidden: forbidden, forbidMsg: 'Tu rol (' + role + ') no incluye esta sección.', entryLabel: 'Ir a ' + (me.entry(role) === 'leads' ? 'Leads' : 'Mercado'), goEntry: () => me.go(me.entry(role)),
+      isMarket: vw('market'), isInbox: vw('inbox'), isPipeline: inApp && route === 'pipeline', isProjects: vw('projects'), isTerritory: vw('territory'), isOps: vw('ops'), isImports: vw('imports'), isConfig: vw('config'), isResearch: vw('research'), isAnalytics: vw('analytics'), isSt: inApp && route.indexOf('st-') === 0 && allowed(route), stPage: route.slice(3), isValidation: vw('validation'), isMetrics: vw('metrics'), isData: vw('data'), isOther: inApp && route === 'rep',
+      isLeads: inApp && route === 'leads', isLead: inApp && route === 'lead' && !!LD && !leadErr, isNotFound: inApp && route === 'lead' && !!leadErr, leadLoading: inApp && route === 'lead' && st.leadLoading && !LD,
+      isAna: !!SB && inApp && !forbidden, anaShow: anaOpen, anaRail: !anaOpen, anaHide: () => set({ anaOpen: false }), anaShowFn: () => set({ anaOpen: true }), anaPos: compact ? 'fixed' : 'sticky', anaTop: compact ? '64px' : '0', anaZ: compact ? 65 : 1, anaQ: st.anaQ || '', setAnaQ: e => set({ anaQ: e.target.value }), anaGroups, anaEmpty: anaGroups.length === 0, anaTitle: SB ? SB.t : '', anaCount: SB ? SB.kids.length : 0, anaFoot: SB ? SB.foot : '',
+      anaTab: curA('anaTab'), anaComp: curA('anaComp'), anaLevel: curA('anaLevel'), anaLayer: curA('anaLayer'), anaPart: curA('anaPart'), mainMax: route.indexOf('st-') === 0 || route === 'data' ? 'none' : '1200px',
+      goRoute: (k, extra) => { if (k === 'data' && extra) set({ dataDataset: extra }); me.go(k); }, goModelos: () => { if (allowed('st-modelos')) me.go('st-modelos'); else me.notify('Tu rol no ve Modelos'); }, notify: msg => me.notify(msg), openLead: (id, r) => me.openLead(id, r), goLeads: () => me.go('leads'),
+      dataDataset: st.dataDataset, setDataDataset: id => { set({ dataDataset: id || '' }); me.writeHash('data', id || ''); },
+      offline: inApp && st.offline, idle: inApp && st.idle, goOnline: () => { set({ offline: false }); me.go(me.state.route === 'lead' ? 'leads' : me.state.route); }, keepAlive: () => me.keepAlive(), gt: st.gt,
+      copyLink: () => { try { navigator.clipboard && navigator.clipboard.writeText(window.location.href); me.notify('Enlace copiado'); } catch (e) { me.notify('No se pudo copiar el enlace'); } },
+      // mercado
+      mAsOf: asOf ? 'Datos al ' + fmt.date(asOf) : 'Sin fecha de corte todavía', mStale, mLoading: st.market.loading, mErrors: st.market.errors || [], kpis, reloadMarket: () => { me.C().invalidate(); me.loadMarket(); },
+      ranges: RANGES.map(([l, v]) => seg(l, st.range === v, () => reloadAfter({ range: v }))), periods: PERIODS.map(([l, v]) => seg(l, st.period === v, () => reloadAfter({ period: v }))), periodNoun: { day: 'día', week: 'semana', month: 'mes' }[st.period],
+      hasPoints: nb > 0, noPoints: !!md.points && nb === 0, bars, grid, tableRows, showChart: nb > 0 && !st.table, showTable: nb > 0 && st.table, tableLabel: st.table ? 'Ver gráfico' : 'Ver como tabla', toggleTable: () => set({ table: !st.table }),
+      noSources: !!md.sources && srcRows.length === 0, hasSources: srcRows.length > 0, srcRows, noStages: !!md.times && stageRows.length === 0, hasStages: stageRows.length > 0, stageRows,
+      noCityCat: !!ins && cityCat.length === 0, cityCat, mapsOn: mapsRows.length > 0, mapsOff: !!ins && mapsRows.length === 0, mapsMsg, mapsRows, noHiring: !!ins && hiringRows.length === 0, hiringRows, noMid: !!ins && midRows.length === 0, midRows, midSub,
+      // leads
+      filters, scoreMin: st.scoreMin, setScore: e => { const v = e.target.value; set({ scoreMin: v === '' ? '' : Math.max(0, Math.min(100, Number(v) || 0)) }); clearTimeout(me.scoreT); me.scoreT = setTimeout(() => me.loadLeads(false), 500); },
+      clearF: () => { set({ lf: { stage: '', line: '', segment: '' }, scoreMin: '' }); setTimeout(() => me.loadLeads(false), 0); }, reloadLeads: () => me.loadLeads(false),
+      rows, shown: rowsData.length, leadsCount: lv.loaded ? rowsData.length + (lv.hasMore ? '+' : '') + ' resultados' : 'cargando', noRows, emptyTitle: filtered ? 'Sin resultados' : 'Aún no hay leads', emptyHint: filtered ? 'Ajusta los filtros.' : 'Los leads aparecen cuando core califica empresas que Bright Data detectó.',
+      leadsLoading: lv.loading, leadsError: !!lv.error, leadsErrorMsg: lv.error ? lv.error.message : '', leadsErrorCode: lv.error ? (lv.error.code || lv.error.kind) : '', hasMore: lv.hasMore, loadMore: () => me.loadLeads(true), loadingMore: !!lv.loadingMore, moreLabel: lv.loadingMore ? 'Cargando…' : 'Cargar más', moreHint: lv.hasMore ? ' · hay más' : '',
+      dmUnavailable: rowsData.some(x => x.decision_makers_available === false),
+      canCreate: has('admin', 'intake', 'bd_rep'), canExport: has('admin', 'analyst'), newLead: () => me.openDlg('newlead'),
+      exportCsv: () => { const cols = ['id', 'legal_name', 'stage', 'service_line', 'city', 'segment', 'score', 'rues_status', 'updated_at', 'decision_makers']; A.downloadCsv('leads.csv', A.toCsv(cols, rowsData)); me.notify('Exportación lista: ' + rowsData.length + ' leads cargados'); },
+      // detalle
+      lead, steps, lostColor: lost ? '#B42318' : '#525252', lostW: lost ? 500 : 400, actions, ficha, dmList, dmNone: dmList.length === 0, dmNoneMsg,
+      copyId: () => { try { navigator.clipboard && navigator.clipboard.writeText(lead.companyId); me.notify('Identificador copiado'); } catch (e) {} },
+      goTerritory: () => { if (allowed('territory')) { if (LD && LD.city) set({ city: LD.city }); me.go('territory'); } else me.notify('Tu rol no ve Territorio'); },
+      tabs: TABS.map(([k, l]) => ({ l, on: k === st.tab, bar: k === st.tab ? '#0A0A0A' : 'transparent', w: k === st.tab ? 500 : 400, c: k === st.tab ? '#0A0A0A' : '#525252', go: () => set({ tab: k }) })), tabLabel: (TABS.find(t => t[0] === st.tab) || TABS[0])[1], tabItems, noItems: tabItems.length === 0, noItemsMsg,
+      brief: st.brief, briefError: st.briefError, briefLoading: st.briefLoading, reloadBrief: () => { if (st.selId) me.loadBrief(st.selId); },
+      leadErrCode: leadErr ? String(leadErr.status || leadErr.kind) : '', leadErrTitle: leadErr && leadErr.kind === 'not_found' ? 'Este lead no existe o no está en tu alcance' : 'No pudimos cargar el lead', leadErrMsg: leadErr ? leadErr.message : '', reloadLead: () => { if (st.selId) me.openLead(st.selId, st.selRow); },
+      // diálogos
+      dlg: !!st.dlg, isStatusDlg: st.dlg === 'status', isFormDlg: !!DL[st.dlg], dlgTitle: dcfg.title, dlgW: dcfg.w, dFields: dcfg.fields, okLabel: st.dlgBusy ? 'Guardando…' : dcfg.ok, showOk: !(st.dlg === 'status' && (st.conflict || !targets.length)),
+      conflict: st.conflict, noConflict: !st.conflict && targets.length > 0, noDests: st.dlg === 'status' && !targets.length, dests, dlgErr: st.dlgErr, dlgBusy: st.dlgBusy, dlgOp: st.dlgBusy ? 0.6 : 1,
+      closeDialog: () => me.closeDlg(), okDialog: () => me.submitDialog(pick), reloadAfterConflict: () => { set({ conflict: false, pick: null, dlgErr: '' }); if (st.selId) me.loadLead(st.selId); }
+    };
+  }
+}
+</script>
+</body>
+</html>

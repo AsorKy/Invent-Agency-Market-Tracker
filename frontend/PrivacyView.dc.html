@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="min-height:100vh;background:#E9E8E4;display:flex;flex-direction:column;font-family:Inter,sans-serif;color:#0A0A0A">
+  <header style="display:flex;justify-content:space-between;align-items:center;padding:20px 32px;border-bottom:1px solid rgba(10,10,10,.14)"><div style="display:flex;align-items:center;gap:10px"><svg width="26" height="26" viewBox="0 0 100 100" aria-hidden="true"><rect x="22" y="34" width="28" height="58" rx="14" fill="#0A0A0A"></rect><circle cx="70" cy="23" r="12" fill="#0A0A0A"></circle></svg><span style="font-size:16px;font-weight:500;letter-spacing:-.02em">INVENT®</span></div>
+    <button onClick="{{ back }}" style="height:36px;padding:0 16px;border:1px solid rgba(10,10,10,.26);border-radius:999px;background:transparent;font-family:inherit;font-size:13px;font-weight:500;letter-spacing:.02em;cursor:pointer;white-space:nowrap">Volver</button></header>
+  <main style="flex:1;display:flex;align-items:center;justify-content:center;padding:48px 24px"><div style="width:100%;max-width:560px;background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:40px;display:flex;flex-direction:column;gap:20px">
+    <div style="font-size:11px;font-weight:500;letter-spacing:.16em;color:#666666">PRIVACIDAD · HABEAS DATA</div>
+    <h1 style="margin:0;font-size:28px;line-height:32px;font-weight:500;letter-spacing:-.03em">Pide que tu empresa salga de nuestra base</h1>
+    <p style="margin:0;font-size:16px;line-height:24px;color:#3D3D3D">Solo guardamos datos públicos de empresas. Si quieres que eliminemos los de la tuya, escríbenos al canal legal de Invent con el NIT de la empresa y un correo para responderte.</p>
+    <div role="note" style="display:flex;gap:12px;padding:12px 16px;border-radius:12px;background:#E5F8FD;border:1px solid #9BE3F7;color:#006A99;font-size:14px;line-height:20px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none;margin-top:1px"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 16v-4M12 8h.01"></path></svg><span>Este formulario todavía no recibe solicitudes en línea: la API solo expone la exclusión a un administrador, que la aplica desde Configuración.</span></div>
+  </div></main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1136,&quot;height&quot;:700}}">
+class Component extends DCLogic {
+  renderVals() {
+    return { back: () => this.props.onBack && this.props.onBack() };
+  }
+}
+</script>
+</body>
+</html>

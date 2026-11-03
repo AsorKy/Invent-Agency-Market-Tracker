@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./api.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="display:flex;flex-direction:column;gap:24px;font-family:Inter,sans-serif;color:#0A0A0A;font-variant-numeric:tabular-nums">
+  <div><h1 style="margin:0;font-size:28px;line-height:32px;font-weight:500;letter-spacing:-.03em">Validación y portafolio</h1><div style="font-size:14px;color:#3D3D3D;margin-top:4px">V4 growth, V5 portafolio y V6 meta-ML. V1 a V3 viven en cada proyecto.</div></div>
+  <sc-if value="{{ showV6 }}" hint-placeholder-val="{{ true }}"><section aria-labelledby="v6" style="background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:12px">
+    <div style="display:flex;justify-content:space-between;gap:12px;align-items:baseline;flex-wrap:wrap"><h2 id="v6" style="margin:0;font-size:16px;line-height:24px;font-weight:500">V6 · Meta-ML del tenant</h2><span style="font-size:12px;color:#666666">{{ v6Meta }}</span></div>
+    <sc-if value="{{ v6Loading }}" hint-placeholder-val="{{ false }}"><div role="status" style="font-size:14px;color:#666666">Cargando…</div></sc-if>
+    <sc-if value="{{ v6Err }}" hint-placeholder-val="{{ false }}"><div role="alert" style="display:flex;gap:12px;align-items:center;padding:12px 16px;border-radius:12px;background:#FFF8EB;border:1px solid #FCDDA0;color:#A1460A;font-size:14px"><span style="flex:1;font-weight:500">{{ v6ErrMsg }}</span><span style="font-family:ui-monospace,Menlo,monospace;font-size:12px">{{ v6ErrCode }}</span></div></sc-if>
+    <sc-if value="{{ v6Empty }}" hint-placeholder-val="{{ false }}"><div style="font-size:14px;color:#666666">Sin datos todavía · {{ v6Reason }}</div></sc-if>
+    <sc-for list="{{ v6Rows }}" as="r" hint-placeholder-count="0"><div style="display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-top:1px solid rgba(10,10,10,.14);font-size:14px"><span style="font-family:ui-monospace,Menlo,monospace;font-size:13px">{{ r.k }}</span><span style="font-weight:500;color:{{ r.c }}">{{ r.v }}</span></div></sc-for>
+    <sc-for list="{{ v6Missing }}" as="m" hint-placeholder-count="0"><div style="font-size:12px;color:#666666"><span style="font-family:ui-monospace,Menlo,monospace">{{ m.k }}</span>: no disponible ({{ m.r }})</div></sc-for>
+    <button onClick="{{ toModels }}" style="align-self:flex-start;border:0;background:transparent;padding:0;font-family:inherit;font-size:13px;color:#006A99;text-decoration:underline;cursor:pointer">Ver Modelos ↗</button>
+  </section></sc-if>
+  <sc-if value="{{ showProject }}" hint-placeholder-val="{{ true }}"><section aria-labelledby="v45" style="background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:8px">
+    <h2 id="v45" style="margin:0;font-size:16px;line-height:24px;font-weight:500">{{ projTitle }}</h2>
+    <sc-if value="{{ pLoading }}" hint-placeholder-val="{{ false }}"><div role="status" style="font-size:14px;color:#666666">Cargando proyectos…</div></sc-if>
+    <div style="font-size:14px;line-height:20px;color:#3D3D3D">{{ projMsg }}</div>
+  </section></sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1136,&quot;height&quot;:700}}">
+class Component extends DCLogic {
+  // GET /api/v1/validation/meta-ml (tenant-wide V6) and GET /api/v1/projects for V4/V5,
+  // which are per-project cards (see Proyectos). Role-restricted: local mode shows the API answer.
+  state = { v6: null, v6Err: null, v6Loading: true, projects: null, pErr: null };
+  componentDidMount() {
+    const c = window.InventApi.client;
+    c.get('/validation/meta-ml').then(res => this.setState(res.ok ? { v6: res.data, v6Loading: false } : { v6Err: res, v6Loading: false }));
+    c.listPage('/projects', { limit: 50 }).then(res => this.setState(res.ok ? { projects: res.rows } : { pErr: res }));
+  }
+  renderVals() {
+    const p = this.props, st = this.state, fmt = window.InventApi.fmt, part = Number(p.part) || 0, v6 = st.v6;
+    const fields = ['model_utility', 'decision_latency_days', 'psi', 'precision_at_k', 'funnel_lift'];
+    const th = v6 && v6.thresholds ? v6.thresholds : {};
+    const color = k => { const s = th[k] && th[k].status; return s === 'healthy' || s === 'ok' ? '#067647' : s === 'watch' ? '#A1460A' : s === 'concerning' || s === 'bad' ? '#B42318' : '#0A0A0A'; };
+    const v6Rows = v6 && !v6.empty ? fields.filter(k => k in v6).map(k => ({ k, v: v6[k] == null ? '—' : fmt.cell(v6[k]), c: color(k) })) : [];
+    const un = v6 && v6.unavailable ? v6.unavailable : {};
+    const n = st.projects ? st.projects.length : null;
+    const label = part === 1 ? 'V5 · Portafolio' : part === 2 ? 'V4 · Growth' : 'V4 growth y V5 portafolio';
+    return {
+      showV6: part === 0 || part === 3, showProject: part !== 3,
+      v6Loading: st.v6Loading, v6Err: !!st.v6Err, v6ErrMsg: st.v6Err ? st.v6Err.message : '', v6ErrCode: st.v6Err ? (st.v6Err.status || '') + ' ' + (st.v6Err.code || st.v6Err.kind) : '',
+      v6Empty: !!v6 && !!v6.empty, v6Reason: v6 ? String(v6.reason || '') : '', v6Rows, v6Missing: Object.keys(un).map(k => ({ k, r: un[k] })),
+      v6Meta: v6 ? (v6.measured_at ? 'Medido ' + fmt.date(v6.measured_at) : 'Sin medición') + (v6.threshold_version ? ' · umbrales ' + v6.threshold_version : '') : '',
+      projTitle: label, pLoading: n === null && !st.pErr,
+      projMsg: st.pErr ? st.pErr.message : n === null ? '' : n === 0 ? 'Aún no hay proyectos: ' + label + ' se miden por proyecto.' : n + (n === 1 ? ' proyecto' : ' proyectos') + '. Abre cada uno en Proyectos para ver sus tarjetas de validación.',
+      toModels: () => p.onModels && p.onModels()
+    };
+  }
+}
+</script>
+</body>
+</html>

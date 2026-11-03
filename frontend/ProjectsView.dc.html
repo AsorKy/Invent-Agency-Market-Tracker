@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./api.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="display:flex;flex-direction:column;gap:24px;font-family:Inter,sans-serif;color:#0A0A0A;font-variant-numeric:tabular-nums">
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap"><div><h1 style="margin:0;font-size:28px;line-height:32px;font-weight:500;letter-spacing:-.03em">Proyectos</h1><div style="font-size:14px;color:#3D3D3D;margin-top:4px">Funnel de siete gates. El sistema propone; una persona confirma.</div></div>
+    <button onClick="{{ reload }}" style="height:36px;padding:0 16px;border:1px solid rgba(10,10,10,.26);border-radius:999px;background:transparent;color:#0A0A0A;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap" style-hover="background:#F5F5F5">Actualizar</button></div>
+  <sc-if value="{{ failed }}" hint-placeholder-val="{{ false }}"><div role="alert" style="display:flex;gap:12px;align-items:center;padding:12px 16px;border-radius:12px;background:#FEF3F2;border:1px solid #FECDCA;color:#B42318;font-size:14px"><span style="flex:1;font-weight:500">{{ errMsg }}</span><span style="font-family:ui-monospace,Menlo,monospace;font-size:12px">{{ errCode }}</span><button onClick="{{ reload }}" style="height:28px;padding:0 12px;border:1px solid currentColor;border-radius:999px;background:transparent;color:inherit;font-family:inherit;font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap">Reintentar</button></div></sc-if>
+  <sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}"><div role="status" style="font-size:14px;color:#666666">Cargando proyectos…</div></sc-if>
+  <sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}"><div data-testid="projects-empty" style="background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:64px 32px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#666666" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"></path></svg><div style="font-size:18px;font-weight:500">Aún no hay proyectos</div><div style="font-size:14px;line-height:20px;color:#666666;max-width:460px">Un proyecto nace de un lead: ábrelo en Leads y usa «Convertir en proyecto» (admin o strategist).</div></div></sc-if>
+  <sc-if value="{{ hasRows }}" hint-placeholder-val="{{ false }}">
+  <div style="display:flex;flex-wrap:wrap;gap:24px;align-items:start">
+    <section aria-label="Lista de proyectos" style="flex:5 1 360px;min-width:0;background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;overflow:hidden">
+      <div style="padding:12px 24px;background:#F5F5F5;border-bottom:1px solid rgba(10,10,10,.14);font-size:11px;font-weight:500;letter-spacing:.16em;color:#525252;display:flex;justify-content:space-between"><span>PROYECTOS</span><span>{{ count }}</span></div>
+      <sc-for list="{{ rows }}" as="r" hint-placeholder-count="3"><button onClick="{{ r.go }}" aria-pressed="{{ r.on }}" style="display:flex;flex-direction:column;gap:4px;width:100%;text-align:left;padding:14px 24px;border:0;border-bottom:1px solid rgba(10,10,10,.14);background:{{ r.bg }};font-family:inherit;color:#0A0A0A;cursor:pointer"><span style="display:flex;justify-content:space-between;gap:12px;align-items:center"><span style="font-size:14px;font-weight:500">{{ r.n }}</span><span style="display:inline-flex;align-items:center;height:22px;padding:0 10px;border:1px solid rgba(10,10,10,.26);border-radius:999px;font-size:12px;font-weight:500;color:#3D3D3D;white-space:nowrap">{{ r.status }}</span></span><span style="font-size:12px;color:#666666">{{ r.meta }}</span></button></sc-for>
+      <sc-if value="{{ hasMore }}" hint-placeholder-val="{{ false }}"><div style="padding:12px 24px"><button onClick="{{ more }}" style="height:36px;padding:0 16px;border:1px solid rgba(10,10,10,.26);border-radius:999px;background:transparent;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer">Cargar más</button></div></sc-if>
+    </section>
+    <section aria-label="Detalle del proyecto" style="flex:7 1 480px;min-width:0;background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:20px">
+      <div><div style="font-size:20px;line-height:28px;font-weight:500;letter-spacing:-.02em">{{ sel.n }}</div><div style="font-size:13px;color:#666666">{{ sel.meta }}</div></div>
+      <div><div style="font-size:11px;font-weight:500;letter-spacing:.16em;color:#666666;margin-bottom:6px">HIPÓTESIS</div><p style="margin:0;font-size:14px;line-height:22px;color:#3D3D3D">{{ sel.hyp }}</p></div>
+      <dl style="margin:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px"><sc-for list="{{ sel.facts }}" as="f" hint-placeholder-count="4"><div><dt style="font-size:12px;font-weight:500;color:#666666">{{ f.k }}</dt><dd style="margin:4px 0 0;font-size:14px;font-weight:500;overflow-wrap:anywhere">{{ f.v }}</dd></div></sc-for></dl>
+      <sc-if value="{{ sel.hasLead }}" hint-placeholder-val="{{ false }}"><button onClick="{{ openLead }}" style="align-self:flex-start;border:0;background:transparent;padding:0;font-family:inherit;font-size:13px;color:#006A99;text-decoration:underline;cursor:pointer">Abrir el lead de origen</button></sc-if>
+      <div style="border-top:1px solid rgba(10,10,10,.14);padding-top:16px"><div style="font-size:15px;font-weight:500;margin-bottom:8px">Funnel</div>
+        <sc-if value="{{ funnelLoading }}" hint-placeholder-val="{{ false }}"><div role="status" style="font-size:13px;color:#666666">Cargando el estado del funnel…</div></sc-if>
+        <sc-if value="{{ funnelErr }}" hint-placeholder-val="{{ false }}"><div role="alert" style="font-size:13px;line-height:20px;color:#A1460A">{{ funnelErr }}</div></sc-if>
+        <sc-for list="{{ gates }}" as="g" hint-placeholder-count="0"><div style="display:grid;grid-template-columns:56px minmax(0,1fr) auto;gap:12px;align-items:center;padding:8px 0;border-top:1px solid rgba(10,10,10,.14);font-size:13px"><span style="font-family:ui-monospace,Menlo,monospace">{{ g.gate }}</span><span style="color:#3D3D3D">{{ g.detail }}</span><span style="font-weight:500;color:{{ g.c }}">{{ g.verdict }}</span></div></sc-for>
+      </div>
+      <div style="border-top:1px solid rgba(10,10,10,.14);padding-top:16px"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:8px"><div style="font-size:15px;font-weight:500">Tarjetas de validación</div><label style="font-size:12px;color:#3D3D3D;display:flex;gap:6px;align-items:center">Tarjeta<select value="{{ card }}" onChange="{{ setCard }}" style="height:30px;border:1px solid #767676;border-radius:8px;background:#FAFAFA;font-family:inherit;font-size:13px"><sc-for list="{{ cards }}" as="o" hint-placeholder-count="6"><option value="{{ o.v }}">{{ o.l }}</option></sc-for></select></label></div>
+        <sc-if value="{{ cardLoading }}" hint-placeholder-val="{{ false }}"><div role="status" style="font-size:13px;color:#666666">Cargando la tarjeta…</div></sc-if>
+        <sc-if value="{{ cardErr }}" hint-placeholder-val="{{ false }}"><div role="alert" style="font-size:13px;line-height:20px;color:#A1460A">{{ cardErr }}</div></sc-if>
+        <sc-if value="{{ cardEmpty }}" hint-placeholder-val="{{ false }}"><div style="font-size:13px;color:#666666">Sin datos todavía · {{ cardReason }}</div></sc-if>
+        <sc-for list="{{ cardRows }}" as="c" hint-placeholder-count="0"><div style="display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-top:1px solid rgba(10,10,10,.14);font-size:13px"><span style="font-family:ui-monospace,Menlo,monospace">{{ c.k }}</span><span style="font-weight:500">{{ c.v }}</span></div></sc-for>
+      </div>
+    </section>
+  </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1136,&quot;height&quot;:700}}">
+class Component extends DCLogic {
+  // GET /api/v1/projects (cursor pages). For the selected project: GET /funnel/projects/{id}
+  // and GET /validation/projects/{id}/{card}; both need a session with role, so in local mode
+  // they show the API answer (tenant_required) instead of numbers.
+  state = { loading: true, error: null, page: null, sel: null, funnel: null, funnelErr: null, funnelLoading: false, card: 'financial', cardData: null, cardErr: null, cardLoading: false };
+  CARDS = [['financial', 'V1 · Financiera'], ['unit-economics', 'V2 · Unit economics'], ['funnel', 'V3 · Funnel'], ['growth', 'V4 · Growth'], ['portfolio', 'V5 · Portafolio'], ['meta-ml', 'V6 · Meta-ML']];
+  componentDidMount() { this.load(false); }
+  load(append, fresh) {
+    const A = window.InventApi, prev = this.state.page;
+    this.setState(append ? {} : { loading: true, error: null });
+    return A.client.listPage('/projects', { limit: 50, cursor: append && prev ? prev.nextCursor : undefined }, { fresh: !!fresh }).then(res => {
+      const page = A.mergePage(prev, res, append);
+      this.setState({ loading: false, page, error: res.ok ? null : res });
+      if (res.ok && !append && page.rows.length && !this.state.sel) this.select(page.rows[0]);
+    });
+  }
+  select(row) {
+    const c = window.InventApi.client, id = encodeURIComponent(row.id);
+    this.setState({ sel: row.id, funnel: null, funnelErr: null, funnelLoading: true });
+    c.get('/funnel/projects/' + id).then(res => this.setState(res.ok ? { funnel: res.data, funnelLoading: false } : { funnelErr: res.message + ' (' + (res.code || res.status) + ')', funnelLoading: false }));
+    this.loadCard(row.id, this.state.card);
+  }
+  loadCard(projectId, card) {
+    const c = window.InventApi.client;
+    this.setState({ card, cardData: null, cardErr: null, cardLoading: true });
+    return c.get('/validation/projects/' + encodeURIComponent(projectId) + '/' + card).then(res => this.setState(res.ok ? { cardData: res.data, cardLoading: false } : { cardErr: res.message + ' (' + (res.code || res.status) + ')', cardLoading: false }));
+  }
+  renderVals() {
+    const p = this.props, st = this.state, A = window.InventApi, fmt = A.fmt, page = st.page || { rows: [], hasMore: false };
+    const STATUS = { active: 'Activo', killed: 'Cancelado', paused: 'En pausa', done: 'Cerrado' };
+    const rows = page.rows.map(r => ({ n: r.name || '(sin nombre)', status: STATUS[r.status] || r.status || '—', meta: [r.service_line, 'creado ' + fmt.ago(r.created_at)].filter(Boolean).join(' · '), on: r.id === st.sel, bg: r.id === st.sel ? '#F5F5F5' : '#FAFAFA', go: () => this.select(r) }));
+    const s = page.rows.find(r => r.id === st.sel) || null;
+    const sel = s ? { n: s.name, meta: (STATUS[s.status] || s.status || '') + ' · actualizado ' + fmt.ago(s.updated_at), hyp: s.hypothesis || 'Sin hipótesis.', hasLead: !!s.lead_id,
+      facts: [{ k: 'Línea de servicio', v: s.service_line || '—' }, { k: 'ROI estimado', v: s.estimated_roi == null ? '—' : fmt.number(s.estimated_roi, 2) }, { k: 'Creado', v: fmt.date(s.created_at) }, { k: 'Identificador', v: s.id }].concat(Object.keys(s.metadata || {}).slice(0, 4).map(k => ({ k, v: fmt.cell(s.metadata[k]) }))) }
+      : { n: '', meta: '', hyp: '', hasLead: false, facts: [] };
+    const VC = { advance: '#067647', ADVANCE: '#067647', kill: '#B42318', KILL: '#B42318' };
+    const gates = st.funnel && Array.isArray(st.funnel.gates) ? st.funnel.gates.map(g => { const d = g.last_decision; return { gate: g.gate, detail: g.available === false ? 'Checklist no disponible (' + (g.reason || '') + ')' : d ? (d.reasons || []).join(', ') || 'Decisión registrada ' + fmt.ago(d.decided_at) : 'Sin decisión todavía', verdict: d ? String(d.verdict || '—') : '—', c: d ? (VC[d.verdict] || '#A1460A') : '#666666' }; }) : [];
+    const cd = st.cardData, skip = new Set(['card', 'project_id', 'threshold_version', 'unavailable', 'empty', 'reason', 'measured_at', 'source_version', 'thresholds']);
+    const cardRows = cd && !cd.empty ? Object.keys(cd).filter(k => !skip.has(k)).map(k => ({ k, v: cd[k] == null ? '—' : fmt.cell(cd[k]) })) : [];
+    return {
+      loading: st.loading, failed: !!st.error, errMsg: st.error ? st.error.message : '', errCode: st.error ? (st.error.code || st.error.kind) : '', reload: () => { this.setState({ sel: null }); this.load(false, true); },
+      empty: !st.loading && !st.error && page.rows.length === 0, hasRows: page.rows.length > 0, rows, count: page.rows.length + (page.hasMore ? '+' : ''), hasMore: page.hasMore, more: () => this.load(true),
+      sel, openLead: () => s && p.onOpenLead && p.onOpenLead(s.lead_id), funnelLoading: st.funnelLoading, funnelErr: st.funnelErr || (st.funnel && !gates.length ? 'El funnel no devolvió gates.' : ''), gates,
+      cards: this.CARDS.map(([v, l]) => ({ v, l })), card: st.card, setCard: e => s && this.loadCard(s.id, e.target.value), cardLoading: st.cardLoading, cardErr: st.cardErr || '', cardEmpty: !!cd && !!cd.empty, cardReason: cd ? String(cd.reason || '') : '', cardRows
+    };
+  }
+}
+</script>
+</body>
+</html>

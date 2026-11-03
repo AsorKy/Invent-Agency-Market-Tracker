@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./api.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="display:flex;flex-direction:column;gap:24px;font-family:Inter,sans-serif;color:#0A0A0A;font-variant-numeric:tabular-nums">
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap"><div><h1 style="margin:0;font-size:28px;line-height:32px;font-weight:500;letter-spacing:-.03em">Ops</h1><div style="font-size:14px;color:#3D3D3D;margin-top:4px">Salud del sistema. Cada bloque falla por separado.</div></div>
+    <button onClick="{{ reload }}" style="height:36px;padding:0 16px;border:1px solid rgba(10,10,10,.26);border-radius:999px;background:transparent;color:#0A0A0A;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap" style-hover="background:#F5F5F5">Actualizar</button></div>
+  <div style="display:flex;flex-wrap:wrap;gap:24px">
+    <section data-testid="ops-sources" aria-labelledby="ops-fresh" style="flex:7 1 448px;min-width:0;overflow-x:auto;background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:24px"><h2 id="ops-fresh" style="margin:0 0 4px;font-size:15px;line-height:22px;font-weight:500;color:#0A0A0A">Frescura por fuente</h2><div style="font-size:13px;color:#666666;margin-bottom:12px">{{ healthMeta }}</div>
+      <sc-if value="{{ hLoading }}" hint-placeholder-val="{{ false }}"><div role="status" style="font-size:14px;color:#666666">Cargando…</div></sc-if>
+      <sc-if value="{{ hErr }}" hint-placeholder-val="{{ false }}"><div role="alert" style="font-size:14px;color:#B42318"><span style="font-weight:500">{{ hErrMsg }}</span> <span style="font-family:ui-monospace,Menlo,monospace;font-size:12px">{{ hErrCode }}</span></div></sc-if>
+      <sc-if value="{{ noSources }}" hint-placeholder-val="{{ false }}"><div style="padding:16px 0;font-size:14px;color:#666666">Sin datos todavía: pulse no ha registrado snapshots por fuente.</div></sc-if>
+      <sc-if value="{{ hasSources }}" hint-placeholder-val="{{ false }}"><div style="display:grid;grid-template-columns:minmax(0,1.2fr) 150px 110px;gap:12px;font-size:11px;font-weight:500;letter-spacing:.16em;color:#525252;padding:0 0 8px"><span>FUENTE</span><span>ÚLTIMO SNAPSHOT</span><span>ESTADO</span></div></sc-if>
+      <sc-for list="{{ sources }}" as="s" hint-placeholder-count="5"><div style="display:grid;grid-template-columns:minmax(0,1.2fr) 150px 110px;gap:12px;align-items:center;padding:10px 0;border-top:1px solid rgba(10,10,10,.14);font-size:14px"><span style="font-weight:500">{{ s.n }}</span><span title="{{ s.abs }}">{{ s.age }}</span><span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:500;color:{{ s.fg }}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{ s.icon }}"></path></svg>{{ s.st }}</span></div></sc-for>
+    </section>
+    <section aria-labelledby="ops-outbox" style="flex:5 1 320px;min-width:0;background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:24px"><h2 id="ops-outbox" style="margin:0 0 12px;font-size:15px;line-height:22px;font-weight:500;color:#0A0A0A">Outbox</h2>
+      <div style="font-size:36px;line-height:40px;font-weight:300;letter-spacing:-.03em">{{ backlog }}</div><div style="font-size:13px;color:#666666">{{ backlogSub }}</div>
+    </section>
+    <section aria-labelledby="ops-ingest" style="flex:12 1 100%;min-width:0;background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:24px"><div style="display:flex;justify-content:space-between;gap:12px;align-items:baseline;flex-wrap:wrap;margin-bottom:12px"><h2 id="ops-ingest" style="margin:0;font-size:15px;line-height:22px;font-weight:500;color:#0A0A0A">Ingesta de Bright Data</h2><span style="font-size:12px;color:#666666">Conteos del catálogo de Datos</span></div>
+      <sc-if value="{{ cErr }}" hint-placeholder-val="{{ false }}"><div role="alert" style="font-size:14px;color:#B42318"><span style="font-weight:500">{{ cErrMsg }}</span> <span style="font-family:ui-monospace,Menlo,monospace;font-size:12px">{{ cErrCode }}</span></div></sc-if>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px"><sc-for list="{{ ingest }}" as="i" hint-placeholder-count="5"><div style="padding:12px 16px;border:1px solid rgba(10,10,10,.14);border-radius:12px"><div style="font-size:13px;color:#525252">{{ i.l }}</div><div style="font-size:28px;line-height:36px;font-weight:300;letter-spacing:-.03em;color:{{ i.c }}">{{ i.n }}</div><div style="font-size:12px;color:#666666">{{ i.sub }}</div></div></sc-for></div>
+    </section>
+    <sc-for list="{{ pending }}" as="b" hint-placeholder-count="3"><section style="flex:4 1 300px;min-width:0;background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:24px"><div style="font-size:15px;line-height:22px;font-weight:500;color:#0A0A0A;margin-bottom:8px">{{ b.t }}</div><div style="font-size:14px;font-weight:500">Sin datos todavía</div><div style="font-size:13px;line-height:20px;color:#666666;margin-top:4px">{{ b.d }}</div></section></sc-for>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1136,&quot;height&quot;:900}}">
+class Component extends DCLogic {
+  // GET /api/v1/ops/health (pulse) and the ingest counts of GET /api/v1/data/catalog.
+  state = { h: null, hErr: null, hLoading: true, cat: null, cErr: null };
+  componentDidMount() { this.load(); }
+  load(fresh) {
+    const c = window.InventApi.client, o = { fresh: !!fresh };
+    this.setState({ hLoading: true, hErr: null, cErr: null });
+    c.get('/ops/health', null, o).then(res => this.setState(res.ok ? { h: res.data, hLoading: false } : { hErr: res, hLoading: false }));
+    c.get('/data/catalog', null, o).then(res => this.setState(res.ok ? { cat: res.data } : { cErr: res }));
+  }
+  renderVals() {
+    const st = this.state, A = window.InventApi, fmt = A.fmt, h = st.h;
+    const OK = ['Al día', '#067647', 'M20 6 9 17l-5-5'], LATE = ['Atrasada', '#A1460A', 'm21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3M12 9v4M12 17h.01'], NONE = ['Sin snapshot', '#666666', 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 6v6l4 2'];
+    const srcs = h && Array.isArray(h.sources) ? h.sources : [];
+    const sources = srcs.map(s => { const m = s.as_of == null ? NONE : s.stale ? LATE : OK; return { n: s.source, age: s.as_of == null ? '—' : fmt.ago(s.as_of), abs: fmt.date(s.as_of), st: m[0], fg: m[1], icon: m[2] }; });
+    const ds = st.cat && Array.isArray(st.cat.datasets) ? st.cat.datasets : [];
+    const find = id => ds.find(d => d.id === id);
+    const ING = [['raw_snapshots', 'Snapshots crudos', '#0A0A0A'], ['pending_snapshots', 'Snapshots pendientes', '#A1460A'], ['failed_fetches', 'Descargas fallidas', '#B42318'], ['failed_records', 'Registros fallidos', '#B42318'], ['rues_queue', 'Cola RUES', '#0A0A0A']];
+    const ingest = ING.map(([id, l, color]) => { const d = find(id); const n = d && d.count != null ? d.count : null; return { l, n: !st.cat ? '…' : n == null ? '—' : fmt.number(n), c: n ? color : '#0A0A0A', sub: !st.cat ? (st.cErr ? 'Sin catálogo' : 'Cargando') : !d ? 'No está en el catálogo' : d.unavailable ? 'No disponible' : n == null ? 'Sin conteo' : 'filas' }; });
+    return {
+      reload: () => this.load(true), hLoading: st.hLoading, hErr: !!st.hErr, hErrMsg: st.hErr ? st.hErr.message : '', hErrCode: st.hErr ? (st.hErr.code || st.hErr.kind) : '',
+      healthMeta: h ? 'Datos al ' + fmt.date(h.as_of) + (h.stale ? ' · desactualizado' : '') : '', noSources: !!h && sources.length === 0, hasSources: sources.length > 0, sources,
+      backlog: h && h.outbox_backlog != null ? fmt.number(h.outbox_backlog) : '—', backlogSub: h && h.outbox_backlog != null ? 'eventos pendientes de publicar' : 'Sin datos todavía',
+      ingest, cErr: !!st.cErr, cErrMsg: st.cErr ? st.cErr.message : '', cErrCode: st.cErr ? (st.cErr.code || st.cErr.kind) : '',
+      pending: [{ t: 'Bright Data · Presupuesto', d: 'El gasto por fuente aún no se expone; el tope vive en Configuración (bright_data_budget_usd).' }, { t: 'Tests de dbt', d: 'La API no publica todavía los resultados de dbt.' }, { t: 'Salud de los componentes analíticos', d: 'Los veredictos de modelos llegan con la capa L2.' }]
+    };
+  }
+}
+</script>
+</body>
+</html>

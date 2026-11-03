@@ -350,6 +350,165 @@
         "title": "CompanyUpsert",
         "type": "object"
       },
+      "DataCatalog": {
+        "description": "Every dataset of the data explorer in catalog order.",
+        "properties": {
+          "datasets": {
+            "items": {
+              "$ref": "#/components/schemas/DataDataset"
+            },
+            "title": "Datasets",
+            "type": "array"
+          }
+        },
+        "required": [
+          "datasets"
+        ],
+        "title": "DataCatalog",
+        "type": "object"
+      },
+      "DataColumn": {
+        "description": "One column of a data explorer dataset and its PostgreSQL type.",
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "type"
+        ],
+        "title": "DataColumn",
+        "type": "object"
+      },
+      "DataDataset": {
+        "description": "One dataset of the data explorer; ``unavailable`` when its service did not answer.",
+        "properties": {
+          "columns": {
+            "items": {
+              "$ref": "#/components/schemas/DataColumn"
+            },
+            "title": "Columns",
+            "type": "array"
+          },
+          "count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Count"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "origin": {
+            "enum": [
+              "bright_data_raw",
+              "derived"
+            ],
+            "title": "Origin",
+            "type": "string"
+          },
+          "service": {
+            "title": "Service",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "unavailable": {
+            "default": false,
+            "title": "Unavailable",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "description",
+          "service",
+          "origin",
+          "columns"
+        ],
+        "title": "DataDataset",
+        "type": "object"
+      },
+      "DataPage": {
+        "description": "One keyset page of a dataset, newest first; long cells end with a truncation marker.",
+        "properties": {
+          "columns": {
+            "items": {
+              "$ref": "#/components/schemas/DataColumn"
+            },
+            "title": "Columns",
+            "type": "array"
+          },
+          "data": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Data",
+            "type": "array"
+          },
+          "dataset": {
+            "title": "Dataset",
+            "type": "string"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Next Cursor"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Total"
+          },
+          "truncated_cells": {
+            "default": false,
+            "title": "Truncated Cells",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "dataset",
+          "columns",
+          "data"
+        ],
+        "title": "DataPage",
+        "type": "object"
+      },
       "ErrorBody": {
         "description": "Error body returned by the gateway and by every service.",
         "properties": {
@@ -2571,6 +2730,224 @@
         ]
       }
     },
+    "/api/v1/data/catalog": {
+      "get": {
+        "operationId": "get_data_catalog",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataCatalog"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Forbidden or CSRF token invalid"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Rate limit exceeded"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Upstream unavailable"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "summary": "Data explorer datasets with their columns and row counts (admin, strategist, analyst)",
+        "tags": [
+          "data"
+        ]
+      }
+    },
+    "/api/v1/data/{dataset}": {
+      "get": {
+        "operationId": "get_data_dataset_by",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "dataset",
+            "required": true,
+            "schema": {
+              "enum": [
+                "raw_snapshots",
+                "raw_records",
+                "entity_candidates",
+                "rues_queue",
+                "failed_records",
+                "failed_fetches",
+                "pending_snapshots",
+                "companies",
+                "signals",
+                "leads",
+                "lead_scores",
+                "record_digests",
+                "fact_signals",
+                "daily_rollups"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Opaque cursor from a previous page",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Case-insensitive text filter on fixed text columns, at most 200 characters",
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataPage"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Invalid cursor or parameter"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Forbidden or CSRF token invalid"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Validation error"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Rate limit exceeded"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Upstream unavailable"
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "summary": "One page of a data explorer dataset, newest first (admin, strategist, analyst)",
+        "tags": [
+          "data"
+        ]
+      }
+    },
     "/api/v1/funnel/projects/{project_id}": {
       "get": {
         "operationId": "get_funnel_projects_project_id_by",
@@ -2810,6 +3187,16 @@
             "schema": {
               "maxLength": 200,
               "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Original name of the uploaded file; defaults to upload.csv.",
+            "in": "header",
+            "name": "X-Filename",
+            "required": false,
+            "schema": {
+              "maxLength": 255,
               "type": "string"
             }
           }

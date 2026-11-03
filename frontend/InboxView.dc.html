@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./api.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="display:flex;flex-direction:column;gap:24px;font-family:Inter,sans-serif;color:#0A0A0A;font-variant-numeric:tabular-nums">
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap"><div><h1 style="margin:0;font-size:28px;line-height:32px;font-weight:500;letter-spacing:-.03em">Bandeja</h1><div style="font-size:14px;color:#3D3D3D;margin-top:4px">Lo que entró y hay que curar. Una empresa en cuarentena no cuenta como lead.</div></div>
+    <button onClick="{{ reload }}" style="height:36px;padding:0 16px;border:1px solid rgba(10,10,10,.26);border-radius:999px;background:transparent;color:#0A0A0A;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap" style-hover="background:#F5F5F5">Actualizar</button></div>
+  <sc-if value="{{ failed }}" hint-placeholder-val="{{ false }}"><div role="alert" style="display:flex;gap:12px;align-items:center;padding:12px 16px;border-radius:12px;background:#FEF3F2;border:1px solid #FECDCA;color:#B42318;font-size:14px"><span style="flex:1;font-weight:500">{{ errMsg }}</span><span style="font-family:ui-monospace,Menlo,monospace;font-size:12px">{{ errCode }}</span><button onClick="{{ reload }}" style="height:28px;padding:0 12px;border:1px solid currentColor;border-radius:999px;background:transparent;color:inherit;font-family:inherit;font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap">Reintentar</button></div></sc-if>
+  <div data-testid="inbox-counters" role="group" aria-label="Filtros de la bandeja" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:24px">
+    <sc-for list="{{ counters }}" as="c" hint-placeholder-count="4"><button onClick="{{ c.go }}" aria-pressed="{{ c.on }}" style="text-align:left;background:#FAFAFA;border:1px solid {{ c.bd }};border-radius:12px;padding:20px 24px;font-family:inherit;color:#0A0A0A;cursor:pointer" style-hover="border-color:rgba(10,10,10,.26)"><div style="font-size:13px;line-height:20px;color:#525252">{{ c.l }}</div><div style="font-size:36px;line-height:40px;font-weight:300;letter-spacing:-.03em;margin-top:12px">{{ c.n }}</div><div style="font-size:12px;color:#666666;margin-top:4px">{{ c.sub }}</div></button></sc-for>
+  </div>
+  <div data-testid="{{ listTid }}" style="background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;overflow:hidden">
+    <div style="padding:12px 24px;background:#F5F5F5;border-bottom:1px solid rgba(10,10,10,.14);font-size:11px;font-weight:500;letter-spacing:.16em;color:#525252;display:flex;justify-content:space-between"><span>{{ listTitle }}</span><span>{{ listCount }}</span></div>
+    <sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}"><div role="status" style="padding:32px 24px;text-align:center;font-size:14px;color:#666666">Cargando la bandeja…</div></sc-if>
+    <sc-if value="{{ empty }}" hint-placeholder-val="{{ false }}"><div style="padding:48px 24px;text-align:center"><div style="font-size:16px;font-weight:500">{{ emptyTitle }}</div><div style="font-size:14px;color:#666666;margin-top:4px">{{ emptyHint }}</div></div></sc-if>
+    <sc-if value="{{ isMatches }}" hint-placeholder-val="{{ false }}"><div style="padding:32px 24px;display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center"><div style="font-size:16px;font-weight:500">Sin datos todavía</div><div style="font-size:14px;line-height:20px;color:#666666;max-width:560px">La API aún no expone las coincidencias RUES dudosas para revisar. Puedes ver la cola de RUES y los candidatos de entidad crudos en Datos.</div><div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center"><sc-if value="{{ canData }}" hint-placeholder-val="{{ true }}"><button onClick="{{ goQueue }}" style="height:36px;padding:0 16px;border:1px solid #0A0A0A;border-radius:999px;background:#0A0A0A;color:#FAFAFA;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap">Ver cola RUES</button><button onClick="{{ goCandidates }}" style="height:36px;padding:0 16px;border:1px solid rgba(10,10,10,.26);border-radius:999px;background:transparent;color:#0A0A0A;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap">Ver candidatos de entidad</button></sc-if></div></div></sc-if>
+    <sc-for list="{{ rows }}" as="r" hint-placeholder-count="5">
+      <div style="display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1.3fr) auto;gap:16px;align-items:center;padding:12px 24px;border-bottom:1px solid rgba(10,10,10,.14)">
+        <div style="min-width:0"><a href="{{ r.href }}" onClick="{{ r.open }}" style="color:#0A0A0A;font-weight:500;font-size:14px;text-decoration:none">{{ r.n }}</a><div style="font-size:12px;color:#666666">{{ r.sub }}</div></div>
+        <div style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:#3D3D3D"><span style="display:inline-flex;gap:6px;align-items:center"><dc-import name="StatusPill" status="{{ r.stage }}" hint-size="90px,24px"></dc-import><span style="color:#666666">{{ r.meta }}</span></span></div>
+        <div style="display:flex;gap:8px;align-items:center;justify-content:flex-end"><dc-import name="RuesStatus" state="{{ r.ru }}" hint-size="110px,24px"></dc-import>
+          <sc-if value="{{ r.canQualify }}" hint-placeholder-val="{{ false }}"><button onClick="{{ r.qualify }}" disabled="{{ r.busy }}" style="height:32px;padding:0 14px;border:1px solid #0A0A0A;border-radius:999px;background:#0A0A0A;color:#FAFAFA;font-family:inherit;font-size:13px;font-weight:500;letter-spacing:.02em;cursor:pointer;white-space:nowrap;opacity:{{ r.op }}">{{ r.qLabel }}</button></sc-if>
+        </div>
+      </div>
+    </sc-for>
+    <sc-if value="{{ truncated }}" hint-placeholder-val="{{ false }}"><div style="padding:12px 24px;font-size:12px;color:#666666">La bandeja cuenta los primeros {{ pageSize }} leads; hay más en Leads.</div></sc-if>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1136,&quot;height&quot;:700}}">
+class Component extends DCLogic {
+  // One GET /api/v1/leads page (up to 200, city filter) feeds every counter; "Calificar" is
+  // PATCH /leads/{id}/status discovered -> qualified with the row version (409 on conflict).
+  state = { f: 'new', loading: true, error: null, rows: [], more: false, busy: {} };
+  PAGE = 200;
+  componentDidMount() { this.load(); }
+  componentDidUpdate(prev) { if (prev && prev.city !== this.props.city) this.load(); }
+  load(fresh) {
+    const seq = this.seq = (this.seq || 0) + 1;
+    this.setState({ loading: true, error: null });
+    return window.InventApi.client.listPage('/leads', { limit: this.PAGE, city: this.props.city || undefined }, { fresh: !!fresh }).then(res => {
+      if (seq !== this.seq) return;
+      this.setState(res.ok ? { loading: false, rows: res.rows, more: !!res.nextCursor } : { loading: false, error: res });
+    });
+  }
+  qualify(row) {
+    const c = window.InventApi.client, p = this.props;
+    this.setState(s => ({ busy: Object.assign({}, s.busy, { [row.id]: true }) }));
+    return c.patch('/leads/' + encodeURIComponent(row.id) + '/status', { stage: 'qualified', expected_version: row.version }).then(res => {
+      this.setState(s => ({ busy: Object.assign({}, s.busy, { [row.id]: false }) }));
+      if (res.ok) { p.onNotify && p.onNotify('Lead calificado: ' + (row.legal_name || '')); return this.load(true); }
+      p.onNotify && p.onNotify(res.status === 409 ? 'El lead cambió mientras lo veías; recargamos la bandeja.' : res.message);
+      if (res.status === 409) this.load(true);
+    });
+  }
+  renderVals() {
+    const p = this.props, st = this.state, set = o => this.setState(o), A = window.InventApi, fmt = A.fmt;
+    const all = st.rows || [];
+    const lists = {
+      new: all.filter(l => l.stage === 'discovered'),
+      pending: all.filter(l => l.rues_status === 'pending'),
+      quarantine: all.filter(l => l.rues_status === 'quarantined' || l.rues_status === 'unmatched'),
+      matches: []
+    };
+    const canAct = p.role === 'admin' || p.role === 'intake';
+    const loaded = !st.loading && !st.error;
+    const counters = [['Nuevos sin curar', 'new', 'Etapa Descubierto'], ['RUES pendiente', 'pending', 'Sin NIT verificado todavía'], ['Cuarentena RUES', 'quarantine', 'Sin match o en cuarentena'], ['Coincidencias dudosas', 'matches', 'Revisión manual RUES']]
+      .map(([l, k, sub]) => ({ l, sub, n: k === 'matches' ? '—' : loaded ? lists[k].length : '…', on: st.f === k, bd: st.f === k ? '#0A0A0A' : 'rgba(10,10,10,.14)', go: () => set({ f: k }) }));
+    const rows = st.f === 'matches' ? [] : lists[st.f].map(l => ({ id: l.id, n: l.legal_name || '(sin nombre)', sub: [l.service_line, l.segment, this.city(l.city)].filter(Boolean).join(' · ') || 'Sin datos de la empresa', stage: l.stage, ru: l.rues_status, meta: fmt.ago(l.updated_at) + (l.score == null ? ' · sin score' : ' · score ' + l.score), href: '#/lead/' + encodeURIComponent(l.id),
+      open: e => { if (e && e.preventDefault) e.preventDefault(); p.onOpen && p.onOpen(l.id, l); }, canQualify: canAct && l.stage === 'discovered', busy: !!st.busy[l.id], op: st.busy[l.id] ? .6 : 1, qLabel: st.busy[l.id] ? 'Calificando…' : 'Calificar', qualify: () => this.qualify(l) }));
+    const titles = { new: 'LEADS DESCUBIERTOS', pending: 'EMPRESAS CON RUES PENDIENTE', quarantine: 'EMPRESAS EN CUARENTENA O SIN MATCH', matches: 'COINCIDENCIAS RUES DUDOSAS' };
+    const emptyTitle = all.length ? 'No hay nada pendiente aquí.' : 'Aún no hay leads';
+    const emptyHint = all.length ? 'Cambia de contador para ver otra cola.' : 'Las empresas nuevas aparecen aquí cuando core crea sus leads.';
+    return {
+      counters, rows, listTid: st.f === 'quarantine' ? 'inbox-quarantine' : 'inbox-list', listTitle: titles[st.f], listCount: st.f === 'matches' || !loaded ? '' : rows.length,
+      loading: st.loading, failed: !!st.error, errMsg: st.error ? st.error.message : '', errCode: st.error ? (st.error.code || st.error.kind) : '', reload: () => this.load(true),
+      empty: loaded && st.f !== 'matches' && rows.length === 0, emptyTitle, emptyHint, isMatches: st.f === 'matches', truncated: loaded && st.more, pageSize: this.PAGE,
+      canData: ['admin', 'strategist', 'analyst'].includes(p.role), goQueue: () => p.onGo && p.onGo('data', 'rues_queue'), goCandidates: () => p.onGo && p.onGo('data', 'entity_candidates')
+    };
+  }
+  city(c) { return { Medellin: 'Medellín', Bogota: 'Bogotá' }[c] || c || ''; }
+}
+</script>
+</body>
+</html>

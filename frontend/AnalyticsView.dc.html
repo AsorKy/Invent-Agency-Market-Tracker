@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./api.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="display:flex;flex-direction:column;gap:24px;font-family:Inter,sans-serif;color:#0A0A0A;font-variant-numeric:tabular-nums">
+  <div><h1 style="margin:0;font-size:28px;line-height:32px;font-weight:500;letter-spacing:-.03em">Centro de reportería</h1><div style="font-size:14px;line-height:20px;color:#3D3D3D;margin-top:4px">Qué pregunta responde cada reporte y si ya hay datos detrás. Las capas L2 y L3 responden «not_in_layer» hasta su corrida.</div></div>
+  <sc-for list="{{ groups }}" as="g" hint-placeholder-count="6">
+    <section aria-label="{{ g.t }}"><h2 style="margin:0 0 12px;font-size:15px;line-height:22px;font-weight:500;color:#0A0A0A">{{ g.t }}</h2>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px"><sc-for list="{{ g.cards }}" as="c" hint-placeholder-count="3">
+        <div style="background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:8px"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px"><div style="font-size:16px;font-weight:500">{{ c.n }}</div><span style="display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:999px;font-size:11px;font-weight:500;background:{{ c.bg }};color:{{ c.fg }};border:1px solid {{ c.bd }};white-space:nowrap">{{ c.st }}</span></div>
+          <div style="font-size:13px;line-height:20px;color:#3D3D3D">{{ c.q }}</div>
+          <div style="font-family:ui-monospace,Menlo,monospace;font-size:12px;color:#666666">{{ c.src }}</div>
+          <sc-if value="{{ c.link }}" hint-placeholder-val="{{ false }}"><button onClick="{{ c.go }}" style="align-self:flex-start;margin-top:4px;height:32px;padding:0 14px;border:1px solid rgba(10,10,10,.26);border-radius:999px;background:transparent;font-family:inherit;font-size:13px;font-weight:500;color:#0A0A0A;cursor:pointer;white-space:nowrap" style-hover="background:#F5F5F5">Abrir</button></sc-if></div></sc-for></div></section>
+  </sc-for>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1136,&quot;height&quot;:900},&quot;role&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;analyst&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  // A directory, not a dashboard: no numbers here. "live" cards open a view wired to a real
+  // route; the others say "Sin datos todavía" until their API exists.
+  renderVals() {
+    const p = this.props;
+    const S = { live: ['Con datos de la API', '#ECFAF3', '#067647', '#A9E9C9'], none: ['Sin datos todavía', '#F5F5F5', '#525252', 'rgba(10,10,10,.14)'], layer: ['Capa no activa', '#FFF8EB', '#A1460A', '#FCDDA0'] };
+    const card = (n, q, src, state, route) => { const s = S[state]; return { n, q, src, st: s[0], bg: s[1], fg: s[2], bd: s[3], link: !!route, go: () => p.onGo && p.onGo(route) }; };
+    const groups = [
+      { t: 'D · Descriptiva', cards: [card('Mercado', '¿Cómo va la prospección hoy?', '/companies/insights · /pulse/*', 'live', 'market'), card('Segmentos', '¿Qué tipos de empresa hay?', '/segments (501 hasta construir el read model)', 'none', 'st-segmentos'), card('Territorio', '¿Dónde hay dinero y poca competencia?', '/territory/opportunity', 'live', 'territory')] },
+      { t: 'Dx · Diagnóstica', cards: [card('Atribución', '¿Qué fuente trajo los cierres?', '/attribution (L2)', 'layer', 'st-analitica'), card('Causalidad', '¿Qué efecto real tuvo una acción?', '/causal (L2)', 'layer', 'st-analitica'), card('Drift', '¿Cambió el comportamiento de las variables?', '/drift (L2)', 'layer', 'st-modelos')] },
+      { t: 'P · Predictiva', cards: [card('Scoring', '¿Qué tan bien ordena el modelo a los leads?', 'scores por empresa (ml)', 'none', 'st-modelos'), card('Forecast', '¿Cuántos cierres esperamos?', '/forecasts (L3)', 'layer', 'st-modelos')] },
+      { t: 'Prescriptiva', cards: [card('Pipeline', '¿Dónde se atasca el negocio?', '/pipeline/kanban', 'live', 'pipeline'), card('Perfiles ICP', '¿Qué empresas encajan con cada perfil?', 'pirámide ICP (L3)', 'layer', 'st-modelos')] },
+      { t: 'V · Validación', cards: [card('Validación y portafolio', '¿Funcionó el proyecto?', '/validation/*', 'live', 'validation')] },
+      { t: 'Redes', cards: [card('Redes', '¿Cómo se conectan las empresas?', 'sin ruta en la API', 'none', 'st-redes')] }
+    ];
+    const layer = Number(p.layer) || 0;
+    return { groups: layer ? groups.filter((g, i) => i === layer - 1) : groups };
+  }
+}
+</script>
+</body>
+</html>

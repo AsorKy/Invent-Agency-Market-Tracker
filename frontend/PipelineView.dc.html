@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./api.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="display:flex;flex-direction:column;gap:24px;font-family:Inter,sans-serif;color:#0A0A0A;font-variant-numeric:tabular-nums">
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap"><div><h1 style="margin:0;font-size:28px;line-height:32px;font-weight:500;letter-spacing:-.03em">Pipeline</h1><div style="font-size:14px;color:#3D3D3D;margin-top:4px">Arrastra una tarjeta o usa «Mover a…». Solo se ofrecen las transiciones que el pipeline permite. Descubierto y Calificado viven en la Bandeja.</div></div>
+    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><sc-for list="{{ filters }}" as="f" hint-placeholder-count="1"><label style="position:relative;display:block"><span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">{{ f.l }}</span><select value="{{ f.value }}" onChange="{{ f.change }}" style="appearance:none;height:36px;box-sizing:border-box;padding:0 32px 0 12px;border:1px solid #767676;border-radius:8px;background:#FAFAFA;font-family:inherit;font-size:14px;color:#0A0A0A;cursor:pointer"><sc-for list="{{ f.opts }}" as="o" hint-placeholder-count="4"><option value="{{ o.v }}">{{ o.l }}</option></sc-for></select><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3D3D3D" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="position:absolute;right:10px;top:11px;pointer-events:none"><path d="m6 9 6 6 6-6"></path></svg></label></sc-for>
+      <button onClick="{{ reload }}" style="height:36px;padding:0 16px;border:1px solid rgba(10,10,10,.26);border-radius:999px;background:transparent;color:#0A0A0A;font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap" style-hover="background:#F5F5F5">Actualizar</button></div></div>
+  <div style="font-size:13px;color:#666666">{{ asOf }}</div>
+  <sc-if value="{{ conflict }}" hint-placeholder-val="{{ false }}"><div role="alert" style="display:flex;gap:12px;align-items:center;padding:12px 16px;border-radius:12px;background:#FEF3F2;border:1px solid #FECDCA;color:#B42318;font-size:14px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.86 2h8.28L22 7.86v8.28L16.14 22H7.86L2 16.14V7.86zM12 8v4M12 16h.01"></path></svg><span style="flex:1;font-weight:500">Este lead cambió mientras lo editabas. Recargamos el pipeline con la versión actual.</span><span style="font-family:ui-monospace,Menlo,monospace;font-size:12px">version_conflict</span><button onClick="{{ dismiss }}" style="height:28px;padding:0 12px;border:1px solid currentColor;border-radius:999px;background:transparent;color:inherit;font-family:inherit;font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap">Entendido</button></div></sc-if>
+  <sc-if value="{{ failed }}" hint-placeholder-val="{{ false }}"><div role="alert" style="display:flex;gap:12px;align-items:center;padding:12px 16px;border-radius:12px;background:#FEF3F2;border:1px solid #FECDCA;color:#B42318;font-size:14px"><span style="flex:1;font-weight:500">{{ errMsg }}</span><span style="font-family:ui-monospace,Menlo,monospace;font-size:12px">{{ errCode }}</span><button onClick="{{ reload }}" style="height:28px;padding:0 12px;border:1px solid currentColor;border-radius:999px;background:transparent;color:inherit;font-family:inherit;font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap">Reintentar</button></div></sc-if>
+  <sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}"><div role="status" style="font-size:14px;color:#666666">Cargando el pipeline…</div></sc-if>
+  <sc-if value="{{ allEmpty }}" hint-placeholder-val="{{ false }}"><div style="background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:32px 24px;text-align:center"><div style="font-size:16px;font-weight:500">Aún no hay negocios en el pipeline</div><div style="font-size:14px;color:#666666;margin-top:4px">Un lead entra aquí cuando pasa a Hot.</div></div></sc-if>
+  <div style="overflow-x:auto"><div style="display:grid;grid-template-columns:repeat(6,minmax(220px,1fr));gap:16px;min-width:1380px;align-items:start">
+    <sc-for list="{{ cols }}" as="c" hint-placeholder-count="6">
+      <section data-testid="pipeline-column" onDragOver="{{ c.over }}" onDrop="{{ c.drop }}" aria-label="{{ c.l }}" style="background:#F5F5F5;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:12px;min-height:240px">
+        <div style="padding:4px 4px 0"><div style="display:flex;justify-content:space-between;align-items:center"><dc-import name="StatusPill" status="{{ c.k }}" hint-size="90px,24px"></dc-import><span style="font-size:13px;font-weight:500">{{ c.n }}</span></div></div>
+        <sc-for list="{{ c.cards }}" as="k" hint-placeholder-count="2">
+          <article data-testid="pipeline-card" draggable="true" onDragStart="{{ k.drag }}" style="background:#FAFAFA;border:1px solid {{ k.bd }};border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px;cursor:grab;opacity:{{ k.op }}">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;min-width:0"><span title="{{ k.tip }}" style="display:flex;align-items:center;gap:8px;flex:none"><b style="font-weight:500;font-size:16px">{{ k.s }}</b><span style="width:36px;height:4px;background:#E9E8E4;border-radius:2px;position:relative;display:block"><span style="position:absolute;left:0;top:0;bottom:0;width:{{ k.sw }};background:{{ k.sc }};border-radius:2px"></span></span></span><span style="display:inline-flex;align-items:center;height:20px;padding:0 8px;border:1px solid rgba(10,10,10,.26);border-radius:999px;font-size:11px;font-weight:500;color:#3D3D3D;white-space:nowrap;max-width:110px;overflow:hidden;text-overflow:ellipsis">{{ k.l }}</span></div>
+            <a href="{{ k.href }}" onClick="{{ k.open }}" style="color:#0A0A0A;font-size:14px;font-weight:500;text-decoration:none;overflow-wrap:anywhere">{{ k.n }}</a>
+            <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:4px 12px;font-size:12px;line-height:16px;color:#666666"><span title="{{ k.abs }}">Actualizado {{ k.ago }}</span><span>{{ k.city }}</span></div>
+            <sc-if value="{{ k.canMove }}" hint-placeholder-val="{{ false }}"><label style="font-size:12px;color:#3D3D3D;display:flex;align-items:center;gap:6px">Mover a…<select data-testid="pipeline-move" aria-label="Mover {{ k.n }} a" value="" onChange="{{ k.move }}" disabled="{{ k.busy }}" style="height:28px;border:1px solid #767676;border-radius:8px;background:#FAFAFA;font-family:inherit;font-size:12px;flex:1;min-width:0"><option value="">Elegir</option><sc-for list="{{ k.dests }}" as="d" hint-placeholder-count="2"><option value="{{ d.v }}">{{ d.l }}</option></sc-for></select></label></sc-if>
+          </article>
+        </sc-for>
+        <sc-if value="{{ c.empty }}" hint-placeholder-val="{{ false }}"><div style="padding:24px 8px;text-align:center;font-size:13px;color:#666666">Sin negocios en esta etapa.</div></sc-if>
+      </section>
+    </sc-for>
+  </div></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1136,&quot;height&quot;:700}}">
+class Component extends DCLogic {
+  // GET /api/v1/pipeline/kanban (core groups up to 200 leads by stage). A move is
+  // PATCH /leads/{id}/status with expected_version; 409 reloads, 422 explains the rule.
+  state = { loading: true, error: null, columns: null, asOf: null, line: '', conflict: false, drag: null, busy: {} };
+  ORDER = ['hot', 'contacted', 'meeting', 'proposal', 'won', 'lost'];
+  componentDidMount() { this.load(); }
+  componentDidUpdate(prev) { if (prev && prev.city !== this.props.city) this.setState({}); }
+  load(fresh) {
+    const seq = this.seq = (this.seq || 0) + 1;
+    this.setState({ loading: true, error: null });
+    return window.InventApi.client.get('/pipeline/kanban', null, { fresh: !!fresh }).then(res => {
+      if (seq !== this.seq) return;
+      this.setState(res.ok ? { loading: false, columns: (res.data && res.data.columns) || {}, asOf: res.data && res.data.as_of } : { loading: false, error: res });
+    });
+  }
+  move(lead, to) {
+    const A = window.InventApi, p = this.props;
+    if (!to || to === lead.stage) return;
+    if (!A.pipeline.canMove(lead.stage, to)) { p.onNotify && p.onNotify('El pipeline no permite pasar de ' + A.pipeline.stage(lead.stage).label + ' a ' + A.pipeline.stage(to).label + '.'); return; }
+    this.setState(s => ({ busy: Object.assign({}, s.busy, { [lead.id]: true }), conflict: false }));
+    return A.client.patch('/leads/' + encodeURIComponent(lead.id) + '/status', { stage: to, expected_version: lead.version }).then(res => {
+      this.setState(s => ({ busy: Object.assign({}, s.busy, { [lead.id]: false }) }));
+      if (res.ok) { p.onNotify && p.onNotify('Estado actualizado a ' + A.pipeline.stage(to).label); return this.load(true); }
+      if (res.status === 409) { this.setState({ conflict: true }); return this.load(true); }
+      p.onNotify && p.onNotify(res.message);
+    });
+  }
+  renderVals() {
+    const p = this.props, st = this.state, set = o => this.setState(o), A = window.InventApi, fmt = A.fmt;
+    const canAct = ['admin', 'intake', 'bd_rep', 'strategist'].includes(p.role);
+    const cols0 = st.columns || {};
+    const pick = l => (!p.city || l.city === p.city) && (!st.line || l.service_line === st.line);
+    const byStage = k => (cols0[k] || []).concat(k === 'hot' ? (cols0.new || []) : []).filter(pick);
+    const lines = Array.from(new Set(this.ORDER.concat(['new']).reduce((a, k) => a.concat((cols0[k] || []).map(l => l.service_line)), []).filter(Boolean))).sort();
+    const findLead = id => this.ORDER.concat(['new']).reduce((a, k) => a || (cols0[k] || []).find(l => l.id === id), null);
+    const cols = this.ORDER.map(k => {
+      const ls = byStage(k);
+      return { k, l: A.pipeline.stage(k).label, n: ls.length, empty: !st.loading && ls.length === 0,
+        over: e => e.preventDefault(), drop: e => { e.preventDefault(); const l = findLead(st.drag); if (l) this.move(l, k); },
+        cards: ls.map(l => { const targets = A.pipeline.allowedTargets(l.stage); return { n: l.legal_name || '(sin nombre)', s: l.score == null ? '—' : l.score, sw: (Number(l.score) || 0) + '%', sc: l.score >= 70 ? '#1F9A6E' : l.score >= 40 ? '#C77C0E' : '#767676', tip: l.score == null ? 'Sin score todavía' : 'Score ' + l.score, l: l.service_line || '—', ago: fmt.ago(l.updated_at), abs: fmt.date(l.updated_at), city: { Medellin: 'Medellín', Bogota: 'Bogotá' }[l.city] || l.city || '', bd: 'rgba(10,10,10,.14)', op: st.busy[l.id] ? .6 : 1, busy: !!st.busy[l.id],
+          href: '#/lead/' + encodeURIComponent(l.id), open: e => { e.preventDefault(); p.onOpen && p.onOpen(l.id, l); }, drag: () => set({ drag: l.id }), move: e => this.move(l, e.target.value), canMove: canAct && targets.length > 0, dests: targets.map(o => ({ v: o, l: A.pipeline.stage(o).label })) }; }) };
+    });
+    const total = cols.reduce((a, c) => a + c.n, 0);
+    return { cols, conflict: st.conflict, dismiss: () => set({ conflict: false }), loading: st.loading, failed: !!st.error, errMsg: st.error ? st.error.message : '', errCode: st.error ? (st.error.code || st.error.kind) : '', reload: () => this.load(true),
+      allEmpty: !st.loading && !st.error && total === 0, asOf: st.asOf ? 'Datos al ' + fmt.date(st.asOf) + (p.city ? ' · solo ' + ({ Medellin: 'Medellín', Bogota: 'Bogotá' }[p.city] || p.city) : '') : '',
+      filters: [{ l: 'Línea', value: st.line, opts: [{ v: '', l: 'Todas las líneas' }].concat(lines.map(v => ({ v, l: v }))), change: e => set({ line: e.target.value }) }] };
+  }
+}
+</script>
+</body>
+</html>

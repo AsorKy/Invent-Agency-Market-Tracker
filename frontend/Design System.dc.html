@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500&display=swap" rel="stylesheet"><style>body{margin:0;background:#E9E8E4;font-family:Inter,sans-serif;-webkit-font-smoothing:antialiased}a{color:#006A99}a:hover{color:#0A0A0A}</style></helmet>
+<div style="max-width:1200px;margin:0 auto;padding:48px 32px 80px;font-family:Inter,sans-serif;color:#0A0A0A;font-variant-numeric:tabular-nums;display:flex;flex-direction:column;gap:48px">
+  <header style="display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap">
+    <div><div style="font-size:11px;line-height:16px;font-weight:500;letter-spacing:.16em;color:#666666">INVENT® · MARKET TRACKER</div><h1 style="margin:12px 0 0;font-size:48px;line-height:52px;font-weight:500;letter-spacing:-.04em">Sistema de diseño</h1></div>
+    <div style="font-size:14px;color:#3D3D3D;max-width:420px">Tinta, papel y un solo acento cian. Tarjetas con hairline, sin sombra. Datos sintéticos.</div>
+  </header>
+
+  <section><div style="font-size:11px;font-weight:500;letter-spacing:.16em;color:#666666;margin-bottom:16px"><span aria-hidden="true">[ 01 ] — </span>SÍMBOLO Y LOCKUP</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:24px">
+      <div style="background:#0A0A0A;border-radius:12px;padding:32px;display:flex;align-items:center;gap:12px">
+        <svg width="26" height="26" viewBox="0 0 100 100" aria-hidden="true"><rect x="22" y="34" width="28" height="58" rx="14" fill="#00D4FF"></rect><circle cx="70" cy="23" r="12" fill="#00D4FF"></circle></svg>
+        <div><div style="font-size:16px;line-height:18px;font-weight:500;letter-spacing:-.02em;color:#FAFAFA">INVENT®</div><div style="font-size:11px;line-height:16px;font-weight:500;letter-spacing:.16em;color:#8E8D89;margin-top:2px">MARKET TRACKER</div></div>
+      </div>
+      <div style="background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:32px;display:flex;align-items:center;gap:32px">
+        <svg width="72" height="72" viewBox="0 0 100 100" aria-hidden="true"><rect x="22" y="34" width="28" height="58" rx="14" fill="#0A0A0A"></rect><circle cx="70" cy="23" r="12" fill="#0A0A0A"></circle></svg>
+        <svg width="56" height="56" viewBox="0 0 100 100" aria-hidden="true" style="background:#0A0A0A;border-radius:12px"><g transform="translate(15 15) scale(.7)"><rect x="22" y="34" width="28" height="58" rx="14" fill="#00D4FF"></rect><circle cx="70" cy="23" r="12" fill="#00D4FF"></circle></g></svg>
+        <div style="font-size:13px;color:#666666;line-height:20px">Lienzo 100×100<br><span style="font-family:ui-monospace,Menlo,monospace">rect 22,34 · 28×58 · rx14<br>circle 70,23 · r12</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section><div style="font-size:11px;font-weight:500;letter-spacing:.16em;color:#666666;margin-bottom:16px"><span aria-hidden="true">[ 02 ] — </span>COLOR</div>
+    <div style="display:flex;flex-direction:column;gap:24px">
+      <sc-for list="{{ palettes }}" as="g" hint-placeholder-count="6">
+        <div><div style="font-size:12px;font-weight:500;color:#3D3D3D;margin-bottom:8px">{{ g.name }}</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:12px">
+            <sc-for list="{{ g.items }}" as="c" hint-placeholder-count="4">
+              <div style="background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;overflow:hidden"><div style="height:48px;background:{{ c.hex }};border-bottom:1px solid rgba(10,10,10,.14)"></div><div style="padding:8px 12px"><div style="font-size:12px;line-height:16px;font-weight:500">{{ c.n }}</div><div style="font-family:ui-monospace,Menlo,monospace;font-size:12px;line-height:16px;color:#666666">{{ c.hex }}</div></div></div>
+            </sc-for>
+          </div></div>
+      </sc-for>
+    </div>
+  </section>
+
+  <section><div style="font-size:11px;font-weight:500;letter-spacing:.16em;color:#666666;margin-bottom:16px"><span aria-hidden="true">[ 03 ] — </span>TIPOGRAFÍA · INTER 300 / 400 / 500</div>
+    <div style="background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:8px 24px">
+      <sc-for list="{{ types }}" as="t" hint-placeholder-count="8">
+        <div style="display:grid;grid-template-columns:160px minmax(0,1fr) 200px;gap:24px;align-items:baseline;padding:16px 0;border-bottom:1px solid rgba(10,10,10,.14)">
+          <div style="font-size:12px;font-weight:500;color:#3D3D3D">{{ t.name }}</div>
+          <div style="font-size:{{ t.size }};line-height:{{ t.lh }};font-weight:{{ t.w }};letter-spacing:{{ t.ls }};text-transform:{{ t.tt }};font-family:{{ t.ff }}">{{ t.sample }}</div>
+          <div style="font-family:ui-monospace,Menlo,monospace;font-size:12px;color:#666666">{{ t.spec }}</div>
+        </div>
+      </sc-for>
+    </div>
+  </section>
+
+  <section><div style="font-size:11px;font-weight:500;letter-spacing:.16em;color:#666666;margin-bottom:16px"><span aria-hidden="true">[ 04 ] — </span>ESPACIADO Y RADIOS</div>
+    <div style="display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:24px">
+      <div style="background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:8px">
+        <sc-for list="{{ spaces }}" as="s" hint-placeholder-count="11"><div style="display:grid;grid-template-columns:40px 1fr;gap:12px;align-items:center"><span style="font-family:ui-monospace,Menlo,monospace;font-size:12px;color:#666666">{{ s.n }}</span><span style="height:12px;width:{{ s.n }}px;background:#0077AA;border-radius:2px;display:block"></span></div></sc-for>
+      </div>
+      <div style="background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:16px">
+        <sc-for list="{{ radii }}" as="r" hint-placeholder-count="4"><div style="display:flex;align-items:center;gap:16px"><span style="width:56px;height:40px;border:1px solid #0A0A0A;border-radius:{{ r.px }}px;display:block;background:#F5F5F5"></span><span style="font-size:13px"><b style="font-weight:500">{{ r.px }}</b> · {{ r.l }}</span></div></sc-for>
+      </div>
+    </div>
+  </section>
+
+  <section><div style="font-size:11px;font-weight:500;letter-spacing:.16em;color:#666666;margin-bottom:16px"><span aria-hidden="true">[ 05 ] — </span>BOTONES, INPUT, SELECT</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:24px">
+      <div style="background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:16px">
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+          <button style="height:40px;padding:0 20px;border:1px solid #0A0A0A;border-radius:999px;background:#0A0A0A;color:#FAFAFA;font-family:inherit;font-size:13px;font-weight:500;letter-spacing:.02em;cursor:pointer;white-space:nowrap" style-hover="background:#1C1C1C" style-focus="outline:2px solid #0A0A0A;outline-offset:2px">Primario</button>
+          <button style="height:40px;padding:0 20px;border:1px solid rgba(10,10,10,.26);border-radius:999px;background:transparent;color:#0A0A0A;font-family:inherit;font-size:13px;font-weight:500;letter-spacing:.02em;cursor:pointer;white-space:nowrap" style-hover="background:#F5F5F5" style-focus="outline:2px solid #0A0A0A;outline-offset:2px">Secundario</button>
+          <button style="height:40px;padding:0 12px;border:0;border-radius:999px;background:transparent;color:#006A99;font-family:inherit;font-size:13px;font-weight:500;letter-spacing:.02em;cursor:pointer;white-space:nowrap" style-hover="text-decoration:underline">Texto</button>
+        </div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+          <button style="height:40px;padding:0 20px;border:1px solid #0A0A0A;border-radius:999px;background:#1C1C1C;color:#FAFAFA;font-family:inherit;font-size:13px;font-weight:500;letter-spacing:.02em;outline:2px solid #0A0A0A;outline-offset:2px;white-space:nowrap">Foco</button>
+          <button disabled style="height:40px;padding:0 20px;border:1px solid rgba(10,10,10,.14);border-radius:999px;background:#F5F5F5;color:#666666;font-family:inherit;font-size:13px;font-weight:500;letter-spacing:.02em;white-space:nowrap">Deshabilitado</button>
+          <button style="height:40px;padding:0 20px;border:1px solid #0A0A0A;border-radius:999px;background:#0A0A0A;color:#FAFAFA;font-family:inherit;font-size:13px;font-weight:500;letter-spacing:.02em;display:inline-flex;align-items:center;gap:8px;white-space:nowrap"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00D4FF" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.2-8.55"></path></svg>Enviando…</button>
+        </div>
+        <div style="background:#0A0A0A;border-radius:12px;padding:16px;display:flex;gap:12px;align-items:center"><button style="height:40px;padding:0 20px;border:1px solid #FAFAFA;border-radius:999px;background:#FAFAFA;color:#0A0A0A;font-family:inherit;font-size:13px;font-weight:500;letter-spacing:.02em;outline:2px solid #00D4FF;outline-offset:2px;white-space:nowrap">Sobre tinta · foco</button></div>
+      </div>
+      <div style="background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:24px;display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <label style="display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:500;color:#3D3D3D">Normal<input value="Empresa Demo 01" style="height:40px;box-sizing:border-box;padding:0 12px;border:1px solid #767676;border-radius:8px;background:#FAFAFA;font-family:inherit;font-size:14px;color:#0A0A0A"></label>
+        <label style="display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:500;color:#3D3D3D">Foco<input value="900.000.001-1" style="height:40px;box-sizing:border-box;padding:0 12px;border:1px solid #0A0A0A;border-radius:8px;background:#FAFAFA;font-family:ui-monospace,Menlo,monospace;font-size:13px;color:#0A0A0A;outline:2px solid #0A0A0A;outline-offset:2px"></label>
+        <label style="display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:500;color:#3D3D3D">Error<input value="900.000" style="height:40px;box-sizing:border-box;padding:0 12px;border:1px solid #D92D20;border-radius:8px;background:#FEF3F2;font-family:ui-monospace,Menlo,monospace;font-size:13px;color:#0A0A0A"><span style="font-weight:400;color:#B42318;display:flex;gap:4px;align-items:center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 8v4M12 16h.01"></path></svg>NIT incompleto</span></label>
+        <label style="display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:500;color:#666666">Deshabilitado<input disabled value="—" style="height:40px;box-sizing:border-box;padding:0 12px;border:1px solid rgba(10,10,10,.14);border-radius:8px;background:#F5F5F5;font-family:inherit;font-size:14px;color:#666666"></label>
+        <label style="display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:500;color:#3D3D3D;grid-column:span 2">Select<div style="position:relative"><select style="appearance:none;width:100%;height:40px;box-sizing:border-box;padding:0 36px 0 12px;border:1px solid #767676;border-radius:8px;background:#FAFAFA;font-family:inherit;font-size:14px;color:#0A0A0A"><option>Todas las líneas</option><option>SaaS</option><option>AaaS</option></select><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3D3D3D" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="position:absolute;right:12px;top:12px;pointer-events:none"><path d="m6 9 6 6 6-6"></path></svg></div></label>
+      </div>
+    </div>
+  </section>
+
+  <section><div style="font-size:11px;font-weight:500;letter-spacing:.16em;color:#666666;margin-bottom:16px"><span aria-hidden="true">[ 06 ] — </span>PÍLDORAS: ESTADO DEL LEAD, LÍNEA, RUES</div>
+    <div style="background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:20px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><sc-for list="{{ statuses }}" as="s" hint-placeholder-count="8"><dc-import name="StatusPill" status="{{ s }}" hint-size="110px,24px"></dc-import></sc-for></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><sc-for list="{{ rues }}" as="s" hint-placeholder-count="4"><dc-import name="RuesStatus" state="{{ s }}" hint-size="110px,24px"></dc-import></sc-for></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><sc-for list="{{ lines }}" as="l" hint-placeholder-count="4"><span style="display:inline-flex;align-items:center;height:24px;padding:0 10px;border:1px solid rgba(10,10,10,.26);border-radius:999px;font-size:12px;font-weight:500;color:#3D3D3D;white-space:nowrap">{{ l }}</span></sc-for>
+        <span style="display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border:1px solid rgba(10,10,10,.26);border-radius:999px;font-size:12px;font-weight:500;color:#3D3D3D;white-space:nowrap"><span style="width:6px;height:6px;border-radius:50%;background:#00D4FF;border:1px solid #0A0A0A;box-sizing:border-box"></span>Nuevo</span>
+        <span style="display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 10px;border-radius:999px;background:#FFF8EB;border:1px solid #FCDDA0;font-size:12px;font-weight:500;color:#A1460A;white-space:nowrap"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 6v6l4 2"></path></svg>Desactualizado</span></div>
+    </div>
+  </section>
+
+  <section><div style="font-size:11px;font-weight:500;letter-spacing:.16em;color:#666666;margin-bottom:16px"><span aria-hidden="true">[ 07 ] — </span>TARJETA, KPI, SCORE</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:24px">
+      <div style="background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:24px"><div style="font-size:11px;font-weight:500;letter-spacing:.16em;color:#666666"><span aria-hidden="true">[ 02 ] — </span>LEADS HOT</div><div style="font-size:36px;line-height:40px;font-weight:300;letter-spacing:-.03em;margin-top:16px">7</div><div style="font-size:13px;color:#067647;margin-top:4px;display:flex;gap:4px;align-items:center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m5 12 7-7 7 7M12 19V5"></path></svg>+2 vs ayer</div></div>
+      <div style="background:#FAFAFA;border:1px solid rgba(10,10,10,.26);border-radius:12px;padding:24px"><div style="font-size:11px;font-weight:500;letter-spacing:.16em;color:#666666">TARJETA · HOVER</div><div style="font-size:14px;line-height:20px;color:#3D3D3D;margin-top:16px">Superficie #FAFAFA, borde tinta 26 %, sin sombra, radio 12.</div></div>
+      <div style="background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:12px"><div style="font-size:11px;font-weight:500;letter-spacing:.16em;color:#666666">SCORE</div>
+        <div style="display:flex;gap:16px;align-items:flex-end"><sc-for list="{{ scores }}" as="s" hint-placeholder-count="3"><div style="text-align:center"><div style="width:48px;height:48px;border-radius:50%;border:2px solid {{ s.c }};display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:500;color:#0A0A0A">{{ s.n }}</div><div style="font-size:12px;color:#666666;margin-top:4px">{{ s.l }}</div></div></sc-for></div></div>
+    </div>
+  </section>
+
+  <section><div style="font-size:11px;font-weight:500;letter-spacing:.16em;color:#666666;margin-bottom:16px"><span aria-hidden="true">[ 08 ] — </span>ALERTAS, SIGUIENTE PASO, DRIVER</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:24px">
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <sc-for list="{{ alerts }}" as="a" hint-placeholder-count="3"><div style="display:flex;gap:12px;padding:12px 16px;border-radius:12px;background:{{ a.bg }};border:1px solid {{ a.bd }}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="{{ a.fg }}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none;margin-top:1px"><path d="{{ a.icon }}"></path></svg><div><div style="font-size:14px;line-height:20px;font-weight:500;color:{{ a.fg }}">{{ a.t }}</div><div style="font-family:ui-monospace,Menlo,monospace;font-size:12px;line-height:16px;color:{{ a.fg }}">{{ a.code }}</div></div></div></sc-for>
+      </div>
+      <div style="background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:16px">
+        <a href="#" style="display:flex;align-items:center;justify-content:space-between;min-height:44px;padding:0 16px;border:1px solid rgba(10,10,10,.14);border-radius:12px;color:#0A0A0A;font-size:14px;font-weight:500;text-decoration:none" style-hover="border-color:rgba(10,10,10,.26);background:#F5F5F5"><span style="display:flex;gap:12px"><span style="font-family:ui-monospace,Menlo,monospace;font-size:12px;color:#666666">01</span>Enviar propuesta de AaaS</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#006A99" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"></path></svg></a>
+        <sc-for list="{{ drivers }}" as="d" hint-placeholder-count="3"><div style="display:grid;grid-template-columns:minmax(0,1fr) 120px 40px;align-items:center;gap:12px;font-size:14px"><span>{{ d.t }}</span><span style="position:relative;height:8px;background:#F5F5F5;border-radius:4px;display:block"><span style="position:absolute;left:0;top:0;bottom:0;width:{{ d.w }};background:{{ d.c }};border-radius:4px"></span></span><span style="text-align:right;font-weight:500;color:{{ d.tc }}">{{ d.v }}</span></div></sc-for>
+      </div>
+    </div>
+  </section>
+
+  <section><div style="font-size:11px;font-weight:500;letter-spacing:.16em;color:#666666;margin-bottom:16px"><span aria-hidden="true">[ 09 ] — </span>STEPPER Y PESTAÑAS</div>
+    <div style="background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:32px">
+      <ol style="list-style:none;margin:0;padding:0;display:flex;gap:0;flex-wrap:wrap;row-gap:12px"><sc-for list="{{ steps }}" as="s" hint-placeholder-count="7"><li style="display:flex;align-items:center;gap:8px;margin-right:8px"><span style="width:24px;height:24px;border-radius:50%;box-sizing:border-box;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:500;background:{{ s.bg }};color:{{ s.fg }};border:1px solid {{ s.bd }}">{{ s.mark }}</span><span style="font-size:13px;font-weight:{{ s.w }};color:{{ s.tc }}">{{ s.l }}</span><span style="width:24px;height:1px;background:rgba(10,10,10,.26);display:block"></span></li></sc-for><li style="display:flex;align-items:center;gap:8px;margin-left:16px;font-size:13px;color:#525252"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM4.9 4.9l14.2 14.2"></path></svg>Perdido</li></ol>
+      <div role="tablist" style="display:flex;gap:24px;border-bottom:1px solid rgba(10,10,10,.14)"><sc-for list="{{ tabs }}" as="t" hint-placeholder-count="5"><button role="tab" style="height:44px;padding:0;border:0;border-bottom:2px solid {{ t.bar }};margin-bottom:-1px;background:transparent;font-family:inherit;font-size:14px;font-weight:{{ t.w }};color:{{ t.c }};cursor:pointer" style-hover="color:#0A0A0A">{{ t.l }}</button></sc-for></div>
+    </div>
+  </section>
+
+  <section><div style="font-size:11px;font-weight:500;letter-spacing:.16em;color:#666666;margin-bottom:16px"><span aria-hidden="true">[ 10 ] — </span>TABLA</div>
+    <div style="background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;overflow:hidden">
+      <div style="display:grid;grid-template-columns:72px minmax(0,2fr) 1fr 1fr;gap:16px;padding:12px 24px;background:#F5F5F5;border-bottom:1px solid rgba(10,10,10,.14);font-size:11px;font-weight:500;letter-spacing:.16em;color:#525252"><span>SCORE</span><span>EMPRESA</span><span>ESTADO</span><span>RUES</span></div>
+      <sc-for list="{{ rows }}" as="r" hint-placeholder-count="3"><div style="display:grid;grid-template-columns:72px minmax(0,2fr) 1fr 1fr;gap:16px;align-items:center;padding:12px 24px;min-height:56px;box-sizing:border-box;border-bottom:1px solid rgba(10,10,10,.14);background:{{ r.bg }}"><span style="font-size:16px;font-weight:500">{{ r.s }}</span><span><div style="font-size:14px;font-weight:500">{{ r.n }}</div><div style="font-family:ui-monospace,Menlo,monospace;font-size:12px;color:#666666">{{ r.nit }}</div></span><span><dc-import name="StatusPill" status="{{ r.st }}" hint-size="100px,24px"></dc-import></span><span><dc-import name="RuesStatus" state="{{ r.ru }}" hint-size="100px,24px"></dc-import></span></div></sc-for>
+      <div style="padding:8px 24px;font-size:12px;color:#666666">Fila 2: hover (superficie 2)</div>
+    </div>
+  </section>
+
+  <section><div style="font-size:11px;font-weight:500;letter-spacing:.16em;color:#666666;margin-bottom:16px"><span aria-hidden="true">[ 11 ] — </span>DIÁLOGO, BANNER, TOAST</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:24px;align-items:start">
+      <div style="background:#E9E8E4;border:1px dashed rgba(10,10,10,.26);border-radius:12px;padding:24px"><div style="background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:16px">
+        <h3 style="margin:0;font-size:20px;line-height:28px;font-weight:500;letter-spacing:-.02em">Cambiar estado</h3>
+        <div style="font-size:14px;color:#3D3D3D">Destinos permitidos desde <b style="font-weight:500">Hot</b>.</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><dc-import name="StatusPill" status="contactado" hint-size="100px,24px"></dc-import><dc-import name="StatusPill" status="perdido" hint-size="100px,24px"></dc-import></div>
+        <div style="display:flex;gap:12px;justify-content:flex-end"><button style="height:40px;padding:0 20px;border:1px solid rgba(10,10,10,.26);border-radius:999px;background:transparent;font-family:inherit;font-size:13px;font-weight:500;letter-spacing:.02em;white-space:nowrap">Cancelar</button><button style="height:40px;padding:0 20px;border:1px solid #0A0A0A;border-radius:999px;background:#0A0A0A;color:#FAFAFA;font-family:inherit;font-size:13px;font-weight:500;letter-spacing:.02em;white-space:nowrap">Confirmar</button></div></div></div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <sc-for list="{{ banners }}" as="b" hint-placeholder-count="3"><div style="display:flex;gap:12px;align-items:center;padding:12px 16px;border-radius:12px;background:{{ b.bg }};border:1px solid {{ b.bd }};color:{{ b.fg }};font-size:14px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none"><path d="{{ b.icon }}"></path></svg><span style="flex:1">{{ b.t }}</span><button style="height:28px;padding:0 12px;border:1px solid currentColor;border-radius:999px;background:transparent;color:inherit;font-family:inherit;font-size:12px;font-weight:500;white-space:nowrap">{{ b.a }}</button></div></sc-for>
+        <div style="display:flex;gap:12px;align-items:center;padding:12px 16px;border-radius:12px;background:#0A0A0A;color:#FAFAFA;font-size:14px"><span style="width:8px;height:8px;border-radius:50%;background:#00D4FF;flex:none"></span><span style="flex:1">Estado actualizado a Contactado</span><button style="height:28px;padding:0 12px;border:0;border-radius:999px;background:transparent;color:#FAFAFA;font-family:inherit;font-size:12px;font-weight:500;text-decoration:underline;outline:2px solid #00D4FF;outline-offset:1px;white-space:nowrap">Deshacer</button></div>
+      </div>
+    </div>
+  </section>
+
+  <section><div style="font-size:11px;font-weight:500;letter-spacing:.16em;color:#666666;margin-bottom:16px"><span aria-hidden="true">[ 12 ] — </span>VACÍO, ERROR, ESQUELETO</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:24px">
+      <div style="background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:32px 24px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#666666" stroke-width="1.5" aria-hidden="true"><path d="M3 3v18h18M7 14l4-4 3 3 5-6"></path></svg><div style="font-size:16px;font-weight:500">Sin señales en este rango</div><div style="font-size:14px;color:#666666">Amplía el rango o cambia de ciudad.</div></div>
+      <div style="background:#FAFAFA;border:1px solid #FECDCA;border-radius:12px;padding:32px 24px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#B42318" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.86 2h8.28L22 7.86v8.28L16.14 22H7.86L2 16.14V7.86zM12 8v4M12 16h.01"></path></svg><div style="font-size:16px;font-weight:500;color:#B42318">No se pudo cargar</div><div style="font-family:ui-monospace,Menlo,monospace;font-size:12px;color:#666666">ERR_TIMEOUT</div><button style="height:36px;padding:0 16px;border:1px solid #0A0A0A;border-radius:999px;background:#0A0A0A;color:#FAFAFA;font-family:inherit;font-size:13px;font-weight:500;letter-spacing:.02em;white-space:nowrap">Reintentar</button></div>
+      <div style="background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:12px" aria-busy="true"><div style="height:12px;width:40%;background:#F5F5F5;border-radius:4px;border:1px solid rgba(10,10,10,.14)"></div><div style="height:40px;width:30%;background:#F5F5F5;border-radius:4px;border:1px solid rgba(10,10,10,.14)"></div><div style="height:96px;background:#F5F5F5;border-radius:8px;border:1px solid rgba(10,10,10,.14)"></div></div>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const sw = (n, hex) => ({ n, hex });
+    const OCT = 'M7.86 2h8.28L22 7.86v8.28L16.14 22H7.86L2 16.14V7.86zM12 8v4M12 16h.01';
+    const TRI = 'm21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3M12 9v4M12 17h.01';
+    const INF = 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 16v-4M12 8h.01';
+    const stepNames = ['Descubierto', 'Calificado', 'Hot', 'Contactado', 'Reunión', 'Propuesta', 'Ganado'];
+    const cur = 2;
+    const mono = 'ui-monospace,Menlo,monospace';
+    const T = (name, size, lh, w, ls, sample, spec, tt, ff) => ({ name, size, lh, w, ls, sample, spec, tt: tt || 'none', ff: ff || 'Inter,sans-serif' });
+    return {
+      palettes: [
+        { name: 'Tinta y papel', items: [sw('Tinta 950', '#0A0A0A'), sw('Tinta 900', '#141414'), sw('Tinta 850', '#1C1C1C'), sw('Tinta 700', '#3D3D3D'), sw('Tinta 600', '#525252'), sw('Gris tenue', '#666666'), sw('Gris 500', '#767676'), sw('Gris 400', '#85857F'), sw('Papel', '#E9E8E4'), sw('Superficie', '#FAFAFA'), sw('Superficie 2', '#F5F5F5')] },
+        { name: 'Cian (señal)', items: [sw('Cian 400 · solo sobre tinta', '#00D4FF'), sw('Cian 600', '#0077AA'), sw('Cian 700 · texto', '#006A99'), sw('Cian 200', '#9BE3F7'), sw('Cian 50', '#E5F8FD')] },
+        { name: 'Violeta y rosa', items: [sw('Violeta 50', '#F3EFFF'), sw('Violeta 500', '#7B5CF0'), sw('Violeta 700', '#5B3DCB'), sw('Rosa 500', '#D9467A')] },
+        { name: 'Semánticos', items: [sw('Crítico texto', '#B42318'), sw('Crítico sólido', '#D92D20'), sw('Crítico fondo', '#FEF3F2'), sw('Crítico borde', '#FECDCA'), sw('Aviso texto', '#A1460A'), sw('Aviso sólido', '#C77C0E'), sw('Aviso fondo', '#FFF8EB'), sw('Aviso borde', '#FCDDA0'), sw('Éxito texto', '#067647'), sw('Éxito sólido', '#1F9A6E'), sw('Éxito fondo', '#ECFAF3'), sw('Éxito borde', '#A9E9C9')] },
+        { name: 'Series de gráfico', items: [sw('Serie 1', '#0077AA'), sw('Serie 2', '#7B5CF0'), sw('Serie 3', '#C77C0E'), sw('Serie 4', '#1F9A6E'), sw('Serie 5', '#D9467A'), sw('Serie 6', '#3D3D3D'), sw('Otros / Sin atribuir', '#85857F')] },
+        { name: 'Rampa secuencial', items: [sw('Rampa 1', '#E5F8FD'), sw('Rampa 2', '#9BE3F7'), sw('Rampa 3', '#33B5DB'), sw('Rampa 4', '#0077AA'), sw('Rampa 5', '#00405C')] },
+        { name: 'Sidebar', items: [sw('Texto', '#C9C8C4'), sw('Tenue', '#8E8D89'), sw('Activo marca', '#00D4FF')] }
+      ],
+      types: [
+        T('Display', '48px', '52px', 500, '-0.04em', 'Evidencia', '48/52 · 500 · -0.04em'),
+        T('KPI', '36px', '40px', 300, '-0.03em', '1.284', '36/40 · 300 · -0.03em'),
+        T('H1', '28px', '32px', 500, '-0.03em', 'Mercado', '28/32 · 500 · -0.03em'),
+        T('H2', '20px', '28px', 500, '-0.02em', 'Tiempo en pipeline', '20/28 · 500 · -0.02em'),
+        T('H3', '16px', '24px', 500, '0', 'Señales por periodo', '16/24 · 500'),
+        T('Cuerpo', '14px', '20px', 400, '0', 'Detecta señales, califica leads y valida proyectos.', '14/20 · 400'),
+        T('Cuerpo fuerte', '14px', '20px', 500, '0', 'Empresa Demo 01', '14/20 · 500'),
+        T('Botón', '13px', '20px', 500, '0.02em', 'Nuevo lead', '13/20 · 500 · +0.02em'),
+        T('Caption', '12px', '16px', 500, '0', 'Datos al 18 oct, 09:05 COT', '12/16 · 500'),
+        T('Overline', '11px', '16px', 500, '0.16em', '[ 01 ] — Señales', '11/16 · 500 · +0.16em', 'uppercase'),
+        T('Mono', '13px', '20px', 400, '0', '900.000.001-1', '13/20 · mono', 'none', mono)
+      ],
+      spaces: [4, 8, 12, 16, 20, 24, 32, 40, 48, 64, 80].map(n => ({ n })),
+      radii: [{ px: 4, l: 'tooltips' }, { px: 8, l: 'inputs' }, { px: 12, l: 'tarjetas, alertas, diálogos' }, { px: 999, l: 'botones, píldoras' }],
+      statuses: ['descubierto', 'calificado', 'hot', 'contactado', 'reunion', 'propuesta', 'ganado', 'perdido'],
+      rues: ['match', 'borderline', 'cuarentena', 'pendiente'],
+      lines: ['SaaS', 'AaaS', 'IA aplicada', 'Software a medida'],
+      scores: [{ n: 87, l: 'Alto', c: '#1F9A6E' }, { n: 54, l: 'Medio', c: '#C77C0E' }, { n: 21, l: 'Bajo', c: '#767676' }],
+      alerts: [
+        { t: 'NIT en cuarentena', code: 'RUES_QUARANTINE', icon: OCT, fg: '#B42318', bg: '#FEF3F2', bd: '#FECDCA' },
+        { t: 'Vacante abierta hace 62 días', code: 'JOB_OPEN_62D', icon: TRI, fg: '#A1460A', bg: '#FFF8EB', bd: '#FCDDA0' },
+        { t: 'Tarea vencida', code: 'TASK_OVERDUE', icon: INF, fg: '#006A99', bg: '#E5F8FD', bd: '#9BE3F7' }
+      ],
+      drivers: [
+        { t: 'Vacante tecnológica', v: '+15', w: '75%', c: '#1F9A6E', tc: '#067647' },
+        { t: 'Coincide con ICP', v: '+10', w: '50%', c: '#0077AA', tc: '#006A99' },
+        { t: 'Sin actividad 14 d', v: '−4', w: '20%', c: '#D92D20', tc: '#B42318' }
+      ],
+      steps: stepNames.map((l, i) => ({
+        l, mark: i < cur ? '✓' : String(i + 1),
+        bg: i < cur ? '#0A0A0A' : i === cur ? '#E5F8FD' : '#FAFAFA',
+        fg: i < cur ? '#FAFAFA' : i === cur ? '#006A99' : '#525252',
+        bd: i < cur ? '#0A0A0A' : i === cur ? '#0077AA' : 'rgba(10,10,10,.26)',
+        w: i === cur ? 500 : 400, tc: i > cur ? '#666666' : '#0A0A0A'
+      })),
+      tabs: ['Actividad', 'Señales', 'Tareas', 'Enriquecimiento', 'Historial'].map((l, i) => ({ l, bar: i === 0 ? '#0A0A0A' : 'transparent', w: i === 0 ? 500 : 400, c: i === 0 ? '#0A0A0A' : '#525252' })),
+      rows: [
+        { s: 87, n: 'Empresa Demo 01', nit: '900.000.001-1', st: 'hot', ru: 'match', bg: '#FAFAFA' },
+        { s: 72, n: 'Empresa Demo 02', nit: '900.000.002-8', st: 'calificado', ru: 'borderline', bg: '#F5F5F5' },
+        { s: 31, n: 'Empresa Demo 03', nit: '900.000.003-5', st: 'perdido', ru: 'pendiente', bg: '#FAFAFA' }
+      ],
+      banners: [
+        { t: 'Sin conexión. Mostrando datos guardados.', a: 'Reintentar', icon: TRI, fg: '#A1460A', bg: '#FFF8EB', bd: '#FCDDA0' },
+        { t: 'Tu sesión se cerró. Vuelve a entrar.', a: 'Entrar', icon: INF, fg: '#006A99', bg: '#E5F8FD', bd: '#9BE3F7' },
+        { t: 'Este lead cambió mientras lo editabas.', a: 'Recargar', icon: OCT, fg: '#B42318', bg: '#FEF3F2', bd: '#FECDCA' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

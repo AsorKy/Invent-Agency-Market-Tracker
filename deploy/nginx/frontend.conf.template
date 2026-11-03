@@ -1,0 +1,80 @@
+# Static server and same-origin API proxy for the frontend design components (frontend/).
+# Mounted into nginx:alpine by the `frontend` service of docker-compose.yml as
+# /etc/nginx/templates/default.conf.template; the image renders it with envsubst at start
+# (NGINX_ENVSUBST_FILTER limits that to EDGE_SECRET). The browser talks to one origin, so the
+# gateway needs no CORS and the session and CSRF cookies flow as first-party cookies.
+# Only the app files are served (an allowlist): the dc components, api.js and the generated
+# dc runtime support.js. Tests, docs and anything else under frontend/ answer 404.
+# Runbook: docs/runbooks/frontend.md.
+
+server {
+    listen 80;
+    server_name _;
+    server_tokens off;
+    # Relative Location headers: the container listens on 80 but the host port is FRONTEND_PORT.
+    absolute_redirect off;
+    root /usr/share/nginx/html;
+    charset utf-8;
+
+    # Docker's embedded DNS; resolving per request lets nginx start before the gateway.
+    resolver 127.0.0.11 valid=10s ipv6=off;
+    set $gateway_upstream http://gateway:8000;
+
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "DENY" always;
+    add_header Referrer-Policy "same-origin" always;
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+    # The dc runtime compiles component logic with new Function and loads React from unpkg
+    # with SRI, hence 'unsafe-eval' and the unpkg origin; styles are inline by design.
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self' https://unpkg.com 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'" always;
+
+    location = /healthz {
+        access_log off;
+        default_type text/plain;
+        return 200 "ok\n";
+    }
+
+    location = / {
+        return 302 "/Invent%20Market%20Tracker.dc.html$is_args$args";
+    }
+
+    location ~ "^/[A-Za-z0-9 ._-]+\.dc\.html$" {
+        add_header Cache-Control "no-cache" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-Frame-Options "DENY" always;
+        add_header Referrer-Policy "same-origin" always;
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self' https://unpkg.com 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'" always;
+        try_files $uri =404;
+    }
+
+    location ~ "^/(api|support)\.js$" {
+        add_header Cache-Control "no-cache" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        try_files $uri =404;
+    }
+
+    location /api/ {
+        proxy_pass $gateway_upstream;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        # The proxy plays the edge: it adds the gateway edge secret server-side (empty means
+        # no header) and always replaces whatever the browser sent. Never served to the page.
+        proxy_set_header X-Edge-Secret "${EDGE_SECRET}";
+        # Identity headers come only from the gateway's own token check: drop browser copies.
+        proxy_set_header X-Tenant-Id "";
+        proxy_set_header X-User-Id "";
+        proxy_set_header X-User-Role "";
+        proxy_set_header X-User-Scopes "";
+        proxy_set_header X-Service-Token "";
+        proxy_connect_timeout 5s;
+        proxy_read_timeout 75s;
+        client_max_body_size 11m;
+    }
+
+    location / {
+        return 404;
+    }
+}

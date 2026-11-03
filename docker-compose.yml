@@ -187,7 +187,7 @@ services:
       IDENTITY_VALIDATION_ENABLED: ${IDENTITY_VALIDATION_ENABLED:-false}
       DEV_DEFAULT_TENANT_ID: ${DEV_DEFAULT_TENANT_ID:-}
     ports:
-      - "${GATEWAY_PORT:-8000}:8000"
+      - "127.0.0.1:${GATEWAY_PORT:-8000}:8000"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health', timeout=3).status == 200 else 1)"]
       interval: 10s
@@ -401,8 +401,6 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       SERVICE_NAME: ${SERVICE_NAME:-invent-market-tracker}
       GATEWAY_URL: http://gateway:8000
-    ports:
-      - "${STREAMLIT_PORT:-8501}:8501"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8501/_stcore/health', timeout=3).status == 200 else 1)"]
       interval: 10s
@@ -412,6 +410,27 @@ services:
     depends_on:
       gateway:
         condition: service_healthy
+
+  frontend:
+    # Static design components (frontend/) plus a same-origin proxy of /api/ to the gateway,
+    # so the browser needs no CORS. Loopback only; docs/runbooks/frontend.md.
+    image: nginx:1.27-alpine
+    environment:
+      NGINX_ENVSUBST_FILTER: "^EDGE_SECRET$$"
+      EDGE_SECRET: ${EDGE_SECRET:-}
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-3000}:80"
+    volumes:
+      - ./frontend:/usr/share/nginx/html:ro
+      - ./deploy/nginx/frontend.conf.template:/etc/nginx/templates/default.conf.template:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:80/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    depends_on:
+      gateway:
+        condition: service_started
 
   core-relay:
     build:

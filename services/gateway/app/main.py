@@ -6,7 +6,11 @@ gateway also applies configuration-gated edge and CSRF checks and, when
 identity validation is enabled, verifies user JWTs against the identity JWKS and
 sets the tenant and role headers itself. With validation off, the local-only
 ``DEV_DEFAULT_TENANT_ID`` sets the tenant header (no role) on routes that need
-no role. Routes live in ``routes.py``, JWT logic
+no role and on GET routes restricted to the read roles (``DEV_TENANT_ROLES``),
+never on admin-only, identity, or other role-restricted routes. The data
+explorer catalog (``/api/v1/data/catalog``) is merged here from every owning
+service; a service that does not answer is listed with ``unavailable``. Routes
+live in ``routes.py``, JWT logic
 in ``auth.py``, and upstream readiness polling in ``readiness.py``. It relates to
 ``libs.common.settings``, ``libs.common.security``,
 ``libs.common.log_redaction``, and the API services in ``docker-compose.yml``.
@@ -25,6 +29,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, Response
 from redis.exceptions import RedisError
 
+from libs.common.data_explorer import CATALOG
 from libs.common.internal_auth import GATEWAY_SERVICE, service_token_header
 from libs.common.lifecycle import graceful_lifespan, instrument_app
 from libs.common.log_redaction import redact_headers, redact_text
@@ -50,6 +55,7 @@ from services.gateway.app.auth import (
 )
 from services.gateway.app.readiness import UpstreamReadiness
 from services.gateway.app.routes import (
+    DEV_TENANT_ROLES,
     IDENTITY_PUBLIC_PATHS,
     ROUTE_TIMEOUTS,
     NotInLayer,
@@ -61,6 +67,19 @@ settings = get_settings()
 configure_logging(settings.log_level)
 logger = structlog.get_logger(__name__)
 security_config = GatewaySecurityConfig.from_settings(settings)
+
+# Client request headers forwarded upstream (allow list). Authorization, cookies (except to
+# identity), the edge secret, and every tenant, user, role, and service-token header are never
+# taken from the client: the gateway derives them itself. X-Request-ID is set separately.
+FORWARDED_HEADERS: tuple[str, ...] = (
+    "content-type",
+    "idempotency-key",
+    "if-match",
+    "x-filename",
+    "x-brightdata-signature",
+    "x-brightdata-timestamp",
+)
+IDENTITY_FORWARDED_HEADERS: tuple[str, ...] = ("cookie", "x-csrf-token")
 
 
 def _upstreams() -> dict[str, str]:
@@ -246,6 +265,65 @@ def _authorize(request: Request, route: Route, claims: Claims) -> JSONResponse |
     return None
 
 
+async def _catalog_of(service: str, url: str, headers: dict[str, str]) -> list[dict[str, Any]]:
+    """Datasets one service lists for the caller; empty when it does not answer."""
+    if readiness.is_red(service):
+        return []
+    timeout = ROUTE_TIMEOUTS.get(service, settings.upstream_timeout_seconds)
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            response = await client.get(
+                url,
+                headers={
+                    **headers,
+                    **service_token_header(GATEWAY_SERVICE, settings.internal_service_token),
+                },
+            )
+    except httpx.HTTPError:
+        return []
+    if response.status_code != 200:
+        return []
+    try:
+        datasets = response.json()["datasets"]
+    except (ValueError, KeyError, TypeError):
+        return []
+    if not isinstance(datasets, list):
+        return []
+    # A service lists only the datasets it owns (INV-01).
+    return [
+        entry
+        for entry in datasets
+        if isinstance(entry, dict)
+        and entry.get("id") in CATALOG
+        and CATALOG[entry["id"]].service == service
+    ]
+
+
+async def _data_catalog(route: Route, headers: dict[str, str]) -> JSONResponse:
+    """Merge the catalogs of the owning services; a missing dataset is ``unavailable``."""
+    answers = await asyncio.gather(
+        *(_catalog_of(service, url, headers) for service, url in route.fanout)
+    )
+    listed = {
+        entry["id"]: {**entry, "unavailable": False} for answer in answers for entry in answer
+    }
+    datasets = [
+        listed.get(info.id)
+        or {
+            "id": info.id,
+            "title": info.title,
+            "description": info.description,
+            "service": info.service,
+            "origin": info.origin,
+            "count": None,
+            "columns": [],
+            "unavailable": True,
+        }
+        for info in CATALOG.values()
+    ]
+    return JSONResponse(content={"datasets": datasets})
+
+
 @app.api_route(
     "/api/v1/{path:path}",
     methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
@@ -322,9 +400,9 @@ async def proxy(path: str, request: Request) -> Response:
     if not isinstance(request_id, str):
         request_id = request.headers.get("X-Request-ID") or str(uuid4())
     upstream_headers: dict[str, str] = {"X-Request-ID": request_id}
-    forwarded = ["content-type", "if-match", "x-brightdata-signature", "x-brightdata-timestamp"]
+    forwarded = FORWARDED_HEADERS
     if route.service == "identity":
-        forwarded += ["cookie", "x-csrf-token"]
+        forwarded += IDENTITY_FORWARDED_HEADERS
     for header_name in forwarded:
         header_value = request.headers.get(header_name)
         if header_value:
@@ -337,10 +415,21 @@ async def proxy(path: str, request: Request) -> Response:
         dev_tenant is not None
         and route.service != "identity"
         and not route.admin_only
-        and route.allowed_roles is None
+        and (
+            route.allowed_roles is None
+            or (
+                request.method == "GET"
+                and bool(route.allowed_roles)
+                and route.allowed_roles <= DEV_TENANT_ROLES
+            )
+        )
     ):
-        # The dev tenant carries no role, so role-restricted routes stay without a tenant.
+        # The dev tenant carries no role. Besides the routes that need no role it reaches only
+        # GET routes of the read roles (data explorer, funnel and validation cards); writes
+        # restricted to a role and admin-only routes stay without a tenant.
         upstream_headers["X-Tenant-Id"] = str(dev_tenant)
+    if route.fanout:
+        return await _data_catalog(route, upstream_headers)
     timeout = ROUTE_TIMEOUTS.get(route.timeout_key, settings.upstream_timeout_seconds)
     async with httpx.AsyncClient(timeout=timeout) as client:
         try:

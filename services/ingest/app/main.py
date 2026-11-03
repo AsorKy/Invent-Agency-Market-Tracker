@@ -32,6 +32,7 @@ from libs.common.settings import get_settings
 from libs.contracts.api import BrightDataWebhook
 from services.ingest.app.budget import BudgetRepository
 from services.ingest.app.connectors import ConnectorError
+from services.ingest.app.data_explorer import router as data_router
 from services.ingest.app.poll import (
     PendingSnapshotRepository,
     SnapshotPoller,
@@ -58,6 +59,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         enqueue_mark_ttl_seconds=settings.ingest_enqueue_mark_ttl_seconds,
     )
     engine = getattr(app.state.repository, "engine", None)
+    app.state.data_engine = engine
     app.state.budget = BudgetRepository(engine) if engine else None
     app.state.connectors = build_connectors(settings)
     app.state.pending = PendingSnapshotRepository(engine) if engine else None
@@ -82,6 +84,7 @@ app = FastAPI(
 )
 app.add_middleware(RequestIdMiddleware)
 instrument_app(app, "ingest")
+app.include_router(data_router)
 
 
 @app.get("/health")

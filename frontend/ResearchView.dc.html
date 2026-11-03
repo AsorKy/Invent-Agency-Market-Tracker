@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./api.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="display:flex;flex-direction:column;gap:24px;font-family:Inter,sans-serif;color:#0A0A0A;font-variant-numeric:tabular-nums">
+  <div><h1 style="margin:0;font-size:28px;line-height:32px;font-weight:500;letter-spacing:-.03em">Investigación dirigida</h1><div style="font-size:14px;color:#3D3D3D;margin-top:4px">Un formulario con costo y aprobación, no un chat. Los resultados pasan por RUES antes de ser leads.</div></div>
+  <section style="background:#FAFAFA;border:1px solid rgba(10,10,10,.14);border-radius:12px;padding:56px 32px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px">
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#666666" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4.3-4.3"></path></svg>
+    <div style="font-size:18px;font-weight:500">Sin datos todavía</div>
+    <div style="font-size:14px;line-height:20px;color:#666666;max-width:560px">La API aún no expone búsquedas dirigidas: el agente de enriquecimiento corre dentro de ingest. Mientras tanto, los resultados de Bright Data se ven en Datos{{ dataHint }}.</div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1136,&quot;height&quot;:500}}">
+class Component extends DCLogic {
+  renderVals() {
+    return { dataHint: ['admin', 'strategist', 'analyst'].includes(this.props.role) ? ' (snapshots crudos y candidatos de entidad)' : '' };
+  }
+}
+</script>
+</body>
+</html>
