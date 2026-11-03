@@ -39,6 +39,7 @@ from services.core.app.actions import (
     record_outcome,
 )
 from services.core.app.companies import CompanyUpsert, upsert_company
+from services.core.app.data_explorer import router as data_router
 from services.core.app.funnel import (
     ProjectKilledError,
     ProjectNotFoundError,
@@ -121,6 +122,7 @@ configure_logging(settings.log_level)
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     repository = CoreRepository(settings.database_url)
     app.state.repository = repository
+    app.state.data_engine = repository.engine
     app.state.hot_alerts = HotAlertNotifier(settings.hot_lead_webhook_url, clock=time.monotonic)
     yield
     await app.state.hot_alerts.drain()
@@ -134,6 +136,7 @@ app = FastAPI(
 )
 app.add_middleware(RequestIdMiddleware)
 instrument_app(app, "core")
+app.include_router(data_router)
 
 
 @app.get("/health")
