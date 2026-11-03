@@ -210,6 +210,12 @@ def test_streamlit_is_real_container(services: dict[str, Any]) -> None:
     assert not any("DATABASE" in key for key in _env(streamlit))
 
 
+def test_gateway_port_is_published_on_loopback_only(services: dict[str, Any]) -> None:
+    # With DEV_DEFAULT_TENANT_ID the gateway serves the demo tenant without a login, so the
+    # port must not be reachable from the network; the frontend proxy reaches it inside Compose.
+    assert services["gateway"]["ports"] == ["127.0.0.1:${GATEWAY_PORT:-8000}:8000"]
+
+
 def test_frontend_is_a_static_loopback_proxy_to_the_gateway(services: dict[str, Any]) -> None:
     frontend = services["frontend"]
     assert frontend["image"].startswith("nginx:") and frontend["image"].endswith("-alpine")
